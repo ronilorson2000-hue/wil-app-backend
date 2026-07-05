@@ -21,7 +21,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 
 # Charge les variables du fichier .env (clés TikTok, redirect URI, etc.)
 load_dotenv()
@@ -68,6 +68,17 @@ def home():
       </body>
     </html>
     """
+
+
+@app.get("/tiktokduU5VyZDYUA3xEXGVEkwALeLjZu2rBIn.txt", response_class=PlainTextResponse)
+def tiktok_site_verification():
+    """
+    Route qui sert le fichier de vérification de propriété demandé par
+    TikTok for Developers (Verify URL properties). Le contenu doit
+    correspondre EXACTEMENT à celui fourni par TikTok, sans espace ni
+    ligne supplémentaire.
+    """
+    return "tiktok-developers-site-verification=duU5VyZDYUA3xEXGVEkwALeLjZu2rBIn"
 
 
 @app.get("/auth/tiktok/login")
