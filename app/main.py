@@ -64,25 +64,58 @@ def favicon():
 @app.get("/", response_class=HTMLResponse)
 def home():
     """
-    Page d'accueil avec un bouton "Se connecter avec TikTok" et des liens
-    visibles vers les CGU et la politique de confidentialité (exigés par
-    TikTok directement sur cette page, sans menu ni connexion requise).
+    Page d'accueil présentant le service, avec un bouton "Se connecter
+    avec TikTok" et des liens visibles vers les CGU et la politique de
+    confidentialité (exigés par TikTok directement sur cette page).
     """
     return """
     <html>
       <head>
         <title>Wil App</title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body { font-family: -apple-system, Arial, sans-serif; max-width: 720px;
+                 margin: 60px auto; padding: 0 20px; line-height: 1.6; color: #222; }
+          h1 { font-size: 32px; margin-bottom: 4px; }
+          .tagline { color: #666; font-size: 18px; margin-bottom: 32px; }
+          .cta { display: inline-block; padding: 14px 28px; background: #000;
+                 color: #fff; border-radius: 8px; text-decoration: none;
+                 font-weight: bold; margin-bottom: 48px; }
+          .features { text-align: left; margin: 40px 0; }
+          .feature { margin-bottom: 20px; }
+          .feature h3 { margin-bottom: 4px; font-size: 17px; }
+          .feature p { margin: 0; color: #555; font-size: 15px; }
+          footer { margin-top: 60px; font-size: 14px; color: #777; }
+          footer a { color: #555; }
+        </style>
       </head>
-      <body style="font-family: sans-serif; text-align: center; margin-top: 100px;">
+      <body style="text-align:center;">
         <h1>Wil App</h1>
-        <p>Wil App helps TikTok creators understand and grow their account.</p>
-        <a href="/auth/tiktok/login"
-           style="display:inline-block; padding: 14px 28px; background:#000;
-                  color:#fff; border-radius:8px; text-decoration:none;">
-          Se connecter avec TikTok
-        </a>
-        <footer style="margin-top: 60px; font-size: 14px;">
+        <p class="tagline">Analytics and insights for TikTok creators</p>
+
+        <a href="/auth/tiktok/login" class="cta">Se connecter avec TikTok</a>
+
+        <div class="features">
+          <div class="feature">
+            <h3>📊 Account overview</h3>
+            <p>Connect your TikTok account to see your profile information
+               and account activity in one place.</p>
+          </div>
+          <div class="feature">
+            <h3>🔒 Secure authentication</h3>
+            <p>Wil App uses TikTok's official Login Kit. We never see or
+               store your TikTok password, and you can revoke access at
+               any time from your TikTok account settings.</p>
+          </div>
+          <div class="feature">
+            <h3>🎯 Built for creators</h3>
+            <p>Wil App is designed to help TikTok creators better
+               understand their own account and presence on the platform.</p>
+          </div>
+        </div>
+
+        <footer>
           <a href="https://ronilorson2000-hue.github.io/wil-app-legal/terms.html">Terms of Service</a>
           &nbsp;|&nbsp;
           <a href="https://ronilorson2000-hue.github.io/wil-app-legal/privacy.html">Privacy Policy</a>
