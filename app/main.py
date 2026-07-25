@@ -64,9 +64,9 @@ def favicon():
 @app.get("/", response_class=HTMLResponse)
 def home():
     """
-    Page d'accueil présentant le service, avec un bouton "Se connecter
-    avec TikTok" et des liens visibles vers les CGU et la politique de
-    confidentialité (exigés par TikTok directement sur cette page).
+    Page d'accueil présentant le service en détail : fonctionnalités,
+    tarifs, fonctionnement, et liens légaux visibles directement, sans
+    menu ni connexion requise (exigence explicite de TikTok).
     """
     return """
     <html>
@@ -75,50 +75,127 @@ def home():
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-          body { font-family: -apple-system, Arial, sans-serif; max-width: 720px;
-                 margin: 60px auto; padding: 0 20px; line-height: 1.6; color: #222; }
-          h1 { font-size: 32px; margin-bottom: 4px; }
-          .tagline { color: #666; font-size: 18px; margin-bottom: 32px; }
-          .cta { display: inline-block; padding: 14px 28px; background: #000;
+          * { box-sizing: border-box; }
+          body { font-family: -apple-system, Segoe UI, Arial, sans-serif;
+                 margin: 0; color: #1a1a1a; }
+          .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+          header { text-align: center; padding: 70px 24px 50px; }
+          header h1 { font-size: 36px; margin-bottom: 8px; }
+          header p { color: #666; font-size: 19px; margin: 0 0 32px; }
+          .cta { display: inline-block; padding: 15px 32px; background: #000;
                  color: #fff; border-radius: 8px; text-decoration: none;
-                 font-weight: bold; margin-bottom: 48px; }
-          .features { text-align: left; margin: 40px 0; }
-          .feature { margin-bottom: 20px; }
-          .feature h3 { margin-bottom: 4px; font-size: 17px; }
-          .feature p { margin: 0; color: #555; font-size: 15px; }
-          footer { margin-top: 60px; font-size: 14px; color: #777; }
-          footer a { color: #555; }
+                 font-weight: bold; font-size: 16px; }
+          section { padding: 50px 0; border-top: 1px solid #eee; }
+          section h2 { font-size: 26px; text-align: center; margin-bottom: 36px; }
+          .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                  gap: 28px; }
+          .card { background: #fafafa; border: 1px solid #eee; border-radius: 10px;
+                  padding: 22px; }
+          .card h3 { margin: 0 0 8px; font-size: 17px; }
+          .card p { margin: 0; color: #555; font-size: 14px; }
+          .steps { display: flex; flex-direction: column; gap: 18px; max-width: 560px; margin: 0 auto; }
+          .step { display: flex; gap: 16px; align-items: flex-start; }
+          .step .num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+                       background: #000; color: #fff; display: flex; align-items: center;
+                       justify-content: center; font-weight: bold; }
+          .pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                     gap: 24px; max-width: 640px; margin: 0 auto; }
+          .plan { border: 1px solid #ddd; border-radius: 12px; padding: 28px; text-align: center; }
+          .plan.highlight { border: 2px solid #000; }
+          .plan .price { font-size: 32px; font-weight: bold; margin: 12px 0; }
+          .plan .price span { font-size: 15px; font-weight: normal; color: #777; }
+          .plan ul { list-style: none; padding: 0; margin: 20px 0; text-align: left; font-size: 14px; color: #444; }
+          .plan ul li { padding: 6px 0; }
+          footer { text-align: center; padding: 40px 24px; color: #777; font-size: 14px; }
+          footer a { color: #444; }
+          .contact { text-align: center; padding: 40px 0; }
+          .contact a { color: #000; }
         </style>
       </head>
-      <body style="text-align:center;">
-        <h1>Wil App</h1>
-        <p class="tagline">Analytics and insights for TikTok creators</p>
+      <body>
+        <header>
+          <h1>Wil App</h1>
+          <p>Analytics and insights for TikTok creators</p>
+          <a href="/auth/tiktok/login" class="cta">Se connecter avec TikTok</a>
+        </header>
 
-        <a href="/auth/tiktok/login" class="cta">Se connecter avec TikTok</a>
+        <div class="wrap">
+          <section>
+            <h2>Our Services</h2>
+            <div class="grid">
+              <div class="card">
+                <h3>📊 Account Overview</h3>
+                <p>Connect your TikTok account to see your profile information
+                   and account activity gathered in one simple dashboard.</p>
+              </div>
+              <div class="card">
+                <h3>🔒 Secure Authentication</h3>
+                <p>Wil App uses TikTok's official Login Kit. We never see or
+                   store your TikTok password, and access can be revoked at
+                   any time from your TikTok settings.</p>
+              </div>
+              <div class="card">
+                <h3>🎯 Built for Creators</h3>
+                <p>Designed specifically to help TikTok creators better
+                   understand their own account and presence on the platform.</p>
+              </div>
+            </div>
+          </section>
 
-        <div class="features">
-          <div class="feature">
-            <h3>📊 Account overview</h3>
-            <p>Connect your TikTok account to see your profile information
-               and account activity in one place.</p>
-          </div>
-          <div class="feature">
-            <h3>🔒 Secure authentication</h3>
-            <p>Wil App uses TikTok's official Login Kit. We never see or
-               store your TikTok password, and you can revoke access at
-               any time from your TikTok account settings.</p>
-          </div>
-          <div class="feature">
-            <h3>🎯 Built for creators</h3>
-            <p>Wil App is designed to help TikTok creators better
-               understand their own account and presence on the platform.</p>
-          </div>
+          <section>
+            <h2>How It Works</h2>
+            <div class="steps">
+              <div class="step">
+                <div class="num">1</div>
+                <div><strong>Connect your account</strong><br>Log in securely with your TikTok account using the button above.</div>
+              </div>
+              <div class="step">
+                <div class="num">2</div>
+                <div><strong>Authorize access</strong><br>Review and approve the permissions Wil App requests, directly on TikTok.</div>
+              </div>
+              <div class="step">
+                <div class="num">3</div>
+                <div><strong>View your overview</strong><br>See your connected profile information right away in your Wil App dashboard.</div>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2>Pricing</h2>
+            <div class="pricing">
+              <div class="plan">
+                <h3>Free</h3>
+                <div class="price">$0<span>/month</span></div>
+                <ul>
+                  <li>✔ Connect your TikTok account</li>
+                  <li>✔ Basic profile overview</li>
+                </ul>
+              </div>
+              <div class="plan highlight">
+                <h3>Pro</h3>
+                <div class="price">Coming soon</div>
+                <ul>
+                  <li>✔ Everything in Free</li>
+                  <li>✔ Advanced account insights</li>
+                  <li>✔ Priority support</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section class="contact">
+            <h2>Contact</h2>
+            <p>Questions about Wil App? Reach us at
+               <a href="mailto:contact.wilapp@proton.me">contact.wilapp@proton.me</a></p>
+          </section>
         </div>
 
         <footer>
           <a href="https://ronilorson2000-hue.github.io/wil-app-legal/terms.html">Terms of Service</a>
           &nbsp;|&nbsp;
           <a href="https://ronilorson2000-hue.github.io/wil-app-legal/privacy.html">Privacy Policy</a>
+          <br><br>
+          © 2026 Wil App. All rights reserved.
         </footer>
       </body>
     </html>
