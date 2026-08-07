@@ -191,9 +191,9 @@ def home():
         </div>
 
         <footer>
-          <a href="https://ronilorson2000-hue.github.io/wil-app-legal/terms.html">Terms of Service</a>
+          <a href="/terms">Terms of Service</a>
           &nbsp;|&nbsp;
-          <a href="https://ronilorson2000-hue.github.io/wil-app-legal/privacy.html">Privacy Policy</a>
+          <a href="/privacy">Privacy Policy</a>
           <br><br>
           © 2026 Wil App. All rights reserved.
         </footer>
@@ -313,5 +313,107 @@ async def tiktok_callback(request: Request):
         <p><strong>{display_name}</strong></p>
         <p>@{username}</p>
       </body>
+    </html>
+    """
+
+
+_LEGAL_STYLE = """
+  body { font-family: -apple-system, Arial, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #222; }
+  h1 { font-size: 28px; }
+  h2 { font-size: 20px; margin-top: 32px; }
+  footer { margin-top: 60px; color: #777; font-size: 14px; }
+  a { color: #0645AD; }
+"""
+
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms_of_service():
+    """Page des Conditions d'utilisation, hébergée directement sur ce domaine."""
+    return f"""
+    <html>
+    <head>
+      <title>Wil App Terms of Service</title>
+      <link rel="icon" type="image/x-icon" href="/favicon.ico">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>{_LEGAL_STYLE}</style>
+    </head>
+    <body>
+    <h1>Wil App Terms of Service</h1>
+    <p><em>Last updated: July 2026</em></p>
+
+    <p>Welcome to Wil App. These Terms of Service ("Terms") govern your use of the Wil App application and website (the "Service"). By using the Service, you agree to these Terms.</p>
+
+    <h2>1. Description of the Service</h2>
+    <p>Wil App allows users to connect their TikTok account in order to receive analytics and insights about their own content and account performance. The Service uses TikTok's official APIs to retrieve information that the user has explicitly authorized.</p>
+
+    <h2>2. Account Connection</h2>
+    <p>To use core features of the Service, you must authorize Wil App to access your TikTok account through TikTok's official Login Kit. You may revoke this authorization at any time from your TikTok account settings.</p>
+
+    <h2>3. User Responsibilities</h2>
+    <p>You agree to use the Service only for lawful purposes and in accordance with TikTok's own Terms of Service and Developer Policies.</p>
+
+    <h2>4. Data Usage</h2>
+    <p>Data retrieved from your TikTok account is used solely to provide you with analytics and insights within the Service. See our <a href="/privacy">Privacy Policy</a> for full details.</p>
+
+    <h2>5. Disclaimer</h2>
+    <p>The Service is provided "as is" without warranties of any kind. Wil App is not affiliated with, endorsed by, or sponsored by TikTok or ByteDance Ltd.</p>
+
+    <h2>6. Changes to These Terms</h2>
+    <p>We may update these Terms from time to time. Continued use of the Service after changes constitutes acceptance of the new Terms.</p>
+
+    <h2>7. Contact</h2>
+    <p>Questions? Contact us at <a href="mailto:contact.wilapp@proton.me">contact.wilapp@proton.me</a>.</p>
+
+    <footer>Wil App — Terms of Service</footer>
+    </body>
+    </html>
+    """
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_policy():
+    """Page de Politique de confidentialité, hébergée directement sur ce domaine."""
+    return f"""
+    <html>
+    <head>
+      <title>Wil App Privacy Policy</title>
+      <link rel="icon" type="image/x-icon" href="/favicon.ico">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>{_LEGAL_STYLE}</style>
+    </head>
+    <body>
+    <h1>Wil App Privacy Policy</h1>
+    <p><em>Last updated: July 2026</em></p>
+
+    <p>This Privacy Policy explains how Wil App ("we", "us") collects, uses, and protects information when you use our Service.</p>
+
+    <h2>1. Information We Collect</h2>
+    <p>When you connect your TikTok account through TikTok's official Login Kit, we may receive, only with your explicit authorization:</p>
+    <ul>
+      <li>Basic profile information (username, display name, profile picture)</li>
+      <li>Public content and video metadata associated with your account</li>
+    </ul>
+    <p>We do not access private messages, payment information, or any data beyond what is explicitly permitted by the scopes you authorize.</p>
+
+    <h2>2. How We Use Your Information</h2>
+    <p>We use the information solely to provide account insights within the Service and improve its reliability. We do not sell your personal data to third parties.</p>
+
+    <h2>3. Data Storage and Security</h2>
+    <p>We take reasonable technical measures to protect the information we store. Access tokens are stored securely and are never shared publicly.</p>
+
+    <h2>4. Third-Party Services</h2>
+    <p>Our Service integrates with TikTok's official APIs. Your use of TikTok remains subject to TikTok's own Privacy Policy and Terms of Service.</p>
+
+    <h2>5. Your Rights</h2>
+    <p>You may revoke Wil App's access to your TikTok account at any time via your TikTok account settings. You may also request deletion of any data we hold by contacting us.</p>
+
+    <h2>6. Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. Continued use of the Service after changes constitutes acceptance of the updated policy.</p>
+
+    <h2>7. Contact</h2>
+    <p>Questions? Contact us at <a href="mailto:contact.wilapp@proton.me">contact.wilapp@proton.me</a>.</p>
+
+    <footer>Wil App — Privacy Policy</footer>
+    </body>
     </html>
     """
