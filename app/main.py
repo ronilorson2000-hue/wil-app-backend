@@ -206,11 +206,18 @@ def home():
 def tiktok_site_verification():
     """
     Route qui sert le fichier de vérification de propriété demandé par
-    TikTok for Developers (Verify URL properties). Le contenu doit
-    correspondre EXACTEMENT à celui fourni par TikTok, sans espace ni
-    ligne supplémentaire.
+    TikTok pour l'ancien domaine Render. Conservée pour compatibilité.
     """
     return "tiktok-developers-site-verification=duU5VyZDYUA3xEXGVEkwALeLjZu2rBIn"
+
+
+@app.get("/tiktokyTrx2kzthutNNU4nYzj6QLfKq33zYvJe.txt", response_class=PlainTextResponse)
+def tiktok_site_verification_wilapp_tech():
+    """
+    Route qui sert le fichier de vérification de propriété demandé par
+    TikTok pour le nouveau domaine wilapp.tech.
+    """
+    return "tiktok-developers-site-verification=yTrx2kzthutNNU4nYzj6QLfKq33zYvJe"
 
 
 @app.get("/auth/tiktok/login")
