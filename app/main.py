@@ -110,9 +110,21 @@ def home():
           footer a { color: #444; }
           .contact { text-align: center; padding: 40px 0; }
           .contact a { color: #000; }
+          nav { display: flex; justify-content: center; gap: 28px; padding: 18px 0;
+                border-bottom: 1px solid #eee; font-size: 14px; }
+          nav a { color: #444; text-decoration: none; font-weight: 500; }
+          nav a:hover { color: #000; }
+          .about p { max-width: 600px; margin: 0 auto; color: #444; text-align: center; }
         </style>
       </head>
       <body>
+        <nav>
+          <a href="#services">Services</a>
+          <a href="#how-it-works">How It Works</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#about">About</a>
+          <a href="#contact">Contact</a>
+        </nav>
         <header>
           <h1>Wil App</h1>
           <p>Analytics and insights for TikTok creators</p>
@@ -120,7 +132,7 @@ def home():
         </header>
 
         <div class="wrap">
-          <section>
+          <section id="services">
             <h2>Our Services</h2>
             <div class="grid">
               <div class="card">
@@ -142,7 +154,7 @@ def home():
             </div>
           </section>
 
-          <section>
+          <section id="how-it-works">
             <h2>How It Works</h2>
             <div class="steps">
               <div class="step">
@@ -160,7 +172,7 @@ def home():
             </div>
           </section>
 
-          <section>
+          <section id="pricing">
             <h2>Pricing</h2>
             <div class="pricing">
               <div class="plan">
@@ -183,7 +195,15 @@ def home():
             </div>
           </section>
 
-          <section class="contact">
+          <section id="about" class="about">
+            <h2>About Wil App</h2>
+            <p>Wil App is an independent project built to give TikTok creators
+               a simple, secure way to connect their account and view their
+               profile information in one place. The project is under active
+               development, with more account insight features on the way.</p>
+          </section>
+
+          <section id="contact" class="contact">
             <h2>Contact</h2>
             <p>Questions about Wil App? Reach us at
                <a href="mailto:contact.wilapp@proton.me">contact.wilapp@proton.me</a></p>
@@ -299,26 +319,68 @@ async def tiktok_callback(request: Request):
     async with httpx.AsyncClient() as client:
         user_response = await client.get(
             "https://open.tiktokapis.com/v2/user/info/",
-            params={"fields": "open_id,display_name,avatar_url,username"},
+            params={
+                "fields": "open_id,display_name,avatar_url,username,"
+                          "bio_description,profile_web_link,is_verified"
+            },
             headers={"Authorization": f"Bearer {access_token}"},
         )
     user_data = user_response.json()
 
     user_info = user_data.get("data", {}).get("user", {})
-    display_name = user_info.get("display_name", "Utilisateur TikTok")
+    display_name = user_info.get("display_name", "TikTok User")
     avatar_url = user_info.get("avatar_url", "")
     username = user_info.get("username", "")
+    bio = user_info.get("bio_description", "")
+    profile_link = user_info.get("profile_web_link", "")
+    is_verified = user_info.get("is_verified", False)
 
-    # Page de confirmation simple, qui prouve que le flow fonctionne
-    # de bout en bout — c'est cette page que tu montreras dans ta vidéo
-    # de démo pour TikTok.
+    verified_badge = (
+        '<span style="color:#20d5ec; font-weight:bold;">✔ Verified</span>'
+        if is_verified else ""
+    )
+    bio_html = f'<p style="color:#555; max-width:400px; margin:12px auto;">{bio}</p>' if bio else ""
+    link_html = (
+        f'<p><a href="{profile_link}" target="_blank">View TikTok profile ↗</a></p>'
+        if profile_link else ""
+    )
+
+    # Tableau de bord affiché après connexion : montre les vraies données
+    # récupérées via l'API, pour donner un aperçu concret du service
+    # (pas juste un écran de confirmation vide).
     return f"""
     <html>
-      <body style="font-family: sans-serif; text-align: center; margin-top: 100px;">
-        <h1>Connexion réussie 🎉</h1>
-        <img src="{avatar_url}" style="width:120px; border-radius:50%;" />
-        <p><strong>{display_name}</strong></p>
-        <p>@{username}</p>
+      <head>
+        <title>Wil App — Dashboard</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body {{ font-family: -apple-system, Arial, sans-serif; text-align: center;
+                  margin: 0; padding: 60px 20px; color: #1a1a1a; }}
+          .card {{ max-width: 420px; margin: 0 auto; border: 1px solid #eee;
+                   border-radius: 14px; padding: 32px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }}
+          img {{ width: 110px; height: 110px; border-radius: 50%; object-fit: cover; }}
+          h2 {{ margin: 16px 0 4px; }}
+          .username {{ color: #777; margin: 0 0 8px; }}
+          .stats {{ display: flex; justify-content: center; gap: 24px; margin-top: 24px;
+                    padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #555; }}
+          a.home {{ display:inline-block; margin-top: 30px; color:#555; }}
+        </style>
+      </head>
+      <body>
+        <p style="color:#22c55e; font-weight:bold;">✅ Connected successfully</p>
+        <div class="card">
+          <img src="{avatar_url}" alt="Profile picture" />
+          <h2>{display_name} {verified_badge}</h2>
+          <p class="username">@{username}</p>
+          {bio_html}
+          {link_html}
+          <div class="stats">
+            <div>🔗 Account linked</div>
+            <div>🔒 Data secured</div>
+          </div>
+        </div>
+        <a href="/" class="home">← Back to Wil App</a>
       </body>
     </html>
     """
