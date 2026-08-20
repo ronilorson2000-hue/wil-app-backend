@@ -241,11 +241,15 @@ def tiktok_site_verification_wilapp_tech():
 
 
 @app.get("/auth/tiktok/login")
-def tiktok_login():
+def tiktok_login(source: str = "web"):
     """
     Étape 1 du flow OAuth : on redirige l'utilisateur vers la page
-    d'autorisation de TikTok. Il va s'y connecter (avec un compte test
-    Sandbox pour l'instant) et accepter de partager ses infos avec nous.
+    d'autorisation de TikTok.
+
+    Le paramètre "source" indique d'où vient la demande :
+    - "web"  (par défaut) : affichera la page HTML classique à la fin
+    - "app"  : redirigera vers l'app mobile (wilapp://callback) à la fin
+    L'app Flutter appelle cette route avec ?source=app.
     """
     if not TIKTOK_CLIENT_KEY or not TIKTOK_REDIRECT_URI:
         raise HTTPException(
@@ -253,10 +257,10 @@ def tiktok_login():
             detail="TIKTOK_CLIENT_KEY ou TIKTOK_REDIRECT_URI manquant dans .env",
         )
 
-    # Le "state" est une chaîne aléatoire qu'on va retrouver plus tard
-    # dans la réponse de TikTok, pour vérifier que c'est bien nous qui
-    # avons initié cette demande de connexion (sécurité anti-CSRF).
-    state = secrets.token_urlsafe(24)
+    # Le "state" sert à la fois de protection anti-CSRF ET à retenir la
+    # source de la demande (web ou app), en préfixant la valeur aléatoire.
+    prefix = "app_" if source == "app" else "web_"
+    state = prefix + secrets.token_urlsafe(24)
     _pending_states.add(state)
 
     params = {
@@ -334,6 +338,23 @@ async def tiktok_callback(request: Request):
     bio = user_info.get("bio_description", "")
     profile_link = user_info.get("profile_web_link", "")
     is_verified = user_info.get("is_verified", False)
+
+    # Si la connexion a été initiée depuis l'app mobile (state préfixé par
+    # "app_"), on redirige vers le deep link "wilapp://callback" avec les
+    # infos du profil en paramètres, pour que Flutter reprenne la main.
+    # Android/iOS interceptent cette adresse et rouvrent Wil App directement.
+    if state.startswith("app_"):
+        from urllib.parse import urlencode
+
+        app_params = urlencode({
+            "display_name": display_name,
+            "avatar_url": avatar_url,
+            "username": username,
+            "bio": bio,
+            "profile_link": profile_link,
+            "is_verified": "true" if is_verified else "false",
+        })
+        return RedirectResponse(f"wilapp://callback?{app_params}")
 
     verified_badge = (
         '<span style="color:#20d5ec; font-weight:bold;">✔ Verified</span>'
