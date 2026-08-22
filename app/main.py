@@ -14,6 +14,7 @@ URL publique), il faut que ton tunnel Cloudflare tourne en parallèle et que
 la variable TIKTOK_REDIRECT_URI dans .env pointe vers cette URL publique.
 """
 
+import json
 import os
 import secrets
 from pathlib import Path
@@ -22,7 +23,13 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+)
 
 # Charge les variables du fichier .env (clés TikTok, redirect URI, etc.)
 load_dotenv()
@@ -30,6 +37,7 @@ load_dotenv()
 TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY")
 TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET")
 TIKTOK_REDIRECT_URI = os.getenv("TIKTOK_REDIRECT_URI")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 # On garde en mémoire les "state" générés, pour vérifier que la réponse
 # de TikTok correspond bien à une demande qu'on a nous-même initiée
@@ -507,3 +515,85 @@ def privacy_policy():
     </body>
     </html>
     """
+
+
+@app.get("/api/analyze-profile", response_class=JSONResponse)
+async def analyze_profile(
+    display_name: str,
+    username: str,
+    bio: str = "",
+):
+    """
+    Envoie les infos de profil TikTok déjà récupérées (display_name,
+    username, bio) à Claude, qui renvoie une analyse structurée :
+    niche détectée, résumé, forces, points à améliorer, hashtags suggérés.
+
+    Cette route est appelée par l'app Flutter, avec les infos du profil
+    obtenues juste après la connexion TikTok (pas besoin de re-demander
+    l'autorisation TikTok pour ça).
+    """
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
+
+    prompt = f"""You are a TikTok growth coach analyzing a creator's profile.
+
+Profile information:
+- Display name: {display_name}
+- Username: @{username}
+- Bio: "{bio or 'No bio provided'}"
+
+Based ONLY on this information, respond with a JSON object (no markdown,
+no code fences, just raw JSON) with exactly these fields:
+{{
+  "niche": "one short phrase describing the likely content niche",
+  "summary": "2-3 sentence honest summary of what this account seems to be about",
+  "strengths": ["2-3 short bullet points of what's working, based on the bio/name"],
+  "improvements": ["2-3 short, concrete, actionable suggestions to improve the profile"],
+  "suggested_hashtags": ["5 relevant hashtags without the # symbol"]
+}}
+
+Be honest and specific, not generic. If the bio is empty or very sparse,
+say so directly in the summary and suggestions rather than making things up."""
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-sonnet-4-5-20250929",
+                "max_tokens": 800,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Erreur API Anthropic: {response.status_code} {response.text}",
+        )
+
+    data = response.json()
+    raw_text = data["content"][0]["text"]
+
+    # Nettoyage au cas où le modèle ajouterait quand même des balises
+    # de code markdown autour du JSON.
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+
+    try:
+        analysis = json.loads(cleaned)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=502,
+            detail="Réponse IA invalide, impossible de l'analyser.",
+        )
+
+    return JSONResponse(content=analysis)
