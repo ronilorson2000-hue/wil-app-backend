@@ -45,6 +45,20 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 # utiliserait plutôt une vraie base de données ou des sessions signées.
 _pending_states: set[str] = set()
 
+# Stocke temporairement les access_token après connexion, associés à un
+# identifiant de session aléatoire. On ne transmet jamais l'access_token
+# brut à l'app/au navigateur : seulement cet identifiant, plus sûr.
+# ATTENTION : stockage en mémoire uniquement (perdu si le serveur redémarre) —
+# suffisant pour le MVP, à remplacer par une vraie base de données plus tard.
+_sessions: dict[str, dict] = {}
+
+# Liste de scopes supplémentaires à demander, en plus des scopes de base
+# déjà approuvés en Production. Configurable via variable d'environnement
+# pour ne JAMAIS casser la Production tant que TikTok n'a pas approuvé ces
+# scopes : on l'active uniquement temporairement en Sandbox pour tester.
+# Exemple de valeur : "video.list,user.info.stats"
+EXTRA_SCOPES = os.getenv("TIKTOK_EXTRA_SCOPES", "").strip()
+
 app = FastAPI(title="Wil App Backend", version="0.1.0")
 
 # CORS = permet à l'app Flutter (qui tournera sur une autre adresse)
@@ -271,9 +285,12 @@ def tiktok_login(source: str = "web"):
     state = prefix + secrets.token_urlsafe(24)
     _pending_states.add(state)
 
+    base_scope = "user.info.basic,user.info.profile"
+    scope = f"{base_scope},{EXTRA_SCOPES}" if EXTRA_SCOPES else base_scope
+
     params = {
         "client_key": TIKTOK_CLIENT_KEY,
-        "scope": "user.info.basic,user.info.profile",
+        "scope": scope,
         "response_type": "code",
         "redirect_uri": TIKTOK_REDIRECT_URI,
         "state": state,
@@ -326,6 +343,13 @@ async def tiktok_callback(request: Request):
 
     access_token = token_data["access_token"]
 
+    # On génère un identifiant de session aléatoire, associé à
+    # l'access_token côté serveur. On ne transmettra JAMAIS l'access_token
+    # brut à l'app ou au navigateur : seulement cet identifiant, qui sert
+    # ensuite de "clé" pour les appels comme /api/videos.
+    session_id = secrets.token_urlsafe(24)
+    _sessions[session_id] = {"access_token": access_token}
+
     # Avec l'access_token en main, on peut maintenant appeler l'API
     # TikTok pour récupérer les infos de profil de l'utilisateur.
     async with httpx.AsyncClient() as client:
@@ -361,6 +385,7 @@ async def tiktok_callback(request: Request):
             "bio": bio,
             "profile_link": profile_link,
             "is_verified": "true" if is_verified else "false",
+            "session": session_id,
         })
         return RedirectResponse(f"wilapp://callback?{app_params}")
 
@@ -597,3 +622,236 @@ say so directly in the summary and suggestions rather than making things up."""
         )
 
     return JSONResponse(content=analysis)
+
+
+@app.get("/api/videos", response_class=JSONResponse)
+async def get_videos(session: str):
+    """
+    Récupère la liste des vidéos de l'utilisateur connecté (via
+    TikTok video.list) et calcule le taux d'engagement de chacune :
+        (likes + commentaires + partages) / vues * 100
+
+    Nécessite le scope "video.list" — actif uniquement quand
+    TIKTOK_EXTRA_SCOPES contient "video.list" (voir plus haut).
+    Le paramètre "session" est l'identifiant reçu par l'app après la
+    connexion (PAS l'access_token lui-même, gardé côté serveur).
+    """
+    session_data = _sessions.get(session)
+    if not session_data:
+        raise HTTPException(
+            status_code=401,
+            detail="Session invalide ou expirée. Reconnecte-toi avec TikTok.",
+        )
+
+    access_token = session_data["access_token"]
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://open.tiktokapis.com/v2/video/list/",
+            params={
+                "fields": "id,title,cover_image_url,create_time,"
+                          "like_count,comment_count,share_count,view_count"
+            },
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+            },
+            json={"max_count": 20},
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Erreur API TikTok (video.list): {response.status_code} {response.text}",
+        )
+
+    data = response.json()
+    videos = data.get("data", {}).get("videos", [])
+
+    # Calcul du taux d'engagement pour chaque vidéo, et tri du plus
+    # engageant au moins engageant.
+    enriched = []
+    for video in videos:
+        views = video.get("view_count", 0)
+        likes = video.get("like_count", 0)
+        comments = video.get("comment_count", 0)
+        shares = video.get("share_count", 0)
+        engagement_rate = (
+            round((likes + comments + shares) / views * 100, 2) if views > 0 else 0
+        )
+        enriched.append({
+            "id": video.get("id"),
+            "title": video.get("title", ""),
+            "cover_image_url": video.get("cover_image_url", ""),
+            "create_time": video.get("create_time"),
+            "view_count": views,
+            "like_count": likes,
+            "comment_count": comments,
+            "share_count": shares,
+            "engagement_rate": engagement_rate,
+        })
+
+    enriched.sort(key=lambda v: v["engagement_rate"], reverse=True)
+
+    return JSONResponse(content={
+        "videos": enriched,
+        "best_video": enriched[0] if enriched else None,
+        "worst_video": enriched[-1] if len(enriched) > 1 else None,
+        "average_engagement_rate": (
+            round(sum(v["engagement_rate"] for v in enriched) / len(enriched), 2)
+            if enriched else 0
+        ),
+    })
+
+
+VIRAL_VIEW_THRESHOLD = 10_000
+
+
+@app.get("/api/videos/viral-rate", response_class=JSONResponse)
+async def get_viral_rate(session: str):
+    """
+    Récupère TOUTES les vidéos du compte connecté (avec pagination, car
+    TikTok ne renvoie que 20 vidéos par appel), puis calcule le pourcentage
+    de vidéos "virales" (> 10 000 vues) vs "non virales" (<= 10 000 vues).
+
+    Nécessite le scope "video.list" (même scope que /api/videos).
+    """
+    session_data = _sessions.get(session)
+    if not session_data:
+        raise HTTPException(
+            status_code=401,
+            detail="Session invalide ou expirée. Reconnecte-toi avec TikTok.",
+        )
+
+    access_token = session_data["access_token"]
+    all_videos = []
+    cursor = 0
+    has_more = True
+
+    # On enchaîne les appels tant que TikTok indique qu'il reste des
+    # vidéos à récupérer (has_more), avec une limite de sécurité à 20
+    # appels (soit jusqu'à 400 vidéos) pour éviter une boucle infinie.
+    async with httpx.AsyncClient() as client:
+        for _ in range(20):
+            response = await client.post(
+                "https://open.tiktokapis.com/v2/video/list/",
+                params={"fields": "id,view_count"},
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                },
+                json={"max_count": 20, "cursor": cursor},
+            )
+
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Erreur API TikTok (video.list): {response.status_code} {response.text}",
+                )
+
+            payload = response.json().get("data", {})
+            all_videos.extend(payload.get("videos", []))
+
+            has_more = payload.get("has_more", False)
+            cursor = payload.get("cursor", 0)
+
+            if not has_more:
+                break
+
+    total = len(all_videos)
+    if total == 0:
+        return JSONResponse(content={
+            "total_videos": 0,
+            "viral_count": 0,
+            "non_viral_count": 0,
+            "viral_percentage": 0,
+            "non_viral_percentage": 0,
+            "threshold": VIRAL_VIEW_THRESHOLD,
+        })
+
+    viral_count = sum(1 for v in all_videos if v.get("view_count", 0) > VIRAL_VIEW_THRESHOLD)
+    non_viral_count = total - viral_count
+
+    return JSONResponse(content={
+        "total_videos": total,
+        "viral_count": viral_count,
+        "non_viral_count": non_viral_count,
+        "viral_percentage": round(viral_count / total * 100, 1),
+        "non_viral_percentage": round(non_viral_count / total * 100, 1),
+        "threshold": VIRAL_VIEW_THRESHOLD,
+    })
+
+
+VIRAL_VIEW_THRESHOLD = 10_000
+
+
+@app.get("/api/virality-stats", response_class=JSONResponse)
+async def get_virality_stats(session: str):
+    """
+    Récupère TOUTES les vidéos du compte (avec pagination, TikTok ne
+    renvoyant que 20 vidéos maximum par appel) et calcule le pourcentage
+    de vidéos "virales" (>= 10 000 vues) vs "non virales" (< 10 000 vues).
+
+    Nécessite le scope "video.list" (voir TIKTOK_EXTRA_SCOPES).
+    """
+    session_data = _sessions.get(session)
+    if not session_data:
+        raise HTTPException(
+            status_code=401,
+            detail="Session invalide ou expirée. Reconnecte-toi avec TikTok.",
+        )
+
+    access_token = session_data["access_token"]
+
+    all_videos = []
+    cursor = 0
+    has_more = True
+    # Garde-fou : on s'arrête après 10 pages (~200 vidéos) pour éviter un
+    # appel trop long ou un compte avec un historique démesuré.
+    max_pages = 10
+    pages_fetched = 0
+
+    async with httpx.AsyncClient() as client:
+        while has_more and pages_fetched < max_pages:
+            body = {"max_count": 20}
+            if cursor:
+                body["cursor"] = cursor
+
+            response = await client.post(
+                "https://open.tiktokapis.com/v2/video/list/",
+                params={"fields": "id,view_count,create_time"},
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                },
+                json=body,
+            )
+
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Erreur API TikTok (video.list): {response.status_code} {response.text}",
+                )
+
+            page_data = response.json().get("data", {})
+            all_videos.extend(page_data.get("videos", []))
+
+            has_more = page_data.get("has_more", False)
+            cursor = page_data.get("cursor", 0)
+            pages_fetched += 1
+
+    total = len(all_videos)
+    viral_count = sum(1 for v in all_videos if v.get("view_count", 0) >= VIRAL_VIEW_THRESHOLD)
+    non_viral_count = total - viral_count
+
+    viral_percentage = round(viral_count / total * 100, 2) if total > 0 else 0
+    non_viral_percentage = round(non_viral_count / total * 100, 2) if total > 0 else 0
+
+    return JSONResponse(content={
+        "total_videos_analyzed": total,
+        "viral_threshold_views": VIRAL_VIEW_THRESHOLD,
+        "viral_count": viral_count,
+        "non_viral_count": non_viral_count,
+        "viral_percentage": viral_percentage,
+        "non_viral_percentage": non_viral_percentage,
+    })
