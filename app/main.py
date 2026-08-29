@@ -542,110 +542,26 @@ def privacy_policy():
     """
 
 
-@app.get("/api/analyze-profile", response_class=JSONResponse)
-async def analyze_profile(
-    display_name: str,
-    username: str,
-    bio: str = "",
-):
+VIRAL_VIEW_THRESHOLD = 10_000
+MAX_PAGES = 10  # garde-fou : ~200 vidéos max pour éviter un appel trop long
+
+
+async def _fetch_all_videos(client: httpx.AsyncClient, access_token: str) -> list[dict]:
     """
-    Envoie les infos de profil TikTok déjà récupérées (display_name,
-    username, bio) à Claude, qui renvoie une analyse structurée :
-    niche détectée, résumé, forces, points à améliorer, hashtags suggérés.
-
-    Cette route est appelée par l'app Flutter, avec les infos du profil
-    obtenues juste après la connexion TikTok (pas besoin de re-demander
-    l'autorisation TikTok pour ça).
+    Récupère TOUTES les vidéos du compte connecté, en gérant la pagination
+    (TikTok ne renvoie que 20 vidéos par appel). Renvoie la liste complète
+    de vidéos avec leurs stats (vues, likes, commentaires, partages).
     """
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
+    all_videos: list[dict] = []
+    cursor = 0
+    has_more = True
+    pages_fetched = 0
 
-    prompt = f"""You are a TikTok growth coach analyzing a creator's profile.
+    while has_more and pages_fetched < MAX_PAGES:
+        body = {"max_count": 20}
+        if cursor:
+            body["cursor"] = cursor
 
-Profile information:
-- Display name: {display_name}
-- Username: @{username}
-- Bio: "{bio or 'No bio provided'}"
-
-Based ONLY on this information, respond with a JSON object (no markdown,
-no code fences, just raw JSON) with exactly these fields:
-{{
-  "niche": "one short phrase describing the likely content niche",
-  "summary": "2-3 sentence honest summary of what this account seems to be about",
-  "strengths": ["2-3 short bullet points of what's working, based on the bio/name"],
-  "improvements": ["2-3 short, concrete, actionable suggestions to improve the profile"],
-  "suggested_hashtags": ["5 relevant hashtags without the # symbol"]
-}}
-
-Be honest and specific, not generic. If the bio is empty or very sparse,
-say so directly in the summary and suggestions rather than making things up."""
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": "claude-sonnet-4-5-20250929",
-                "max_tokens": 800,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-        )
-
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Erreur API Anthropic: {response.status_code} {response.text}",
-        )
-
-    data = response.json()
-    raw_text = data["content"][0]["text"]
-
-    # Nettoyage au cas où le modèle ajouterait quand même des balises
-    # de code markdown autour du JSON.
-    cleaned = raw_text.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        if cleaned.startswith("json"):
-            cleaned = cleaned[4:]
-        cleaned = cleaned.strip()
-
-    try:
-        analysis = json.loads(cleaned)
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=502,
-            detail="Réponse IA invalide, impossible de l'analyser.",
-        )
-
-    return JSONResponse(content=analysis)
-
-
-@app.get("/api/videos", response_class=JSONResponse)
-async def get_videos(session: str):
-    """
-    Récupère la liste des vidéos de l'utilisateur connecté (via
-    TikTok video.list) et calcule le taux d'engagement de chacune :
-        (likes + commentaires + partages) / vues * 100
-
-    Nécessite le scope "video.list" — actif uniquement quand
-    TIKTOK_EXTRA_SCOPES contient "video.list" (voir plus haut).
-    Le paramètre "session" est l'identifiant reçu par l'app après la
-    connexion (PAS l'access_token lui-même, gardé côté serveur).
-    """
-    session_data = _sessions.get(session)
-    if not session_data:
-        raise HTTPException(
-            status_code=401,
-            detail="Session invalide ou expirée. Reconnecte-toi avec TikTok.",
-        )
-
-    access_token = session_data["access_token"]
-
-    async with httpx.AsyncClient() as client:
         response = await client.post(
             "https://open.tiktokapis.com/v2/video/list/",
             params={
@@ -656,65 +572,61 @@ async def get_videos(session: str):
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json",
             },
-            json={"max_count": 20},
+            json=body,
         )
 
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Erreur API TikTok (video.list): {response.status_code} {response.text}",
-        )
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Erreur API TikTok (video.list): {response.status_code} {response.text}",
+            )
 
-    data = response.json()
-    videos = data.get("data", {}).get("videos", [])
+        page_data = response.json().get("data", {})
+        all_videos.extend(page_data.get("videos", []))
 
-    # Calcul du taux d'engagement pour chaque vidéo, et tri du plus
-    # engageant au moins engageant.
-    enriched = []
-    for video in videos:
-        views = video.get("view_count", 0)
-        likes = video.get("like_count", 0)
-        comments = video.get("comment_count", 0)
-        shares = video.get("share_count", 0)
-        engagement_rate = (
-            round((likes + comments + shares) / views * 100, 2) if views > 0 else 0
-        )
-        enriched.append({
-            "id": video.get("id"),
-            "title": video.get("title", ""),
-            "cover_image_url": video.get("cover_image_url", ""),
-            "create_time": video.get("create_time"),
-            "view_count": views,
-            "like_count": likes,
-            "comment_count": comments,
-            "share_count": shares,
-            "engagement_rate": engagement_rate,
-        })
+        has_more = page_data.get("has_more", False)
+        cursor = page_data.get("cursor", 0)
+        pages_fetched += 1
 
-    enriched.sort(key=lambda v: v["engagement_rate"], reverse=True)
-
-    return JSONResponse(content={
-        "videos": enriched,
-        "best_video": enriched[0] if enriched else None,
-        "worst_video": enriched[-1] if len(enriched) > 1 else None,
-        "average_engagement_rate": (
-            round(sum(v["engagement_rate"] for v in enriched) / len(enriched), 2)
-            if enriched else 0
-        ),
-    })
+    return all_videos
 
 
-VIRAL_VIEW_THRESHOLD = 10_000
+def _compute_engagement(video: dict) -> dict:
+    """Calcule le taux d'engagement d'une vidéo et renvoie un dict enrichi."""
+    views = video.get("view_count", 0)
+    likes = video.get("like_count", 0)
+    comments = video.get("comment_count", 0)
+    shares = video.get("share_count", 0)
+    engagement_rate = round((likes + comments + shares) / views * 100, 2) if views > 0 else 0
+    return {
+        "id": video.get("id"),
+        "title": video.get("title", ""),
+        "cover_image_url": video.get("cover_image_url", ""),
+        "create_time": video.get("create_time"),
+        "view_count": views,
+        "like_count": likes,
+        "comment_count": comments,
+        "share_count": shares,
+        "engagement_rate": engagement_rate,
+    }
 
 
-@app.get("/api/videos/viral-rate", response_class=JSONResponse)
-async def get_viral_rate(session: str):
+@app.get("/api/analyze-account", response_class=JSONResponse)
+async def analyze_account(
+    session: str,
+    display_name: str = "",
+    username: str = "",
+    bio: str = "",
+):
     """
-    Récupère TOUTES les vidéos du compte connecté (avec pagination, car
-    TikTok ne renvoie que 20 vidéos par appel), puis calcule le pourcentage
-    de vidéos "virales" (> 10 000 vues) vs "non virales" (<= 10 000 vues).
+    Route UNIQUE et complète d'analyse de compte. Combine :
+    1. Les stats de toutes les vidéos du compte (engagement, viralité)
+    2. Une analyse IA (Claude) du profil ET de la performance globale
 
-    Nécessite le scope "video.list" (même scope que /api/videos).
+    Nécessite le scope "video.list" (voir TIKTOK_EXTRA_SCOPES) en plus des
+    scopes de base déjà approuvés. Le paramètre "session" est l'identifiant
+    reçu par l'app après la connexion (le vrai access_token reste côté
+    serveur, jamais transmis au client).
     """
     session_data = _sessions.get(session)
     if not session_data:
@@ -722,136 +634,97 @@ async def get_viral_rate(session: str):
             status_code=401,
             detail="Session invalide ou expirée. Reconnecte-toi avec TikTok.",
         )
-
-    access_token = session_data["access_token"]
-    all_videos = []
-    cursor = 0
-    has_more = True
-
-    # On enchaîne les appels tant que TikTok indique qu'il reste des
-    # vidéos à récupérer (has_more), avec une limite de sécurité à 20
-    # appels (soit jusqu'à 400 vidéos) pour éviter une boucle infinie.
-    async with httpx.AsyncClient() as client:
-        for _ in range(20):
-            response = await client.post(
-                "https://open.tiktokapis.com/v2/video/list/",
-                params={"fields": "id,view_count"},
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json",
-                },
-                json={"max_count": 20, "cursor": cursor},
-            )
-
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Erreur API TikTok (video.list): {response.status_code} {response.text}",
-                )
-
-            payload = response.json().get("data", {})
-            all_videos.extend(payload.get("videos", []))
-
-            has_more = payload.get("has_more", False)
-            cursor = payload.get("cursor", 0)
-
-            if not has_more:
-                break
-
-    total = len(all_videos)
-    if total == 0:
-        return JSONResponse(content={
-            "total_videos": 0,
-            "viral_count": 0,
-            "non_viral_count": 0,
-            "viral_percentage": 0,
-            "non_viral_percentage": 0,
-            "threshold": VIRAL_VIEW_THRESHOLD,
-        })
-
-    viral_count = sum(1 for v in all_videos if v.get("view_count", 0) > VIRAL_VIEW_THRESHOLD)
-    non_viral_count = total - viral_count
-
-    return JSONResponse(content={
-        "total_videos": total,
-        "viral_count": viral_count,
-        "non_viral_count": non_viral_count,
-        "viral_percentage": round(viral_count / total * 100, 1),
-        "non_viral_percentage": round(non_viral_count / total * 100, 1),
-        "threshold": VIRAL_VIEW_THRESHOLD,
-    })
-
-
-VIRAL_VIEW_THRESHOLD = 10_000
-
-
-@app.get("/api/virality-stats", response_class=JSONResponse)
-async def get_virality_stats(session: str):
-    """
-    Récupère TOUTES les vidéos du compte (avec pagination, TikTok ne
-    renvoyant que 20 vidéos maximum par appel) et calcule le pourcentage
-    de vidéos "virales" (>= 10 000 vues) vs "non virales" (< 10 000 vues).
-
-    Nécessite le scope "video.list" (voir TIKTOK_EXTRA_SCOPES).
-    """
-    session_data = _sessions.get(session)
-    if not session_data:
-        raise HTTPException(
-            status_code=401,
-            detail="Session invalide ou expirée. Reconnecte-toi avec TikTok.",
-        )
-
     access_token = session_data["access_token"]
 
-    all_videos = []
-    cursor = 0
-    has_more = True
-    # Garde-fou : on s'arrête après 10 pages (~200 vidéos) pour éviter un
-    # appel trop long ou un compte avec un historique démesuré.
-    max_pages = 10
-    pages_fetched = 0
-
+    # 1. Récupération de toutes les vidéos + calcul des statistiques
     async with httpx.AsyncClient() as client:
-        while has_more and pages_fetched < max_pages:
-            body = {"max_count": 20}
-            if cursor:
-                body["cursor"] = cursor
+        raw_videos = await _fetch_all_videos(client, access_token)
 
-            response = await client.post(
-                "https://open.tiktokapis.com/v2/video/list/",
-                params={"fields": "id,view_count,create_time"},
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json",
-                },
-                json=body,
-            )
+    enriched_videos = [_compute_engagement(v) for v in raw_videos]
+    enriched_videos.sort(key=lambda v: v["engagement_rate"], reverse=True)
 
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Erreur API TikTok (video.list): {response.status_code} {response.text}",
-                )
-
-            page_data = response.json().get("data", {})
-            all_videos.extend(page_data.get("videos", []))
-
-            has_more = page_data.get("has_more", False)
-            cursor = page_data.get("cursor", 0)
-            pages_fetched += 1
-
-    total = len(all_videos)
-    viral_count = sum(1 for v in all_videos if v.get("view_count", 0) >= VIRAL_VIEW_THRESHOLD)
+    total = len(enriched_videos)
+    viral_count = sum(1 for v in enriched_videos if v["view_count"] >= VIRAL_VIEW_THRESHOLD)
     non_viral_count = total - viral_count
-
     viral_percentage = round(viral_count / total * 100, 2) if total > 0 else 0
     non_viral_percentage = round(non_viral_count / total * 100, 2) if total > 0 else 0
+    average_engagement_rate = (
+        round(sum(v["engagement_rate"] for v in enriched_videos) / total, 2) if total > 0 else 0
+    )
 
-    return JSONResponse(content={
+    stats = {
         "total_videos_analyzed": total,
+        "average_engagement_rate": average_engagement_rate,
         "viral_threshold_views": VIRAL_VIEW_THRESHOLD,
         "viral_count": viral_count,
         "non_viral_count": non_viral_count,
         "viral_percentage": viral_percentage,
         "non_viral_percentage": non_viral_percentage,
+        "best_video": enriched_videos[0] if enriched_videos else None,
+        "worst_video": enriched_videos[-1] if len(enriched_videos) > 1 else None,
+        "videos": enriched_videos,
+    }
+
+    # 2. Analyse IA (profil + performance combinés), si Anthropic est configuré
+    ai_report = None
+    if ANTHROPIC_API_KEY:
+        prompt = f"""Tu es un coach de croissance TikTok qui analyse le compte complet d'un créateur.
+
+Profil :
+- Nom affiché : {display_name}
+- Nom d'utilisateur : @{username}
+- Bio : "{bio or 'Aucune bio renseignée'}"
+
+Données de performance (chiffres réels de son compte) :
+- Nombre total de vidéos analysées : {total}
+- Taux d'engagement moyen : {average_engagement_rate}%
+- Vidéos ayant dépassé 10 000 vues ("virales") : {viral_count} ({viral_percentage}%)
+- Vidéos en dessous de 10 000 vues : {non_viral_count} ({non_viral_percentage}%)
+
+Réponds avec un objet JSON (pas de markdown, pas de balises de code, juste
+du JSON brut) contenant exactement ces champs, avec du texte en FRANÇAIS :
+{{
+  "niche": "une courte phrase décrivant la niche de contenu probable",
+  "summary": "résumé honnête de 3-4 phrases combinant la bio ET les vraies statistiques de performance ci-dessus",
+  "strengths": ["2-3 points forts courts, basés sur les données réelles"],
+  "improvements": ["2-3 suggestions concrètes et actionnables, basées sur le taux d'engagement/de viralité réel"],
+  "suggested_hashtags": ["5 hashtags pertinents, sans le symbole #"]
+}}
+
+Sois honnête et précis. Si le pourcentage de vidéos virales est faible,
+dis-le directement et explique ce que ça signifie probablement. N'invente
+aucune donnée qui n'est pas fournie ci-dessus. Le contenu de chaque champ
+doit être rédigé entièrement en français."""
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-sonnet-4-5-20250929",
+                    "max_tokens": 900,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+
+        if response.status_code == 200:
+            raw_text = response.json()["content"][0]["text"]
+            cleaned = raw_text.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.strip("`")
+                if cleaned.startswith("json"):
+                    cleaned = cleaned[4:]
+                cleaned = cleaned.strip()
+            try:
+                ai_report = json.loads(cleaned)
+            except json.JSONDecodeError:
+                ai_report = None
+
+    return JSONResponse(content={
+        "stats": stats,
+        "ai_report": ai_report,
     })
