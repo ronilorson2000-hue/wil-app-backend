@@ -400,8 +400,15 @@ async def tiktok_callback(request: Request):
     )
 
     # Tableau de bord affiché après connexion : montre les vraies données
-    # récupérées via l'API, pour donner un aperçu concret du service
-    # (pas juste un écran de confirmation vide).
+    # récupérées via l'API, ET lance automatiquement l'analyse complète du
+    # compte (engagement, viralité, rapport IA) via JavaScript, pour que
+    # la version web offre la même expérience que l'app mobile.
+    from urllib.parse import quote
+
+    display_name_enc = quote(display_name)
+    username_enc = quote(username)
+    bio_enc = quote(bio)
+
     return f"""
     <html>
       <head>
@@ -411,19 +418,29 @@ async def tiktok_callback(request: Request):
         <style>
           body {{ font-family: -apple-system, Arial, sans-serif; text-align: center;
                   margin: 0; padding: 60px 20px; color: #1a1a1a; }}
-          .card {{ max-width: 420px; margin: 0 auto; border: 1px solid #eee;
-                   border-radius: 14px; padding: 32px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }}
+          .card {{ max-width: 460px; margin: 0 auto 20px; border: 1px solid #eee;
+                   border-radius: 14px; padding: 32px; box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+                   text-align: left; }}
+          .card.profile {{ text-align: center; }}
           img {{ width: 110px; height: 110px; border-radius: 50%; object-fit: cover; }}
           h2 {{ margin: 16px 0 4px; }}
           .username {{ color: #777; margin: 0 0 8px; }}
           .stats {{ display: flex; justify-content: center; gap: 24px; margin-top: 24px;
                     padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #555; }}
           a.home {{ display:inline-block; margin-top: 30px; color:#555; }}
+          .loading {{ color: #777; font-size: 14px; }}
+          .bar-bg {{ background: #e5e7eb; border-radius: 8px; height: 16px; overflow: hidden; }}
+          .bar-fill {{ background: #5B21B6; height: 100%; }}
+          .chip {{ display: inline-block; background: #EC4899; color: white; padding: 4px 12px;
+                   border-radius: 999px; font-size: 13px; font-weight: bold; }}
+          .tag {{ display: inline-block; background: #f3f4f6; padding: 3px 10px; border-radius: 999px;
+                  font-size: 12px; margin: 3px; }}
+          ul.bullets {{ padding-left: 18px; }}
         </style>
       </head>
       <body>
         <p style="color:#22c55e; font-weight:bold;">✅ Connected successfully</p>
-        <div class="card">
+        <div class="card profile">
           <img src="{avatar_url}" alt="Profile picture" />
           <h2>{display_name} {verified_badge}</h2>
           <p class="username">@{username}</p>
@@ -434,7 +451,61 @@ async def tiktok_callback(request: Request):
             <div>🔒 Data secured</div>
           </div>
         </div>
+
+        <div id="analysis-loading" class="card">
+          <p class="loading">⏳ Analyse du compte en cours (récupération des vidéos et calcul des statistiques)...</p>
+        </div>
+        <div id="analysis-result"></div>
+
         <a href="/" class="home">← Back to Wil App</a>
+
+        <script>
+          const sessionId = "{session_id}";
+          fetch(`/api/analyze-account?session=${{sessionId}}&display_name={display_name_enc}&username={username_enc}&bio={bio_enc}`)
+            .then(r => r.json())
+            .then(data => {{
+              document.getElementById('analysis-loading').style.display = 'none';
+              const stats = data.stats;
+              const report = data.ai_report;
+              let html = '';
+
+              if (stats && stats.total_videos_analyzed > 0) {{
+                html += `
+                  <div class="card">
+                    <p style="font-size:13px;color:#666;">${{stats.total_videos_analyzed}} vidéos analysées (seuil : ${{stats.viral_threshold_views/1000}}k vues)</p>
+                    <div class="bar-bg"><div class="bar-fill" style="width:${{stats.viral_percentage}}%"></div></div>
+                    <p style="margin-top:12px;"><strong>🚀 ${{stats.viral_percentage}}%</strong> vidéos virales &nbsp;|&nbsp; <strong>${{stats.non_viral_percentage}}%</strong> non virales</p>
+                    <p>Taux d'engagement moyen : <strong>${{stats.average_engagement_rate}}%</strong></p>
+                  </div>`;
+              }}
+
+              if (report) {{
+                const strengths = (report.strengths || []).map(s => `<li>${{s}}</li>`).join('');
+                const improvements = (report.improvements || []).map(s => `<li>${{s}}</li>`).join('');
+                const hashtags = (report.suggested_hashtags || []).map(h => `<span class="tag">#${{h}}</span>`).join('');
+                html += `
+                  <div class="card">
+                    <span class="chip">${{report.niche || ''}}</span>
+                    <p style="margin-top:12px;">${{report.summary || ''}}</p>
+                    <p><strong>✅ Points forts</strong></p>
+                    <ul class="bullets">${{strengths}}</ul>
+                    <p><strong>📈 À améliorer</strong></p>
+                    <ul class="bullets">${{improvements}}</ul>
+                    <div>${{hashtags}}</div>
+                  </div>`;
+              }}
+
+              if (!html) {{
+                html = '<div class="card"><p class="loading">Analyse indisponible pour le moment.</p></div>';
+              }}
+
+              document.getElementById('analysis-result').innerHTML = html;
+            }})
+            .catch(() => {{
+              document.getElementById('analysis-loading').innerHTML =
+                '<p class="loading">Analyse indisponible pour le moment.</p>';
+            }});
+        </script>
       </body>
     </html>
     """
