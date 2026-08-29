@@ -799,3 +799,91 @@ doit être rédigé entièrement en français."""
         "stats": stats,
         "ai_report": ai_report,
     })
+
+
+@app.get("/api/generate-script", response_class=JSONResponse)
+async def generate_script(
+    topic: str,
+    tone: str = "",
+    limits: str = "",
+    niche: str = "",
+    bio: str = "",
+):
+    """
+    Génère un script de vidéo TikTok VRAIMENT personnalisé, en respectant
+    strictement le ton et les limites définies par le créateur — pour
+    éviter le principal défaut des générateurs concurrents (scripts
+    génériques calqués sur des tendances, qui ne collent pas à la vraie
+    personne).
+
+    Paramètres :
+    - topic  : le sujet/l'idée de la vidéo (obligatoire)
+    - tone   : comment le créateur parle à son audience (ex: "humoristique et direct")
+    - limits : ce que le créateur ne veut jamais dire/faire (ex: "pas de gros mots, jamais de politique")
+    - niche  : niche de contenu détectée (optionnel, améliore la pertinence)
+    - bio    : bio du compte (optionnel, contexte supplémentaire)
+    """
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
+
+    prompt = f"""Tu es un scénariste spécialisé dans les vidéos courtes TikTok,
+qui écrit des scripts qui sonnent VRAIMENT comme la personne qui va les
+dire — jamais des scripts génériques copiés sur des tendances virales.
+
+Contexte du créateur :
+- Niche : {niche or "non précisée"}
+- Bio : "{bio or "non précisée"}"
+- Ton habituel du créateur : "{tone or "non précisé, reste neutre et naturel"}"
+- Limites strictes à respecter (ne JAMAIS enfreindre) : "{limits or "aucune limite précisée"}"
+
+Sujet de la vidéo à écrire : "{topic}"
+
+Écris un script structuré en 3 parties, RÉDIGÉ ENTIÈREMENT EN FRANÇAIS,
+qui respecte STRICTEMENT le ton et les limites ci-dessus. N'invente pas
+un ton différent de celui précisé. Si aucun ton n'est précisé, reste
+simple et naturel plutôt que d'imposer un style "viral" générique.
+
+Réponds avec un objet JSON (pas de markdown, pas de balises de code,
+juste du JSON brut) avec exactement ces champs :
+{{
+  "hook": "l'accroche des 3 premières secondes, percutante mais fidèle au ton du créateur",
+  "body": "le corps du script, 3-5 phrases maximum, adapté au format TikTok court",
+  "call_to_action": "une phrase de fin naturelle (pas forcément 'like et abonne-toi', adapte au sujet)",
+  "notes": "1-2 conseils courts de mise en scène/tournage propres à CE script précis"
+}}"""
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-sonnet-4-5-20250929",
+                "max_tokens": 700,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Erreur API Anthropic: {response.status_code} {response.text}",
+        )
+
+    raw_text = response.json()["content"][0]["text"]
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+
+    try:
+        script = json.loads(cleaned)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=502, detail="Réponse IA invalide.")
+
+    return JSONResponse(content=script)
