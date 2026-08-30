@@ -707,65 +707,83 @@ async def analyze_account(
         )
     access_token = session_data["access_token"]
 
-    # 1. Récupération de toutes les vidéos + calcul des statistiques
-    async with httpx.AsyncClient() as client:
-        raw_videos = await _fetch_all_videos(client, access_token)
+    # 1. Récupération de toutes les vidéos + calcul des statistiques.
+    # Si le scope "video.list" n'est pas encore approuvé côté TikTok
+    # (review en attente), cet appel échoue — dans ce cas, on continue
+    # quand même avec une analyse basée uniquement sur le profil, plutôt
+    # que de faire échouer toute la route.
+    stats = None
+    try:
+        async with httpx.AsyncClient() as client:
+            raw_videos = await _fetch_all_videos(client, access_token)
 
-    enriched_videos = [_compute_engagement(v) for v in raw_videos]
-    enriched_videos.sort(key=lambda v: v["engagement_rate"], reverse=True)
+        enriched_videos = [_compute_engagement(v) for v in raw_videos]
+        enriched_videos.sort(key=lambda v: v["engagement_rate"], reverse=True)
 
-    total = len(enriched_videos)
-    viral_count = sum(1 for v in enriched_videos if v["view_count"] >= VIRAL_VIEW_THRESHOLD)
-    non_viral_count = total - viral_count
-    viral_percentage = round(viral_count / total * 100, 2) if total > 0 else 0
-    non_viral_percentage = round(non_viral_count / total * 100, 2) if total > 0 else 0
-    average_engagement_rate = (
-        round(sum(v["engagement_rate"] for v in enriched_videos) / total, 2) if total > 0 else 0
-    )
+        total = len(enriched_videos)
+        viral_count = sum(1 for v in enriched_videos if v["view_count"] >= VIRAL_VIEW_THRESHOLD)
+        non_viral_count = total - viral_count
+        viral_percentage = round(viral_count / total * 100, 2) if total > 0 else 0
+        non_viral_percentage = round(non_viral_count / total * 100, 2) if total > 0 else 0
+        average_engagement_rate = (
+            round(sum(v["engagement_rate"] for v in enriched_videos) / total, 2) if total > 0 else 0
+        )
 
-    stats = {
-        "total_videos_analyzed": total,
-        "average_engagement_rate": average_engagement_rate,
-        "viral_threshold_views": VIRAL_VIEW_THRESHOLD,
-        "viral_count": viral_count,
-        "non_viral_count": non_viral_count,
-        "viral_percentage": viral_percentage,
-        "non_viral_percentage": non_viral_percentage,
-        "best_video": enriched_videos[0] if enriched_videos else None,
-        "worst_video": enriched_videos[-1] if len(enriched_videos) > 1 else None,
-        "videos": enriched_videos,
-    }
+        stats = {
+            "total_videos_analyzed": total,
+            "average_engagement_rate": average_engagement_rate,
+            "viral_threshold_views": VIRAL_VIEW_THRESHOLD,
+            "viral_count": viral_count,
+            "non_viral_count": non_viral_count,
+            "viral_percentage": viral_percentage,
+            "non_viral_percentage": non_viral_percentage,
+            "best_video": enriched_videos[0] if enriched_videos else None,
+            "worst_video": enriched_videos[-1] if len(enriched_videos) > 1 else None,
+            "videos": enriched_videos,
+        }
+    except HTTPException:
+        # video.list indisponible (scope pas encore approuvé, ou compte
+        # sans vidéo) : on continue sans les stats vidéo, pas bloquant.
+        stats = None
 
-    # 2. Analyse IA (profil + performance combinés), si Anthropic est configuré
+    # 2. Analyse IA (profil + performance si disponible), si Anthropic
+    # est configuré. Fonctionne même sans les stats vidéo (stats=None).
     ai_report = None
     if ANTHROPIC_API_KEY:
+        if stats:
+            performance_block = f"""
+Données de performance (chiffres réels de son compte) :
+- Nombre total de vidéos analysées : {stats['total_videos_analyzed']}
+- Taux d'engagement moyen : {stats['average_engagement_rate']}%
+- Vidéos ayant dépassé 10 000 vues ("virales") : {stats['viral_count']} ({stats['viral_percentage']}%)
+- Vidéos en dessous de 10 000 vues : {stats['non_viral_count']} ({stats['non_viral_percentage']}%)"""
+        else:
+            performance_block = """
+Données de performance : non disponibles pour cette analyse (base-toi
+uniquement sur le profil ci-dessus, ne mentionne pas l'absence de ces
+données comme un problème)."""
+
         prompt = f"""Tu es un coach de croissance TikTok qui analyse le compte complet d'un créateur.
 
 Profil :
 - Nom affiché : {display_name}
 - Nom d'utilisateur : @{username}
 - Bio : "{bio or 'Aucune bio renseignée'}"
-
-Données de performance (chiffres réels de son compte) :
-- Nombre total de vidéos analysées : {total}
-- Taux d'engagement moyen : {average_engagement_rate}%
-- Vidéos ayant dépassé 10 000 vues ("virales") : {viral_count} ({viral_percentage}%)
-- Vidéos en dessous de 10 000 vues : {non_viral_count} ({non_viral_percentage}%)
+{performance_block}
 
 Réponds avec un objet JSON (pas de markdown, pas de balises de code, juste
 du JSON brut) contenant exactement ces champs, avec du texte en FRANÇAIS :
 {{
   "niche": "une courte phrase décrivant la niche de contenu probable",
-  "summary": "résumé honnête de 3-4 phrases combinant la bio ET les vraies statistiques de performance ci-dessus",
+  "summary": "résumé honnête de 3-4 phrases",
   "strengths": ["2-3 points forts courts, basés sur les données réelles"],
-  "improvements": ["2-3 suggestions concrètes et actionnables, basées sur le taux d'engagement/de viralité réel"],
+  "improvements": ["2-3 suggestions concrètes et actionnables"],
   "suggested_hashtags": ["5 hashtags pertinents, sans le symbole #"]
 }}
 
-Sois honnête et précis. Si le pourcentage de vidéos virales est faible,
-dis-le directement et explique ce que ça signifie probablement. N'invente
-aucune donnée qui n'est pas fournie ci-dessus. Le contenu de chaque champ
-doit être rédigé entièrement en français."""
+Sois honnête et précis. N'invente aucune donnée qui n'est pas fournie
+ci-dessus. Le contenu de chaque champ doit être rédigé entièrement en
+français."""
 
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(
