@@ -16,7 +16,9 @@ la variable TIKTOK_REDIRECT_URI dans .env pointe vers cette URL publique.
 
 import json
 import os
+import re
 import secrets
+from collections import Counter
 from pathlib import Path
 
 import httpx
@@ -30,6 +32,8 @@ from fastapi.responses import (
     PlainTextResponse,
     RedirectResponse,
 )
+
+from app.style_guide import STYLE_GUIDE
 
 # Charge les variables du fichier .env (clés TikTok, redirect URI, etc.)
 load_dotenv()
@@ -669,6 +673,7 @@ def _compute_engagement(video: dict) -> dict:
     comments = video.get("comment_count", 0)
     shares = video.get("share_count", 0)
     engagement_rate = round((likes + comments + shares) / views * 100, 2) if views > 0 else 0
+    hashtags = re.findall(r"#(\w+)", video.get("title", ""))
     return {
         "id": video.get("id"),
         "title": video.get("title", ""),
@@ -679,6 +684,111 @@ def _compute_engagement(video: dict) -> dict:
         "comment_count": comments,
         "share_count": shares,
         "engagement_rate": engagement_rate,
+        "hashtags": hashtags,
+    }
+
+
+def _analyze_hashtags(videos: list[dict]) -> dict:
+    """
+    Analyse l'usage des hashtags sur l'ensemble des vidéos :
+    - fréquence de chaque hashtag
+    - répétition excessive (même set de hashtags copié-collé partout)
+    - hashtags utilisés uniquement sur des vidéos qui n'ont pas marché
+    - vidéos sans aucun hashtag
+    """
+    all_tags: list[str] = []
+    videos_without_tags = 0
+    tag_to_engagements: dict[str, list[float]] = {}
+
+    for video in videos:
+        tags = video.get("hashtags", [])
+        if not tags:
+            videos_without_tags += 1
+        for tag in tags:
+            tag_lower = tag.lower()
+            all_tags.append(tag_lower)
+            tag_to_engagements.setdefault(tag_lower, []).append(video["engagement_rate"])
+
+    tag_counts = Counter(all_tags)
+    total_videos = len(videos)
+    most_common = tag_counts.most_common(10)
+
+    # Un hashtag est "sur-répété" s'il apparaît sur plus de 70% des vidéos
+    # ET qu'il n'y a que très peu de hashtags différents utilisés au total
+    # (signe d'un même bloc de hashtags copié-collé sans réflexion).
+    overused = [
+        tag for tag, count in most_common
+        if total_videos > 0 and count / total_videos >= 0.7
+    ]
+
+    # Hashtags dont l'engagement moyen associé est nettement inférieur à
+    # la moyenne générale du compte (piste : ce hashtag n'aide pas, voire
+    # dessert les vidéos qui l'utilisent).
+    overall_avg = (
+        sum(v["engagement_rate"] for v in videos) / len(videos) if videos else 0
+    )
+    underperforming_tags = [
+        tag for tag, engagements in tag_to_engagements.items()
+        if len(engagements) >= 2 and (sum(engagements) / len(engagements)) < overall_avg * 0.5
+    ]
+
+    return {
+        "unique_hashtags_count": len(tag_counts),
+        "most_used_hashtags": [{"tag": t, "count": c} for t, c in most_common],
+        "overused_hashtags": overused,
+        "underperforming_hashtags": underperforming_tags[:5],
+        "videos_without_hashtags": videos_without_tags,
+        "videos_without_hashtags_pct": (
+            round(videos_without_tags / total_videos * 100, 1) if total_videos else 0
+        ),
+    }
+
+
+import re
+from collections import Counter
+
+
+def _extract_hashtags(title: str) -> list[str]:
+    """Extrait les hashtags (#mot) d'un titre/légende de vidéo."""
+    return re.findall(r"#(\w+)", title or "", flags=re.UNICODE)
+
+
+def _analyze_hashtag_usage(videos: list[dict]) -> dict:
+    """
+    Analyse l'usage des hashtags sur l'ensemble des vidéos :
+    - fréquence de chaque hashtag
+    - répétition excessive (même hashtag sur presque toutes les vidéos)
+    - présence ou absence quasi-totale de hashtags
+    - engagement moyen des vidéos AVEC hashtags vs SANS hashtags
+    """
+    total = len(videos)
+    all_tags: list[str] = []
+    videos_with_tags = 0
+    engagement_with = []
+    engagement_without = []
+
+    for v in videos:
+        tags = _extract_hashtags(v.get("title", ""))
+        all_tags.extend(tags)
+        if tags:
+            videos_with_tags += 1
+            engagement_with.append(v["engagement_rate"])
+        else:
+            engagement_without.append(v["engagement_rate"])
+
+    tag_counts = Counter(t.lower() for t in all_tags)
+    most_common = tag_counts.most_common(8)
+
+    avg_with = round(sum(engagement_with) / len(engagement_with), 2) if engagement_with else None
+    avg_without = round(sum(engagement_without) / len(engagement_without), 2) if engagement_without else None
+
+    return {
+        "videos_with_hashtags": videos_with_tags,
+        "videos_without_hashtags": total - videos_with_tags,
+        "most_used_hashtags": most_common,  # [(tag, count), ...]
+        "avg_engagement_with_hashtags": avg_with,
+        "avg_engagement_without_hashtags": avg_without,
+        "total_distinct_hashtags": len(tag_counts),
     }
 
 
@@ -750,20 +860,85 @@ async def analyze_account(
     # est configuré. Fonctionne même sans les stats vidéo (stats=None).
     ai_report = None
     if ANTHROPIC_API_KEY:
-        if stats:
+        if stats and stats["videos"]:
+            videos = stats["videos"]
+
+            # Calcul de la fréquence de publication à partir des horodatages
+            # (create_time est en secondes Unix, fourni par TikTok).
+            timestamps = sorted(
+                [v["create_time"] for v in videos if v.get("create_time")], reverse=True
+            )
+            if len(timestamps) >= 2:
+                span_days = (timestamps[0] - timestamps[-1]) / 86400
+                freq_text = (
+                    f"{len(timestamps)} vidéos sur {span_days:.0f} jours "
+                    f"(environ {len(timestamps) / span_days * 7:.1f} vidéos/semaine)"
+                    if span_days > 0 else "toutes publiées le même jour"
+                )
+            else:
+                freq_text = "pas assez de données pour calculer une fréquence"
+
+            # Titres des vidéos les plus récentes (donne le vrai style/sujets)
+            recent_titles = "\n".join(
+                f'  - "{v["title"] or "(sans titre)"}" — {v["view_count"]} vues, {v["engagement_rate"]}% engagement'
+                for v in videos[:8]
+            )
+
+            best = stats["best_video"]
+            worst = stats["worst_video"]
+            best_worst_text = ""
+            if best:
+                best_worst_text += (
+                    f'\nMeilleure vidéo (engagement) : "{best["title"] or "(sans titre)"}" '
+                    f'— {best["view_count"]} vues, {best["like_count"]} likes, '
+                    f'{best["engagement_rate"]}% engagement'
+                )
+            if worst:
+                best_worst_text += (
+                    f'\nPire vidéo (engagement) : "{worst["title"] or "(sans titre)"}" '
+                    f'— {worst["view_count"]} vues, {worst["like_count"]} likes, '
+                    f'{worst["engagement_rate"]}% engagement'
+                )
+
+            # Analyse des hashtags : répétition, présence, impact sur l'engagement
+            hashtag_stats = _analyze_hashtag_usage(videos)
+            top_tags_text = ", ".join(
+                f"#{tag} ({count} vidéos)" for tag, count in hashtag_stats["most_used_hashtags"]
+            ) or "aucun hashtag détecté sur ces vidéos"
+
+            hashtag_block = f"""
+Analyse des hashtags utilisés :
+- Vidéos avec au moins un hashtag : {hashtag_stats['videos_with_hashtags']}/{len(videos)}
+- Vidéos sans aucun hashtag : {hashtag_stats['videos_without_hashtags']}/{len(videos)}
+- Nombre de hashtags différents utilisés au total : {hashtag_stats['total_distinct_hashtags']}
+- Hashtags les plus utilisés : {top_tags_text}
+- Engagement moyen des vidéos AVEC hashtag(s) : {hashtag_stats['avg_engagement_with_hashtags']}%
+- Engagement moyen des vidéos SANS hashtag : {hashtag_stats['avg_engagement_without_hashtags']}%"""
+
             performance_block = f"""
 Données de performance (chiffres réels de son compte) :
 - Nombre total de vidéos analysées : {stats['total_videos_analyzed']}
+- Fréquence de publication : {freq_text}
 - Taux d'engagement moyen : {stats['average_engagement_rate']}%
 - Vidéos ayant dépassé 10 000 vues ("virales") : {stats['viral_count']} ({stats['viral_percentage']}%)
-- Vidéos en dessous de 10 000 vues : {stats['non_viral_count']} ({stats['non_viral_percentage']}%)"""
+- Vidéos en dessous de 10 000 vues : {stats['non_viral_count']} ({stats['non_viral_percentage']}%)
+{best_worst_text}
+{hashtag_block}
+
+Titres des vidéos récentes, avec leurs stats individuelles (utilise-les
+pour repérer de VRAIS patterns concrets — sujets récurrents, mots dans
+les titres qui reviennent sur les vidéos qui marchent bien, etc.) :
+{recent_titles}"""
         else:
             performance_block = """
 Données de performance : non disponibles pour cette analyse (base-toi
 uniquement sur le profil ci-dessus, ne mentionne pas l'absence de ces
 données comme un problème)."""
 
-        prompt = f"""Tu es un coach de croissance TikTok qui analyse le compte complet d'un créateur.
+        prompt = f"""Tu es un coach de croissance TikTok senior, connu pour des analyses
+extrêmement concrètes et jamais génériques.
+
+{STYLE_GUIDE}
 
 Profil :
 - Nom affiché : {display_name}
@@ -771,19 +946,32 @@ Profil :
 - Bio : "{bio or 'Aucune bio renseignée'}"
 {performance_block}
 
+MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
+1. Repère au moins 2 patterns CONCRETS en comparant les titres/stats des
+   vidéos entre elles (pas des généralités sur TikTok en général).
+2. Chaque point fort et chaque amélioration doit citer un élément
+   spécifique de CE compte (un titre, un chiffre, une comparaison) —
+   jamais un conseil qui pourrait s'appliquer à n'importe quel compte.
+3. Pour le diagnostic hashtags : compare l'engagement moyen avec/sans
+   hashtag, regarde si les mêmes hashtags reviennent sur toutes les
+   vidéos (répétition excessive = mauvais signal), et détermine si les
+   hashtags semblent être un frein à la viralité ou non — base-toi
+   UNIQUEMENT sur les chiffres fournis, ne suppose rien d'autre.
+4. Si tu ne repères pas de pattern clair par manque de données, dis-le
+   honnêtement plutôt que d'inventer un conseil générique.
+
 Réponds avec un objet JSON (pas de markdown, pas de balises de code, juste
 du JSON brut) contenant exactement ces champs, avec du texte en FRANÇAIS :
 {{
   "niche": "une courte phrase décrivant la niche de contenu probable",
-  "summary": "résumé honnête de 3-4 phrases",
-  "strengths": ["2-3 points forts courts, basés sur les données réelles"],
-  "improvements": ["2-3 suggestions concrètes et actionnables"],
+  "summary": "résumé honnête de 3-4 phrases, citant au moins un chiffre ou titre concret",
+  "strengths": ["2-3 points forts, CHACUN doit référencer un titre/chiffre précis de ce compte"],
+  "improvements": ["2-3 suggestions concrètes et actionnables, CHACUNE justifiée par une comparaison précise entre vidéos de ce compte"],
+  "hashtag_diagnosis": "2-3 phrases expliquant si les hashtags actuels aident ou nuisent à la viralité, basé sur les chiffres avec/sans hashtag et la répétition observée",
   "suggested_hashtags": ["5 hashtags pertinents, sans le symbole #"]
 }}
 
-Sois honnête et précis. N'invente aucune donnée qui n'est pas fournie
-ci-dessus. Le contenu de chaque champ doit être rédigé entièrement en
-français."""
+Le contenu de chaque champ doit être rédigé entièrement en français."""
 
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(
@@ -795,7 +983,7 @@ français."""
                 },
                 json={
                     "model": "claude-sonnet-4-5-20250929",
-                    "max_tokens": 900,
+                    "max_tokens": 1200,
                     "messages": [{"role": "user", "content": prompt}],
                 },
             )
