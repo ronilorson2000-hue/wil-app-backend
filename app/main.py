@@ -18,6 +18,7 @@ import json
 import os
 import re
 import secrets
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -63,6 +64,13 @@ _sessions: dict[str, dict] = {}
 # Exemple de valeur : "video.list,user.info.stats"
 EXTRA_SCOPES = os.getenv("TIKTOK_EXTRA_SCOPES", "").strip()
 
+# Cache des hashtags tendance par niche (recherche web coûteuse, donc on
+# ne la relance qu'une fois par niche par jour, pas à chaque analyse de
+# compte). Clé = niche en minuscules, valeur = {"hashtags": [...], "cached_at": timestamp}.
+_trending_hashtags_cache: dict[str, dict] = {}
+TRENDING_CACHE_TTL_SECONDS = 24 * 60 * 60  # 24h
+
+
 app = FastAPI(title="Wil App Backend", version="0.1.0")
 
 # CORS = permet à l'app Flutter (qui tournera sur une autre adresse)
@@ -85,6 +93,19 @@ def favicon():
     """
     favicon_path = Path(__file__).parent / "favicon.ico"
     return FileResponse(favicon_path)
+
+
+@app.head("/")
+def home_head():
+    """
+    Réponse explicite aux requêtes HEAD sur la page d'accueil (utilisées
+    par les outils de monitoring comme UptimeRobot pour vérifier que le
+    site répond, sans télécharger tout le contenu). FastAPI gère déjà ça
+    automatiquement pour les routes GET en théorie — cette route explicite
+    est une sécurité supplémentaire au cas où un problème surviendrait
+    entre notre code et l'infrastructure d'hébergement.
+    """
+    return
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -792,6 +813,165 @@ def _analyze_hashtag_usage(videos: list[dict]) -> dict:
     }
 
 
+async def _get_trending_hashtags(niche: str) -> list[str] | None:
+    """
+    Récupère les hashtags réellement tendance pour une niche donnée, via
+    l'outil de recherche web de Claude. Résultat mis en cache 24h par
+    niche pour limiter le coût et la latence — une recherche par niche
+    par jour maximum, pas une par utilisateur/analyse.
+    """
+    if not niche or not ANTHROPIC_API_KEY:
+        return None
+
+    cache_key = niche.strip().lower()
+    cached = _trending_hashtags_cache.get(cache_key)
+    if cached and (time.time() - cached["cached_at"]) < TRENDING_CACHE_TTL_SECONDS:
+        return cached["hashtags"]
+
+    prompt = f"""Cherche sur le web les hashtags TikTok réellement tendance
+en ce moment pour la niche suivante : "{niche}".
+
+Réponds UNIQUEMENT avec un objet JSON (pas de markdown, pas de balises de
+code), avec exactement ce champ :
+{{"hashtags": ["5 hashtags tendance actuels, sans le symbole #"]}}"""
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-sonnet-4-5-20250929",
+                    "max_tokens": 500,
+                    "tools": [
+                        {"type": "web_search_20250305", "name": "web_search", "max_uses": 2}
+                    ],
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+
+        if response.status_code != 200:
+            return None
+
+        content_blocks = response.json().get("content", [])
+        text_blocks = [b["text"] for b in content_blocks if b.get("type") == "text"]
+        raw_text = text_blocks[-1] if text_blocks else ""
+
+        cleaned = raw_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.strip("`")
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+            cleaned = cleaned.strip()
+
+        parsed = json.loads(cleaned)
+        hashtags = parsed.get("hashtags")
+        if not hashtags:
+            return None
+
+        _trending_hashtags_cache[cache_key] = {"hashtags": hashtags, "cached_at": time.time()}
+        return hashtags
+    except Exception:
+        # En cas d'échec (timeout, réponse invalide...), on ne casse pas
+        # toute l'analyse — on retombe simplement sur les suggestions
+        # génériques déjà présentes dans le rapport IA.
+        return None
+
+
+_trending_ideas_cache: dict[str, dict] = {}
+
+
+async def _get_trending_content_ideas(niche: str) -> dict | None:
+    """
+    Récupère, via recherche web, des idées de vidéos et des types de
+    hooks (accroches) actuellement tendance pour une niche donnée.
+    Résultat mis en cache 24h par niche (même logique que les hashtags
+    tendance), pour limiter le coût des recherches web.
+    """
+    if not niche or not ANTHROPIC_API_KEY:
+        return None
+
+    cache_key = niche.strip().lower()
+    cached = _trending_ideas_cache.get(cache_key)
+    if cached and (time.time() - cached["cached_at"]) < TRENDING_CACHE_TTL_SECONDS:
+        return cached["data"]
+
+    prompt = f"""Cherche sur le web les tendances actuelles sur TikTok pour
+la niche suivante : "{niche}" — à la fois en termes de formats/idées de
+vidéos qui marchent bien en ce moment, et de types d'accroches (hooks)
+efficaces actuellement.
+
+Réponds UNIQUEMENT avec un objet JSON (pas de markdown, pas de balises de
+code), rédigé en FRANÇAIS, avec exactement ces champs :
+{{
+  "video_ideas": ["4-5 idées de vidéos concrètes et actuelles pour cette niche"],
+  "trending_hooks": ["3-4 types d'accroches (hooks) qui fonctionnent bien en ce moment, avec un exemple concret de phrase pour chacune"]
+}}"""
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-sonnet-4-5-20250929",
+                    "max_tokens": 900,
+                    "tools": [
+                        {"type": "web_search_20250305", "name": "web_search", "max_uses": 2}
+                    ],
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+
+        if response.status_code != 200:
+            return None
+
+        content_blocks = response.json().get("content", [])
+        text_blocks = [b["text"] for b in content_blocks if b.get("type") == "text"]
+        raw_text = text_blocks[-1] if text_blocks else ""
+
+        cleaned = raw_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.strip("`")
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+            cleaned = cleaned.strip()
+
+        parsed = json.loads(cleaned)
+        if not parsed.get("video_ideas") and not parsed.get("trending_hooks"):
+            return None
+
+        _trending_ideas_cache[cache_key] = {"data": parsed, "cached_at": time.time()}
+        return parsed
+    except Exception:
+        return None
+
+
+@app.get("/api/trending-ideas", response_class=JSONResponse)
+async def trending_ideas(niche: str):
+    """
+    Route dédiée : renvoie des idées de vidéos et des hooks tendance pour
+    une niche donnée. Peut être appelée séparément de l'analyse complète
+    du compte (ex: bouton "Idées tendance" dans l'app), avec le même
+    système de cache 24h par niche pour limiter le coût.
+    """
+    result = await _get_trending_content_ideas(niche)
+    if not result:
+        raise HTTPException(
+            status_code=502,
+            detail="Impossible de récupérer les tendances pour le moment. Réessaie plus tard.",
+        )
+    return JSONResponse(content=result)
+
+
 @app.get("/api/analyze-account", response_class=JSONResponse)
 async def analyze_account(
     session: str,
@@ -968,11 +1148,17 @@ du JSON brut) contenant exactement ces champs, avec du texte en FRANÇAIS :
   "strengths": ["2-3 points forts, CHACUN doit référencer un titre/chiffre précis de ce compte"],
   "improvements": ["2-3 suggestions concrètes et actionnables, CHACUNE justifiée par une comparaison précise entre vidéos de ce compte"],
   "hashtag_diagnosis": "2-3 phrases expliquant si les hashtags actuels aident ou nuisent à la viralité, basé sur les chiffres avec/sans hashtag et la répétition observée",
-  "suggested_hashtags": ["5 hashtags pertinents, sans le symbole #"]
+  "suggested_hashtags": ["5 hashtags pertinents pour cette niche, sans le symbole #"]
 }}
 
 Le contenu de chaque champ doit être rédigé entièrement en français."""
 
+        # Note : la recherche web en direct (pour des hashtags vraiment
+        # "tendance maintenant") a été désactivée pour l'instant, car plus
+        # coûteuse et plus lente. Les hashtags suggérés se basent donc sur
+        # les connaissances générales de Claude, pas sur une recherche en
+        # temps réel. À réactiver plus tard si besoin (voir version
+        # précédente avec le paramètre "tools": [{"type": "web_search_..."}]).
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(
                 "https://api.anthropic.com/v1/messages",
@@ -990,6 +1176,7 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
 
         if response.status_code == 200:
             raw_text = response.json()["content"][0]["text"]
+
             cleaned = raw_text.strip()
             if cleaned.startswith("```"):
                 cleaned = cleaned.strip("`")
@@ -1000,6 +1187,15 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
                 ai_report = json.loads(cleaned)
             except json.JSONDecodeError:
                 ai_report = None
+
+    # 3. Remplace les hashtags génériques par de vrais hashtags tendance
+    # (recherche web mise en cache 24h par niche, cf. _get_trending_hashtags).
+    # Échec silencieux si indisponible : on garde alors les suggestions
+    # génériques déjà produites à l'étape précédente.
+    if ai_report and ai_report.get("niche"):
+        trending = await _get_trending_hashtags(ai_report["niche"])
+        if trending:
+            ai_report["suggested_hashtags"] = trending
 
     return JSONResponse(content={
         "stats": stats,
