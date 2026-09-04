@@ -508,6 +508,9 @@ async def tiktok_callback(request: Request):
                 const strengths = (report.strengths || []).map(s => `<li>${{s}}</li>`).join('');
                 const improvements = (report.improvements || []).map(s => `<li>${{s}}</li>`).join('');
                 const hashtags = (report.suggested_hashtags || []).map(h => `<span class="tag">#${{h}}</span>`).join('');
+                const hashtagDiag = report.hashtag_diagnosis
+                  ? `<p><strong>🏷 Diagnostic hashtags</strong></p><p style="font-size:14px;">${{report.hashtag_diagnosis}}</p>`
+                  : '';
                 html += `
                   <div class="card">
                     <span class="chip">${{report.niche || ''}}</span>
@@ -516,8 +519,13 @@ async def tiktok_callback(request: Request):
                     <ul class="bullets">${{strengths}}</ul>
                     <p><strong>📈 À améliorer</strong></p>
                     <ul class="bullets">${{improvements}}</ul>
+                    ${{hashtagDiag}}
+                    <p><strong>Hashtags suggérés</strong></p>
                     <div>${{hashtags}}</div>
                   </div>`;
+
+                window.__wilNiche = report.niche || '';
+                window.__wilBio = "{bio_enc}";
               }}
 
               if (!html) {{
@@ -525,12 +533,114 @@ async def tiktok_callback(request: Request):
               }}
 
               document.getElementById('analysis-result').innerHTML = html;
+
+              // Affiche les sections "Idées tendance" et "Générer un script"
+              // une fois l'analyse principale terminée (on a besoin de la niche).
+              if (report && report.niche) {{
+                document.getElementById('extra-tools').style.display = 'block';
+              }}
             }})
             .catch(() => {{
               document.getElementById('analysis-loading').innerHTML =
                 '<p class="loading">Analyse indisponible pour le moment.</p>';
             }});
+
+          // --- Idées de vidéos et hooks tendance ---
+          function loadTrendingIdeas() {{
+            const btn = document.getElementById('trending-btn');
+            const result = document.getElementById('trending-result');
+            btn.disabled = true;
+            btn.textContent = 'Recherche en cours...';
+            result.innerHTML = '';
+
+            fetch(`/api/trending-ideas?niche=${{encodeURIComponent(window.__wilNiche || '')}}`)
+              .then(r => r.json())
+              .then(data => {{
+                const ideas = (data.video_ideas || []).map(i => `<li>${{i}}</li>`).join('');
+                const hooks = (data.trending_hooks || []).map(h => `<li>${{h}}</li>`).join('');
+                result.innerHTML = `
+                  <p><strong>💡 Idées de vidéos tendance</strong></p>
+                  <ul class="bullets">${{ideas}}</ul>
+                  <p><strong>🎬 Hooks tendance</strong></p>
+                  <ul class="bullets">${{hooks}}</ul>`;
+              }})
+              .catch(() => {{
+                result.innerHTML = '<p class="loading">Indisponible pour le moment, réessaie plus tard.</p>';
+              }})
+              .finally(() => {{
+                btn.disabled = false;
+                btn.textContent = 'Idées tendance de ma niche';
+              }});
+          }}
+
+          // --- Générateur de script personnalisé ---
+          function generateScript() {{
+            const topic = document.getElementById('script-topic').value.trim();
+            const tone = document.getElementById('script-tone').value.trim();
+            const limits = document.getElementById('script-limits').value.trim();
+            const result = document.getElementById('script-result');
+            const btn = document.getElementById('script-btn');
+
+            if (!topic) {{
+              result.innerHTML = '<p style="color:#c0392b;">Décris le sujet de ta vidéo pour continuer.</p>';
+              return;
+            }}
+
+            btn.disabled = true;
+            btn.textContent = 'Génération...';
+            result.innerHTML = '';
+
+            const params = new URLSearchParams({{
+              topic, tone, limits,
+              niche: window.__wilNiche || '',
+              bio: window.__wilBio || '',
+            }});
+
+            fetch(`/api/generate-script?${{params.toString()}}`)
+              .then(r => r.json())
+              .then(data => {{
+                result.innerHTML = `
+                  <p><strong>🎬 Accroche (0-3s)</strong></p><p>${{data.hook || ''}}</p>
+                  <p><strong>📝 Corps du script</strong></p><p>${{data.body || ''}}</p>
+                  <p><strong>👉 Appel à l'action</strong></p><p>${{data.call_to_action || ''}}</p>
+                  <p><strong>💡 Conseils de tournage</strong></p><p>${{data.notes || ''}}</p>`;
+              }})
+              .catch(() => {{
+                result.innerHTML = '<p style="color:#c0392b;">Erreur lors de la génération. Réessaie.</p>';
+              }})
+              .finally(() => {{
+                btn.disabled = false;
+                btn.textContent = 'Générer le script';
+              }});
+          }}
         </script>
+
+        <div id="extra-tools" style="display:none; max-width:460px; margin:0 auto;">
+          <div class="card">
+            <button id="trending-btn" onclick="loadTrendingIdeas()"
+                    style="width:100%; padding:12px; border-radius:10px; border:1px solid #ddd;
+                           background:#fff; cursor:pointer; font-weight:600;">
+              Idées tendance de ma niche
+            </button>
+            <div id="trending-result" style="margin-top:14px;"></div>
+          </div>
+
+          <div class="card">
+            <p style="font-weight:bold; margin-bottom:10px;">Générer un script personnalisé</p>
+            <textarea id="script-topic" placeholder="Sujet de la vidéo *" rows="2"
+                      style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; margin-bottom:10px; font-family:inherit;"></textarea>
+            <input id="script-tone" placeholder="Ton habituel (optionnel)"
+                   style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; margin-bottom:10px; font-family:inherit;" />
+            <textarea id="script-limits" placeholder="Limites à respecter (optionnel)" rows="2"
+                      style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; margin-bottom:10px; font-family:inherit;"></textarea>
+            <button id="script-btn" onclick="generateScript()"
+                    style="width:100%; padding:12px; border-radius:10px; border:none;
+                           background:#EC4899; color:white; cursor:pointer; font-weight:600;">
+              Générer le script
+            </button>
+            <div id="script-result" style="margin-top:14px; text-align:left;"></div>
+          </div>
+        </div>
       </body>
     </html>
     """
