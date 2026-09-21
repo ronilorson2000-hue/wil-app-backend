@@ -25,6 +25,7 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
+from langdetect import LangDetectException, detect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import (
     FileResponse,
@@ -64,11 +65,58 @@ _sessions: dict[str, dict] = {}
 # Exemple de valeur : "video.list,user.info.stats"
 EXTRA_SCOPES = os.getenv("TIKTOK_EXTRA_SCOPES", "").strip()
 
-# Cache des hashtags tendance par niche (recherche web coûteuse, donc on
-# ne la relance qu'une fois par niche par jour, pas à chaque analyse de
-# compte). Clé = niche en minuscules, valeur = {"hashtags": [...], "cached_at": timestamp}.
+# Cache des hashtags/idées tendance par catégorie de niche + langue
+# (recherche web coûteuse, donc on ne la relance qu'une fois par
+# catégorie+langue par jour, pas à chaque analyse de compte).
+# Clé = "{niche_category}:{lang}", valeur = {"hashtags": [...], "cached_at": timestamp}.
+# On catégorise sur NICHE_CATEGORIES (liste fermée) plutôt que sur le texte
+# libre "niche" généré par Claude, qui varie légèrement à chaque appel et
+# cassait le cache (deux analyses du même compte donnaient rarement
+# exactement la même phrase, donc quasiment jamais de cache hit).
 _trending_hashtags_cache: dict[str, dict] = {}
 TRENDING_CACHE_TTL_SECONDS = 24 * 60 * 60  # 24h
+
+# Liste fermée de catégories de niche. Claude doit choisir EXACTEMENT une
+# valeur de cette liste (en plus du champ "niche" en texte libre, gardé
+# pour l'affichage), pour que la clé de cache des tendances soit stable
+# d'une analyse à l'autre.
+NICHE_CATEGORIES = [
+    "Beauté & Skincare",
+    "Mode & Style",
+    "Fitness & Sport",
+    "Cuisine & Nutrition",
+    "Voyage",
+    "Humour & Divertissement",
+    "Musique & Danse",
+    "Gaming & Tech",
+    "Business & Finance",
+    "Développement personnel",
+    "Éducation & Culture générale",
+    "Lifestyle & Vlog quotidien",
+    "Parentalité & Famille",
+    "Art & Créativité",
+    "Animaux",
+    "Santé & Bien-être",
+    "Autre",
+]
+
+
+def _detect_language(bio: str, titles: list[str]) -> str:
+    """
+    Détecte la langue probable du compte à partir de la bio et des titres
+    de vidéos récentes, pour adapter la langue des hashtags/idées tendance
+    ET pour affiner la clé de cache (une même catégorie de niche a des
+    tendances différentes en français et en anglais, par exemple).
+    Retombe sur "fr" (langue par défaut de l'app) si le texte est trop
+    court pour une détection fiable, ou si langdetect échoue.
+    """
+    text = " ".join([bio] + list(titles)).strip()
+    if len(text) < 10:
+        return "fr"
+    try:
+        return detect(text)
+    except LangDetectException:
+        return "fr"
 
 
 app = FastAPI(title="Wil App Backend", version="0.1.0")
@@ -525,8 +573,10 @@ async def tiktok_callback(request: Request):
                   </div>`;
 
                 window.__wilNiche = report.niche || '';
+                window.__wilNicheCategory = report.niche_category || '';
                 window.__wilBio = "{bio_enc}";
               }}
+              window.__wilLang = data.lang || 'fr';
 
               if (!html) {{
                 html = '<div class="card"><p class="loading">Analyse indisponible pour le moment.</p></div>';
@@ -535,8 +585,9 @@ async def tiktok_callback(request: Request):
               document.getElementById('analysis-result').innerHTML = html;
 
               // Affiche les sections "Idées tendance" et "Générer un script"
-              // une fois l'analyse principale terminée (on a besoin de la niche).
-              if (report && report.niche) {{
+              // une fois l'analyse principale terminée (on a besoin de la
+              // catégorie de niche pour le bouton "Idées tendance").
+              if (report && report.niche_category) {{
                 document.getElementById('extra-tools').style.display = 'block';
               }}
             }})
@@ -553,7 +604,7 @@ async def tiktok_callback(request: Request):
             btn.textContent = 'Recherche en cours...';
             result.innerHTML = '';
 
-            fetch(`/api/trending-ideas?niche=${{encodeURIComponent(window.__wilNiche || '')}}`)
+            fetch(`/api/trending-ideas?niche_category=${{encodeURIComponent(window.__wilNicheCategory || '')}}&lang=${{encodeURIComponent(window.__wilLang || 'fr')}}`)
               .then(r => r.json())
               .then(data => {{
                 const ideas = (data.video_ideas || []).map(i => `<li>${{i}}</li>`).join('');
@@ -923,23 +974,25 @@ def _analyze_hashtag_usage(videos: list[dict]) -> dict:
     }
 
 
-async def _get_trending_hashtags(niche: str) -> list[str] | None:
+async def _get_trending_hashtags(niche_category: str, lang: str) -> list[str] | None:
     """
-    Récupère les hashtags réellement tendance pour une niche donnée, via
-    l'outil de recherche web de Claude. Résultat mis en cache 24h par
-    niche pour limiter le coût et la latence — une recherche par niche
-    par jour maximum, pas une par utilisateur/analyse.
+    Récupère les hashtags réellement tendance pour une catégorie de niche
+    et une langue données, via l'outil de recherche web de Claude.
+    Résultat mis en cache 24h par (catégorie, langue) pour limiter le coût
+    et la latence — une recherche par catégorie+langue par jour maximum,
+    pas une par utilisateur/analyse.
     """
-    if not niche or not ANTHROPIC_API_KEY:
+    if not niche_category or not ANTHROPIC_API_KEY:
         return None
 
-    cache_key = niche.strip().lower()
+    cache_key = f"{niche_category.strip().lower()}:{lang}"
     cached = _trending_hashtags_cache.get(cache_key)
     if cached and (time.time() - cached["cached_at"]) < TRENDING_CACHE_TTL_SECONDS:
         return cached["hashtags"]
 
     prompt = f"""Cherche sur le web les hashtags TikTok réellement tendance
-en ce moment pour la niche suivante : "{niche}".
+en ce moment pour la catégorie de niche suivante : "{niche_category}",
+pour un public dont la langue a le code ISO 639-1 "{lang}".
 
 Réponds UNIQUEMENT avec un objet JSON (pas de markdown, pas de balises de
 code), avec exactement ce champ :
@@ -995,28 +1048,34 @@ code), avec exactement ce champ :
 _trending_ideas_cache: dict[str, dict] = {}
 
 
-async def _get_trending_content_ideas(niche: str) -> dict | None:
+async def _get_trending_content_ideas(niche_category: str, lang: str) -> dict | None:
     """
     Récupère, via recherche web, des idées de vidéos et des types de
-    hooks (accroches) actuellement tendance pour une niche donnée.
-    Résultat mis en cache 24h par niche (même logique que les hashtags
-    tendance), pour limiter le coût des recherches web.
+    hooks (accroches) actuellement tendance pour une catégorie de niche et
+    une langue données. Résultat mis en cache 24h par (catégorie, langue)
+    (même logique que les hashtags tendance), pour limiter le coût des
+    recherches web.
     """
-    if not niche or not ANTHROPIC_API_KEY:
+    if not niche_category or not ANTHROPIC_API_KEY:
         return None
 
-    cache_key = niche.strip().lower()
+    cache_key = f"{niche_category.strip().lower()}:{lang}"
     cached = _trending_ideas_cache.get(cache_key)
     if cached and (time.time() - cached["cached_at"]) < TRENDING_CACHE_TTL_SECONDS:
         return cached["data"]
 
+    lang_instruction = (
+        "RÉDIGÉ EN FRANÇAIS" if lang == "fr"
+        else f'rédigé dans la langue de code ISO 639-1 "{lang}"'
+    )
     prompt = f"""Cherche sur le web les tendances actuelles sur TikTok pour
-la niche suivante : "{niche}" — à la fois en termes de formats/idées de
+la catégorie de niche suivante : "{niche_category}" (public dont la langue
+a le code ISO 639-1 "{lang}") — à la fois en termes de formats/idées de
 vidéos qui marchent bien en ce moment, et de types d'accroches (hooks)
 efficaces actuellement.
 
 Réponds UNIQUEMENT avec un objet JSON (pas de markdown, pas de balises de
-code), rédigé en FRANÇAIS, avec exactement ces champs :
+code), {lang_instruction}, avec exactement ces champs :
 {{
   "video_ideas": ["4-5 idées de vidéos concrètes et actuelles pour cette niche"],
   "trending_hooks": ["3-4 types d'accroches (hooks) qui fonctionnent bien en ce moment, avec un exemple concret de phrase pour chacune"]
@@ -1066,14 +1125,17 @@ code), rédigé en FRANÇAIS, avec exactement ces champs :
 
 
 @app.get("/api/trending-ideas", response_class=JSONResponse)
-async def trending_ideas(niche: str):
+async def trending_ideas(niche_category: str, lang: str = "fr"):
     """
     Route dédiée : renvoie des idées de vidéos et des hooks tendance pour
-    une niche donnée. Peut être appelée séparément de l'analyse complète
-    du compte (ex: bouton "Idées tendance" dans l'app), avec le même
-    système de cache 24h par niche pour limiter le coût.
+    une catégorie de niche et une langue données. Peut être appelée
+    séparément de l'analyse complète du compte (ex: bouton "Idées
+    tendance" dans l'app), avec le même système de cache 24h par
+    catégorie+langue pour limiter le coût.
     """
-    result = await _get_trending_content_ideas(niche)
+    if niche_category not in NICHE_CATEGORIES:
+        niche_category = "Autre"
+    result = await _get_trending_content_ideas(niche_category, lang)
     if not result:
         raise HTTPException(
             status_code=502,
@@ -1254,6 +1316,7 @@ Réponds avec un objet JSON (pas de markdown, pas de balises de code, juste
 du JSON brut) contenant exactement ces champs, avec du texte en FRANÇAIS :
 {{
   "niche": "une courte phrase décrivant la niche de contenu probable",
+  "niche_category": "choisis EXACTEMENT une valeur parmi cette liste fermée, recopiée telle quelle (aucune autre valeur autorisée) : {json.dumps(NICHE_CATEGORIES, ensure_ascii=False)}",
   "summary": "résumé honnête de 3-4 phrases, citant au moins un chiffre ou titre concret",
   "strengths": ["2-3 points forts, CHACUN doit référencer un titre/chiffre précis de ce compte"],
   "improvements": ["2-3 suggestions concrètes et actionnables, CHACUNE justifiée par une comparaison précise entre vidéos de ce compte"],
@@ -1298,18 +1361,34 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
             except json.JSONDecodeError:
                 ai_report = None
 
+            # Claude doit choisir dans la liste fermée NICHE_CATEGORIES, mais
+            # on ne lui fait pas confiance aveuglément (variation de formulation,
+            # accents, etc.) : toute valeur hors liste retombe sur "Autre" pour
+            # que la clé de cache des tendances reste stable.
+            if ai_report and ai_report.get("niche_category") not in NICHE_CATEGORIES:
+                ai_report["niche_category"] = "Autre"
+
+    # Langue du compte, détectée depuis la bio + les titres de vidéos
+    # récentes (fallback "fr" si texte trop court). Sert à affiner la clé
+    # de cache des tendances (une même catégorie de niche a des tendances
+    # différentes selon la langue) et à répondre dans la bonne langue.
+    video_titles = [v["title"] for v in stats["videos"]] if stats and stats.get("videos") else []
+    lang = _detect_language(bio, video_titles)
+
     # 3. Remplace les hashtags génériques par de vrais hashtags tendance
-    # (recherche web mise en cache 24h par niche, cf. _get_trending_hashtags).
-    # Échec silencieux si indisponible : on garde alors les suggestions
-    # génériques déjà produites à l'étape précédente.
-    if ai_report and ai_report.get("niche"):
-        trending = await _get_trending_hashtags(ai_report["niche"])
+    # (recherche web mise en cache 24h par catégorie de niche + langue,
+    # cf. _get_trending_hashtags). Échec silencieux si indisponible : on
+    # garde alors les suggestions génériques déjà produites à l'étape
+    # précédente.
+    if ai_report and ai_report.get("niche_category"):
+        trending = await _get_trending_hashtags(ai_report["niche_category"], lang)
         if trending:
             ai_report["suggested_hashtags"] = trending
 
     return JSONResponse(content={
         "stats": stats,
         "ai_report": ai_report,
+        "lang": lang,
     })
 
 
