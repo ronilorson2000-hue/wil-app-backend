@@ -38,4 +38,28 @@ pattern vérifiable, débouche sur une action précise.
 CADRE POUR LES SUGGESTIONS D'AMÉLIORATION
 Chaque suggestion doit répondre implicitement à : "pourquoi CE compte,
 pourquoi MAINTENANT, basé sur QUELLE preuve ?" — pas un conseil
-générique de manuel marketing."""
+générique de manuel marketing.
+
+EXEMPLE DE DIAGNOSTIC HASHTAGS FAIBLE (à ne jamais produire)
+"Tes hashtags sont corrects mais tu pourrais en utiliser des plus
+pertinents et varier davantage pour toucher une audience plus large."
+-> Problème : aucun chiffre, aucun hashtag nommé, s'applique à
+n'importe quel compte.
+
+EXEMPLE DE DIAGNOSTIC HASHTAGS FORT (niveau attendu)
+"#fitmotivation apparaît sur 9 de tes 10 dernières vidéos (répétition
+excessive) et son engagement moyen associé n'est que de 2.1%, contre
+6.8% sur le reste du compte — ce hashtag ne t'aide pas, il te dessert
+probablement en signalant du contenu répétitif à l'algorithme."
+-> Pourquoi c'est fort : nomme le hashtag, donne les deux chiffres
+comparés, explique le mécanisme plutôt que d'juste constater.
+
+CAS D'UN COMPTE AVEC PEU DE DONNÉES
+Si le compte a peu de vidéos ou que les corrélations fournies sont
+absentes/non significatives, ne comble JAMAIS ce vide avec un conseil
+générique. Dis-le explicitement, par exemple : "Avec seulement 4 vidéos
+publiées, pas assez de données pour identifier un vrai pattern de
+performance — le prochain palier utile est surtout de publier
+régulièrement pour commencer à avoir un historique comparable."
+-> Une analyse honnête sur peu de données vaut mieux qu'une analyse qui
+fait semblant d'avoir trouvé un pattern qui n'existe pas."""

@@ -20,6 +20,7 @@ import re
 import secrets
 import time
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -35,6 +36,7 @@ from fastapi.responses import (
     RedirectResponse,
 )
 
+from app.db import get_supabase
 from app.style_guide import STYLE_GUIDE
 
 # Charge les variables du fichier .env (clés TikTok, redirect URI, etc.)
@@ -54,9 +56,65 @@ _pending_states: set[str] = set()
 # Stocke temporairement les access_token après connexion, associés à un
 # identifiant de session aléatoire. On ne transmet jamais l'access_token
 # brut à l'app/au navigateur : seulement cet identifiant, plus sûr.
-# ATTENTION : stockage en mémoire uniquement (perdu si le serveur redémarre) —
-# suffisant pour le MVP, à remplacer par une vraie base de données plus tard.
+# Repli en mémoire (perdu si le serveur redémarre) tant que Supabase n'est
+# pas configuré (SUPABASE_URL/SUPABASE_KEY absents) — voir _store_session
+# et _get_session, qui basculent automatiquement sur Supabase quand c'est
+# disponible.
 _sessions: dict[str, dict] = {}
+
+
+def _store_session(session_id: str, access_token: str, open_id: str) -> None:
+    supabase = get_supabase()
+    if supabase:
+        supabase.table("sessions").insert({
+            "session_id": session_id,
+            "access_token": access_token,
+            "open_id": open_id,
+        }).execute()
+    else:
+        _sessions[session_id] = {"access_token": access_token, "open_id": open_id}
+
+
+def _get_session(session_id: str) -> dict | None:
+    supabase = get_supabase()
+    if supabase:
+        res = supabase.table("sessions").select("*").eq("session_id", session_id).limit(1).execute()
+        return res.data[0] if res.data else None
+    return _sessions.get(session_id)
+
+
+def _save_account_snapshot(
+    open_id: str,
+    username: str,
+    niche_category: str | None,
+    lang: str,
+    stats: dict,
+) -> None:
+    """
+    Enregistre un snapshot des stats du compte à l'instant de cette
+    analyse (une ligne par analyse), pour construire un historique dans le
+    temps — nécessaire pour le futur diagnostic de plateau et le rapport
+    de progression mensuel. Sans effet si Supabase n'est pas configuré
+    (pas de repli en mémoire : un historique volatile n'a aucune valeur).
+    Échec silencieux : ne doit jamais faire échouer l'analyse elle-même.
+    """
+    supabase = get_supabase()
+    if not supabase:
+        return
+    try:
+        supabase.table("account_snapshots").insert({
+            "open_id": open_id,
+            "username": username,
+            "niche_category": niche_category,
+            "lang": lang,
+            "total_videos_analyzed": stats.get("total_videos_analyzed"),
+            "average_engagement_rate": stats.get("average_engagement_rate"),
+            "viral_percentage": stats.get("viral_percentage"),
+            "viral_count": stats.get("viral_count"),
+            "non_viral_count": stats.get("non_viral_count"),
+        }).execute()
+    except Exception:
+        pass
 
 # Liste de scopes supplémentaires à demander, en plus des scopes de base
 # déjà approuvés en Production. Configurable via variable d'environnement
@@ -416,15 +474,10 @@ async def tiktok_callback(request: Request):
 
     access_token = token_data["access_token"]
 
-    # On génère un identifiant de session aléatoire, associé à
-    # l'access_token côté serveur. On ne transmettra JAMAIS l'access_token
-    # brut à l'app ou au navigateur : seulement cet identifiant, qui sert
-    # ensuite de "clé" pour les appels comme /api/videos.
-    session_id = secrets.token_urlsafe(24)
-    _sessions[session_id] = {"access_token": access_token}
-
     # Avec l'access_token en main, on peut maintenant appeler l'API
-    # TikTok pour récupérer les infos de profil de l'utilisateur.
+    # TikTok pour récupérer les infos de profil de l'utilisateur (dont
+    # open_id, nécessaire pour identifier ce compte de façon stable dans
+    # le temps — utilisé notamment par account_snapshots).
     async with httpx.AsyncClient() as client:
         user_response = await client.get(
             "https://open.tiktokapis.com/v2/user/info/",
@@ -437,12 +490,20 @@ async def tiktok_callback(request: Request):
     user_data = user_response.json()
 
     user_info = user_data.get("data", {}).get("user", {})
+    open_id = user_info.get("open_id", "")
     display_name = user_info.get("display_name", "TikTok User")
     avatar_url = user_info.get("avatar_url", "")
     username = user_info.get("username", "")
     bio = user_info.get("bio_description", "")
     profile_link = user_info.get("profile_web_link", "")
     is_verified = user_info.get("is_verified", False)
+
+    # On génère un identifiant de session aléatoire, associé à
+    # l'access_token côté serveur. On ne transmettra JAMAIS l'access_token
+    # brut à l'app ou au navigateur : seulement cet identifiant, qui sert
+    # ensuite de "clé" pour les appels comme /api/analyze-account.
+    session_id = secrets.token_urlsafe(24)
+    _store_session(session_id, access_token, open_id)
 
     # Si la connexion a été initiée depuis l'app mobile (state préfixé par
     # "app_"), on redirige vers le deep link "wilapp://callback" avec les
@@ -822,7 +883,7 @@ async def _fetch_all_videos(client: httpx.AsyncClient, access_token: str) -> lis
         response = await client.post(
             "https://open.tiktokapis.com/v2/video/list/",
             params={
-                "fields": "id,title,cover_image_url,create_time,"
+                "fields": "id,title,cover_image_url,create_time,duration,"
                           "like_count,comment_count,share_count,view_count"
             },
             headers={
@@ -861,6 +922,7 @@ def _compute_engagement(video: dict) -> dict:
         "title": video.get("title", ""),
         "cover_image_url": video.get("cover_image_url", ""),
         "create_time": video.get("create_time"),
+        "duration": video.get("duration"),
         "view_count": views,
         "like_count": likes,
         "comment_count": comments,
@@ -926,52 +988,126 @@ def _analyze_hashtags(videos: list[dict]) -> dict:
     }
 
 
-import re
-from collections import Counter
+def _avg_engagement(videos: list[dict]) -> float | None:
+    return round(sum(v["engagement_rate"] for v in videos) / len(videos), 2) if videos else None
 
 
-def _extract_hashtags(title: str) -> list[str]:
-    """Extrait les hashtags (#mot) d'un titre/légende de vidéo."""
-    return re.findall(r"#(\w+)", title or "", flags=re.UNICODE)
-
-
-def _analyze_hashtag_usage(videos: list[dict]) -> dict:
+def _analyze_content_patterns(videos: list[dict]) -> dict:
     """
-    Analyse l'usage des hashtags sur l'ensemble des vidéos :
-    - fréquence de chaque hashtag
-    - répétition excessive (même hashtag sur presque toutes les vidéos)
-    - présence ou absence quasi-totale de hashtags
-    - engagement moyen des vidéos AVEC hashtags vs SANS hashtags
+    Calcule des corrélations précises entre des caractéristiques du titre/
+    format des vidéos et leur engagement, pour donner à l'IA de vrais
+    signaux chiffrés plutôt que de la laisser "deviner" un pattern en
+    lisant une liste de titres. Chaque signal n'est renvoyé que s'il y a
+    au moins 2 vidéos de chaque côté de la comparaison (sinon trop peu de
+    données pour être fiable, et on préfère ne rien affirmer).
     """
-    total = len(videos)
-    all_tags: list[str] = []
-    videos_with_tags = 0
-    engagement_with = []
-    engagement_without = []
+    signals = {}
 
+    with_question = [v for v in videos if "?" in (v.get("title") or "")]
+    without_question = [v for v in videos if "?" not in (v.get("title") or "")]
+    if len(with_question) >= 2 and len(without_question) >= 2:
+        signals["question_in_title"] = {
+            "avg_engagement_with": _avg_engagement(with_question),
+            "avg_engagement_without": _avg_engagement(without_question),
+            "count_with": len(with_question),
+            "count_without": len(without_question),
+        }
+
+    with_digit = [v for v in videos if any(c.isdigit() for c in (v.get("title") or ""))]
+    without_digit = [v for v in videos if not any(c.isdigit() for c in (v.get("title") or ""))]
+    if len(with_digit) >= 2 and len(without_digit) >= 2:
+        signals["digit_in_title"] = {
+            "avg_engagement_with": _avg_engagement(with_digit),
+            "avg_engagement_without": _avg_engagement(without_digit),
+            "count_with": len(with_digit),
+            "count_without": len(without_digit),
+        }
+
+    durations = [v["duration"] for v in videos if v.get("duration")]
+    if len(durations) >= 4:
+        median_duration = sorted(durations)[len(durations) // 2]
+        short_videos = [v for v in videos if v.get("duration") and v["duration"] <= median_duration]
+        long_videos = [v for v in videos if v.get("duration") and v["duration"] > median_duration]
+        if len(short_videos) >= 2 and len(long_videos) >= 2:
+            signals["video_duration"] = {
+                "median_duration_seconds": median_duration,
+                "avg_engagement_short": _avg_engagement(short_videos),
+                "avg_engagement_long": _avg_engagement(long_videos),
+                "count_short": len(short_videos),
+                "count_long": len(long_videos),
+            }
+
+    # Créneau de publication (heure UTC — pas forcément l'heure locale du
+    # créateur, à préciser si on affiche ce signal : c'est une tendance,
+    # pas un horaire exact à respecter).
+    buckets = {"nuit (0h-6h UTC)": [], "matin (6h-12h UTC)": [], "après-midi (12h-18h UTC)": [], "soir (18h-24h UTC)": []}
     for v in videos:
-        tags = _extract_hashtags(v.get("title", ""))
-        all_tags.extend(tags)
-        if tags:
-            videos_with_tags += 1
-            engagement_with.append(v["engagement_rate"])
+        if not v.get("create_time"):
+            continue
+        hour = time.gmtime(v["create_time"]).tm_hour
+        if hour < 6:
+            buckets["nuit (0h-6h UTC)"].append(v)
+        elif hour < 12:
+            buckets["matin (6h-12h UTC)"].append(v)
+        elif hour < 18:
+            buckets["après-midi (12h-18h UTC)"].append(v)
         else:
-            engagement_without.append(v["engagement_rate"])
+            buckets["soir (18h-24h UTC)"].append(v)
+    populated_buckets = {k: v for k, v in buckets.items() if len(v) >= 2}
+    if len(populated_buckets) >= 2:
+        signals["posting_time"] = {
+            label: {"avg_engagement": _avg_engagement(vids), "count": len(vids)}
+            for label, vids in populated_buckets.items()
+        }
 
-    tag_counts = Counter(t.lower() for t in all_tags)
-    most_common = tag_counts.most_common(8)
+    return signals
 
-    avg_with = round(sum(engagement_with) / len(engagement_with), 2) if engagement_with else None
-    avg_without = round(sum(engagement_without) / len(engagement_without), 2) if engagement_without else None
 
-    return {
-        "videos_with_hashtags": videos_with_tags,
-        "videos_without_hashtags": total - videos_with_tags,
-        "most_used_hashtags": most_common,  # [(tag, count), ...]
-        "avg_engagement_with_hashtags": avg_with,
-        "avg_engagement_without_hashtags": avg_without,
-        "total_distinct_hashtags": len(tag_counts),
-    }
+def _cache_get(cache_type: str, cache_key: str) -> dict | list | None:
+    """
+    Lit le cache tendances (hashtags ou idées) depuis Supabase si
+    configuré, sinon depuis les dicts en mémoire (repli local). Renvoie
+    None si absent ou expiré (TTL 24h, TRENDING_CACHE_TTL_SECONDS).
+    """
+    supabase = get_supabase()
+    if supabase:
+        res = (
+            supabase.table("trending_cache")
+            .select("data,cached_at")
+            .eq("cache_key", cache_key)
+            .eq("cache_type", cache_type)
+            .limit(1)
+            .execute()
+        )
+        if not res.data:
+            return None
+        row = res.data[0]
+        cached_at = datetime.fromisoformat(row["cached_at"]).timestamp()
+        if (time.time() - cached_at) < TRENDING_CACHE_TTL_SECONDS:
+            return row["data"]
+        return None
+
+    store = _trending_hashtags_cache if cache_type == "hashtags" else _trending_ideas_cache
+    cached = store.get(cache_key)
+    if cached and (time.time() - cached["cached_at"]) < TRENDING_CACHE_TTL_SECONDS:
+        return cached["hashtags"] if cache_type == "hashtags" else cached["data"]
+    return None
+
+
+def _cache_set(cache_type: str, cache_key: str, data: dict | list) -> None:
+    """Écrit dans le cache tendances (Supabase si configuré, sinon en mémoire)."""
+    supabase = get_supabase()
+    if supabase:
+        supabase.table("trending_cache").upsert({
+            "cache_key": cache_key,
+            "cache_type": cache_type,
+            "data": data,
+            "cached_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    elif cache_type == "hashtags":
+        _trending_hashtags_cache[cache_key] = {"hashtags": data, "cached_at": time.time()}
+    else:
+        _trending_ideas_cache[cache_key] = {"data": data, "cached_at": time.time()}
 
 
 async def _get_trending_hashtags(niche_category: str, lang: str) -> list[str] | None:
@@ -986,9 +1122,9 @@ async def _get_trending_hashtags(niche_category: str, lang: str) -> list[str] | 
         return None
 
     cache_key = f"{niche_category.strip().lower()}:{lang}"
-    cached = _trending_hashtags_cache.get(cache_key)
-    if cached and (time.time() - cached["cached_at"]) < TRENDING_CACHE_TTL_SECONDS:
-        return cached["hashtags"]
+    cached = _cache_get("hashtags", cache_key)
+    if cached:
+        return cached
 
     prompt = f"""Cherche sur le web les hashtags TikTok réellement tendance
 en ce moment pour la catégorie de niche suivante : "{niche_category}",
@@ -1036,7 +1172,7 @@ code), avec exactement ce champ :
         if not hashtags:
             return None
 
-        _trending_hashtags_cache[cache_key] = {"hashtags": hashtags, "cached_at": time.time()}
+        _cache_set("hashtags", cache_key, hashtags)
         return hashtags
     except Exception:
         # En cas d'échec (timeout, réponse invalide...), on ne casse pas
@@ -1060,9 +1196,9 @@ async def _get_trending_content_ideas(niche_category: str, lang: str) -> dict | 
         return None
 
     cache_key = f"{niche_category.strip().lower()}:{lang}"
-    cached = _trending_ideas_cache.get(cache_key)
-    if cached and (time.time() - cached["cached_at"]) < TRENDING_CACHE_TTL_SECONDS:
-        return cached["data"]
+    cached = _cache_get("ideas", cache_key)
+    if cached:
+        return cached
 
     lang_instruction = (
         "RÉDIGÉ EN FRANÇAIS" if lang == "fr"
@@ -1118,7 +1254,7 @@ code), {lang_instruction}, avec exactement ces champs :
         if not parsed.get("video_ideas") and not parsed.get("trending_hooks"):
             return None
 
-        _trending_ideas_cache[cache_key] = {"data": parsed, "cached_at": time.time()}
+        _cache_set("ideas", cache_key, parsed)
         return parsed
     except Exception:
         return None
@@ -1161,13 +1297,14 @@ async def analyze_account(
     reçu par l'app après la connexion (le vrai access_token reste côté
     serveur, jamais transmis au client).
     """
-    session_data = _sessions.get(session)
+    session_data = _get_session(session)
     if not session_data:
         raise HTTPException(
             status_code=401,
             detail="Session invalide ou expirée. Reconnecte-toi avec TikTok.",
         )
     access_token = session_data["access_token"]
+    open_id = session_data["open_id"]
 
     # 1. Récupération de toutes les vidéos + calcul des statistiques.
     # Si le scope "video.list" n'est pas encore approuvé côté TikTok
@@ -1252,20 +1389,67 @@ async def analyze_account(
                     f'{worst["engagement_rate"]}% engagement'
                 )
 
-            # Analyse des hashtags : répétition, présence, impact sur l'engagement
-            hashtag_stats = _analyze_hashtag_usage(videos)
+            # Analyse des hashtags : répétition, sur-utilisation, hashtags
+            # qui sous-performent par rapport à la moyenne du compte.
+            hashtag_stats = _analyze_hashtags(videos)
             top_tags_text = ", ".join(
-                f"#{tag} ({count} vidéos)" for tag, count in hashtag_stats["most_used_hashtags"]
+                f"#{t['tag']} ({t['count']} vidéos)" for t in hashtag_stats["most_used_hashtags"]
             ) or "aucun hashtag détecté sur ces vidéos"
+            overused_text = (
+                ", ".join(f"#{t}" for t in hashtag_stats["overused_hashtags"])
+                or "aucun"
+            )
+            underperforming_text = (
+                ", ".join(f"#{t}" for t in hashtag_stats["underperforming_hashtags"])
+                or "aucun détecté"
+            )
 
             hashtag_block = f"""
 Analyse des hashtags utilisés :
-- Vidéos avec au moins un hashtag : {hashtag_stats['videos_with_hashtags']}/{len(videos)}
-- Vidéos sans aucun hashtag : {hashtag_stats['videos_without_hashtags']}/{len(videos)}
-- Nombre de hashtags différents utilisés au total : {hashtag_stats['total_distinct_hashtags']}
+- Vidéos sans aucun hashtag : {hashtag_stats['videos_without_hashtags']}/{len(videos)} ({hashtag_stats['videos_without_hashtags_pct']}%)
+- Nombre de hashtags différents utilisés au total : {hashtag_stats['unique_hashtags_count']}
 - Hashtags les plus utilisés : {top_tags_text}
-- Engagement moyen des vidéos AVEC hashtag(s) : {hashtag_stats['avg_engagement_with_hashtags']}%
-- Engagement moyen des vidéos SANS hashtag : {hashtag_stats['avg_engagement_without_hashtags']}%"""
+- Hashtags SUR-UTILISÉS (présents sur ≥70% des vidéos, signe de copié-collé sans réflexion) : {overused_text}
+- Hashtags SOUS-PERFORMANTS (engagement moyen ≤50% de la moyenne du compte quand ils sont utilisés) : {underperforming_text}"""
+
+            # Corrélations précises titre/format/horaire ↔ engagement,
+            # calculées en Python (pas laissées à l'appréciation du modèle)
+            # pour forcer des affirmations vérifiables plutôt que du ressenti.
+            content_patterns = _analyze_content_patterns(videos)
+            pattern_lines = []
+            if "question_in_title" in content_patterns:
+                p = content_patterns["question_in_title"]
+                pattern_lines.append(
+                    f"- Titres avec un '?' : {p['avg_engagement_with']}% d'engagement moyen "
+                    f"({p['count_with']} vidéos) vs {p['avg_engagement_without']}% sans '?' "
+                    f"({p['count_without']} vidéos)"
+                )
+            if "digit_in_title" in content_patterns:
+                p = content_patterns["digit_in_title"]
+                pattern_lines.append(
+                    f"- Titres avec un chiffre : {p['avg_engagement_with']}% d'engagement moyen "
+                    f"({p['count_with']} vidéos) vs {p['avg_engagement_without']}% sans chiffre "
+                    f"({p['count_without']} vidéos)"
+                )
+            if "video_duration" in content_patterns:
+                p = content_patterns["video_duration"]
+                pattern_lines.append(
+                    f"- Vidéos courtes (≤{p['median_duration_seconds']}s) : {p['avg_engagement_short']}% "
+                    f"d'engagement moyen ({p['count_short']} vidéos) vs vidéos longues : "
+                    f"{p['avg_engagement_long']}% ({p['count_long']} vidéos)"
+                )
+            if "posting_time" in content_patterns:
+                for label, p in content_patterns["posting_time"].items():
+                    pattern_lines.append(
+                        f"- Publié le {label} : {p['avg_engagement']}% d'engagement moyen ({p['count']} vidéos)"
+                    )
+            content_pattern_block = (
+                "\nCorrélations calculées entre format/titre/horaire et engagement "
+                "(chiffres réels, pas une estimation) :\n" + "\n".join(pattern_lines)
+                if pattern_lines else
+                "\nPas assez de vidéos pour calculer des corrélations fiables "
+                "titre/format/horaire ↔ engagement — ne pas en inventer."
+            )
 
             performance_block = f"""
 Données de performance (chiffres réels de son compte) :
@@ -1276,6 +1460,7 @@ Données de performance (chiffres réels de son compte) :
 - Vidéos en dessous de 10 000 vues : {stats['non_viral_count']} ({stats['non_viral_percentage']}%)
 {best_worst_text}
 {hashtag_block}
+{content_pattern_block}
 
 Titres des vidéos récentes, avec leurs stats individuelles (utilise-les
 pour repérer de VRAIS patterns concrets — sujets récurrents, mots dans
@@ -1299,18 +1484,24 @@ Profil :
 {performance_block}
 
 MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
-1. Repère au moins 2 patterns CONCRETS en comparant les titres/stats des
-   vidéos entre elles (pas des généralités sur TikTok en général).
-2. Chaque point fort et chaque amélioration doit citer un élément
+1. PRIORITÉ ABSOLUE : utilise les corrélations déjà calculées ci-dessus
+   (section "Corrélations calculées...") — ce sont de vrais chiffres, pas
+   une estimation. Si un signal montre un écart net (ex: +15 points
+   d'engagement avec un point d'interrogation dans le titre), cite-le
+   explicitement avec les deux chiffres comparés. N'ignore jamais un signal
+   disponible pour dire quelque chose de plus vague à la place.
+2. Complète avec au moins 1 pattern supplémentaire trouvé toi-même en
+   comparant les titres/stats des vidéos entre elles (pas des généralités
+   sur TikTok en général).
+3. Chaque point fort et chaque amélioration doit citer un élément
    spécifique de CE compte (un titre, un chiffre, une comparaison) —
    jamais un conseil qui pourrait s'appliquer à n'importe quel compte.
-3. Pour le diagnostic hashtags : compare l'engagement moyen avec/sans
-   hashtag, regarde si les mêmes hashtags reviennent sur toutes les
-   vidéos (répétition excessive = mauvais signal), et détermine si les
-   hashtags semblent être un frein à la viralité ou non — base-toi
-   UNIQUEMENT sur les chiffres fournis, ne suppose rien d'autre.
-4. Si tu ne repères pas de pattern clair par manque de données, dis-le
-   honnêtement plutôt que d'inventer un conseil générique.
+4. Pour le diagnostic hashtags : utilise en priorité les hashtags
+   SUR-UTILISÉS et SOUS-PERFORMANTS déjà identifiés ci-dessus plutôt que de
+   re-analyser toi-même — base-toi UNIQUEMENT sur les chiffres fournis, ne
+   suppose rien d'autre.
+5. Si aucun signal ni pattern clair n'est disponible par manque de données,
+   dis-le honnêtement plutôt que d'inventer un conseil générique.
 
 Réponds avec un objet JSON (pas de markdown, pas de balises de code, juste
 du JSON brut) contenant exactement ces champs, avec du texte en FRANÇAIS :
@@ -1384,6 +1575,13 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
         trending = await _get_trending_hashtags(ai_report["niche_category"], lang)
         if trending:
             ai_report["suggested_hashtags"] = trending
+
+    # 4. Snapshot pour l'historique (diagnostic de plateau, rapport mensuel).
+    # Uniquement si on a de vraies stats vidéo — un snapshot sans métriques
+    # n'a pas de valeur pour un suivi dans le temps.
+    if stats:
+        niche_category = ai_report.get("niche_category") if ai_report else None
+        _save_account_snapshot(open_id, username, niche_category, lang, stats)
 
     return JSONResponse(content={
         "stats": stats,
