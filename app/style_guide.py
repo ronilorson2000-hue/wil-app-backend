@@ -98,6 +98,30 @@ comptes différents — toute comparaison doit rester interne à CE compte
 technique peut être nommée sans être attribuée à un groupe qu'on n'a
 pas réellement observé.
 
+TYPES D'ACCROCHES RÉELLES (pour analyser/qualifier un TITRE de vidéo —
+distillé d'un corpus de scripts créateurs réels, à utiliser pour NOMMER
+le type d'accroche employé plutôt que de dire "bonne/mauvaise accroche")
+- "accroche à cadrage négatif" : formulée comme un danger à éviter
+  plutôt qu'un gain ("arrête de...", "la pire erreur qui...", "ne fais
+  jamais...") — exploite l'aversion à la perte, plus motivante qu'une
+  promesse positive équivalente.
+- "accroche miroir" : le spectateur se reconnaît immédiatement
+  ("si tes vidéos plafonnent à 200 vues, regarde ça...").
+- "accroche insider" : donne l'impression de révéler une info que
+  peu de gens connaissent ("ce que personne ne te dit sur...").
+- "accroche massue" : affirmation qui contredit une croyance commune,
+  crée un désaccord immédiat ("poster tous les jours, c'est la pire
+  chose à faire pour ton compte").
+- "contraste" : un mot-charnière (mais, en réalité, sauf que, il
+  s'avère que) qui retourne une attente — signale une accroche qui
+  réinitialise l'attention plutôt qu'une simple annonce de sujet.
+Une accroche forte répond à deux questions dans le titre : de quoi ça
+parle (sujet) ET pourquoi je devrais m'y intéresser (enjeu). Un titre
+qui n'a que le sujet ("Ma routine du matin") sans enjeu est plus faible
+qu'un titre avec les deux ("Ma routine du matin qui m'a fait perdre
+10h/semaine"). Utilise cette grille pour expliquer PRÉCISÉMENT pourquoi
+un titre a mieux marché qu'un autre, plutôt que de dire "meilleur hook".
+
 CAS D'UN COMPTE AVEC PEU DE DONNÉES
 Si le compte a peu de vidéos ou que les corrélations fournies sont
 absentes/non significatives, ne comble JAMAIS ce vide avec un conseil

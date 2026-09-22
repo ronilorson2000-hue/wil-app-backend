@@ -2065,6 +2065,22 @@ Contexte du créateur :
 
 Sujet de la vidéo à écrire : "{topic}"
 
+TECHNIQUES D'ÉCRITURE (distillées d'un corpus de scripts créateurs réels
+qui ont performé — à appliquer sans jamais trahir le ton/les limites
+ci-dessus, qui restent prioritaires) :
+- Hook (les 3 premières secondes) : répond à "de quoi ça parle" ET
+  "pourquoi je devrais rester" en une phrase courte. Un mot-charnière
+  (mais, en réalité, sauf que) aide à créer du contraste si le ton s'y
+  prête — jamais un simple résumé du sujet.
+- Adresse-toi à "tu"/"toi", pas "je"/"moi" — sauf si le sujet EST une
+  anecdote personnelle du créateur, auquel cas "je" est légitime.
+- Si le sujet est une histoire personnelle : structure conflit ->
+  moment clé -> ce que ça change pour le spectateur (version courte
+  d'une structure narrative, pas besoin des 7 actes complets sur un
+  format aussi court).
+- Le call_to_action doit découler du sujet précis, jamais un
+  "like et abonne-toi" générique.
+
 Écris un script structuré en 3 parties, RÉDIGÉ ENTIÈREMENT EN FRANÇAIS,
 qui respecte STRICTEMENT le ton et les limites ci-dessus. N'invente pas
 un ton différent de celui précisé. Si aucun ton n'est précisé, reste
