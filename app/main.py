@@ -1184,6 +1184,40 @@ def _analyze_content_patterns(videos: list[dict]) -> dict:
     return signals
 
 
+def _analyze_recency(videos: list[dict]) -> dict | None:
+    """
+    Compare la performance des vidéos les plus récentes à la meilleure
+    vidéo du compte et à la moyenne générale, pour détecter un signal de
+    plateau directement dans UNE analyse — sans attendre plusieurs
+    semaines d'historique account_snapshots. `videos` doit déjà être
+    trié par date décroissante (le plus récent en premier, cf. le tri
+    dans analyze_account).
+
+    Sert à produire le type d'observation "tes vidéos récentes plafonnent
+    à X vues alors que ta meilleure a fait Y" — un signal réel sur CE
+    compte, pas une comparaison inventée à d'autres comptes.
+    """
+    if len(videos) < 5:
+        return None
+    recent = videos[:5]
+    recent_avg_views = round(sum(v["view_count"] for v in recent) / len(recent))
+    overall_avg_views = round(sum(v["view_count"] for v in videos) / len(videos))
+    best_views = max(v["view_count"] for v in videos)
+    if overall_avg_views == 0 or best_views == 0:
+        return None
+    return {
+        "recent_avg_views": recent_avg_views,
+        "recent_count": len(recent),
+        "overall_avg_views": overall_avg_views,
+        "best_views": best_views,
+        # Signal de plateau seulement si les vidéos récentes sont
+        # nettement en dessous de la moyenne générale (pas juste du bruit
+        # statistique normal) — évite de crier au plateau sur une simple
+        # fluctuation.
+        "is_plateau": recent_avg_views < overall_avg_views * 0.6,
+    }
+
+
 def _niche_cache_key(niche_category: str, lang: str) -> str:
     return f"{niche_category.strip().lower()}:{lang}"
 
@@ -1542,6 +1576,27 @@ async def analyze_account(
                 "élevé — la vraie réussite ici, c'est le nombre de vues."
             )
 
+            # Signal de plateau récent : compare les vidéos les plus
+            # récentes à la meilleure vidéo et à la moyenne du compte —
+            # permet de détecter et nommer un plateau dès cette analyse,
+            # sans attendre l'historique long terme.
+            recency = _analyze_recency(videos)
+            if recency:
+                best_worst_text += (
+                    f"\n\nSignal de récence : les {recency['recent_count']} vidéos "
+                    f"les plus récentes font {recency['recent_avg_views']} vues en "
+                    f"moyenne, contre {recency['overall_avg_views']} sur l'ensemble "
+                    f"du compte et {recency['best_views']} pour la meilleure vidéo "
+                    f"jamais postée."
+                    + (
+                        " C'est un vrai plateau (nettement en dessous de la "
+                        "moyenne du compte) — nomme-le explicitement si tu "
+                        "l'utilises dans le résumé ou les améliorations."
+                        if recency["is_plateau"] else
+                        " Pas d'écart flagrant, ne pas parler de 'plateau' ici."
+                    )
+                )
+
             # Analyse des hashtags : répétition, sur-utilisation, hashtags
             # qui sous-performent par rapport à la moyenne du compte.
             hashtag_stats = _analyze_hashtags(videos)
@@ -1651,18 +1706,40 @@ MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
    disponible pour dire quelque chose de plus vague à la place. Ne parle
    JAMAIS du taux d'engagement (%) comme mesure de succès d'une vidéo —
    utilise les VUES pour ça (voir la note dans le bloc de corrélations).
-2. Complète avec au moins 1 pattern supplémentaire trouvé toi-même en
+2. Si un "Signal de récence" est marqué comme un vrai plateau, nomme-le
+   explicitement (ex: "tes 5 dernières vidéos plafonnent à X vues, ta
+   meilleure a fait Y") — c'est souvent LE constat le plus utile pour un
+   créateur, ne le noie pas dans le reste.
+3. Complète avec au moins 1 pattern supplémentaire trouvé toi-même en
    comparant les titres/stats des vidéos entre elles (pas des généralités
    sur TikTok en général).
-3. Chaque point fort et chaque amélioration doit citer un élément
+4. NOMME UNE TECHNIQUE PRÉCISE, pas juste un défaut. Utilise le
+   vocabulaire natif du métier (hook/accroche, angle, structure narrative,
+   pattern de titre, déclencheur, rétention) pour dire CE QUI manque
+   concrètement — "il te manque un angle sur ce sujet" ou "ton accroche
+   ne pose pas de tension dans les 3 premières secondes" plutôt que "sois
+   plus créatif" ou "améliore tes vidéos".
+5. INTERDIT : ne JAMAIS comparer ce compte à "d'autres comptes qui
+   percent" ou "les pros" sans donnée réelle pour l'étayer — on n'a pas
+   de base de comparaison entre comptes aujourd'hui. Reste sur les
+   propres chiffres de CE compte (sa meilleure vidéo vs ses vidéos
+   récentes, avec/sans tel pattern, etc.). Nommer une technique manquante
+   (règle 4) ne veut pas dire inventer une comparaison à des tiers.
+6. Chaque point fort et chaque amélioration doit citer un élément
    spécifique de CE compte (un titre, un chiffre, une comparaison) —
    jamais un conseil qui pourrait s'appliquer à n'importe quel compte.
-4. Pour le diagnostic hashtags : utilise en priorité les hashtags
+7. Pour le diagnostic hashtags : utilise en priorité les hashtags
    SUR-UTILISÉS et SOUS-PERFORMANTS déjà identifiés ci-dessus plutôt que de
    re-analyser toi-même — base-toi UNIQUEMENT sur les chiffres fournis, ne
    suppose rien d'autre.
-5. Si aucun signal ni pattern clair n'est disponible par manque de données,
+8. Si aucun signal ni pattern clair n'est disponible par manque de données,
    dis-le honnêtement plutôt que d'inventer un conseil générique.
+
+STRUCTURE DU RÉSUMÉ (important) : en 1-2 phrases, suis cet arc — (a) une
+preuve concrète que ce créateur sait déjà créer du bon contenu (un chiffre
+ou une vidéo qui a marché), (b) l'écart précis avec sa situation actuelle,
+formulé avec une technique nommée (règle 4) — pas juste "il te manque de
+la régularité". Termine sur un ton qui donne envie d'agir, pas alarmiste.
 
 BRIÈVETÉ (important) : le rapport doit être court et direct — un créateur
 doit pouvoir le lire en 15 secondes. Pas de phrase d'intro/conclusion
@@ -1673,9 +1750,9 @@ du JSON brut) contenant exactement ces champs, avec du texte en FRANÇAIS :
 {{
   "niche": "une courte phrase décrivant la niche de contenu probable",
   "niche_category": "choisis EXACTEMENT une valeur parmi cette liste fermée, recopiée telle quelle (aucune autre valeur autorisée) : {json.dumps(NICHE_CATEGORIES, ensure_ascii=False)}",
-  "summary": "1-2 phrases MAXIMUM, citant au moins un chiffre ou titre concret",
+  "summary": "1-2 phrases MAXIMUM suivant la STRUCTURE DU RÉSUMÉ ci-dessus (preuve de compétence -> écart précis nommé -> ton actionnable)",
   "strengths": ["1-2 points forts MAXIMUM, chacun en 1 phrase, référençant un titre/chiffre précis de ce compte"],
-  "improvements": ["1-2 suggestions MAXIMUM, chacune en 1 phrase, justifiée par une comparaison précise entre vidéos de ce compte"],
+  "improvements": ["1-2 suggestions MAXIMUM, chacune en 1 phrase, nommant une technique précise (règle 4) justifiée par une comparaison chiffrée sur CE compte"],
   "hashtag_diagnosis": "1 phrase MAXIMUM expliquant si les hashtags actuels aident ou nuisent à la viralité",
   "suggested_hashtags": ["5 hashtags pertinents pour cette niche, sans le symbole #"]
 }}
@@ -1812,14 +1889,22 @@ Explique pourquoi cette vidéo a (ou n'a pas) percé, en te basant
 UNIQUEMENT sur les chiffres ci-dessus — pas de conseil qui pourrait
 s'appliquer à n'importe quelle vidéo.
 
+NOMME UNE TECHNIQUE PRÉCISE (voir VOCABULAIRE À UTILISER dans le guide
+de style ci-dessus) plutôt qu'un jugement vague : le titre ("{title or '(sans titre)'}")
+est ta seule fenêtre sur le hook/l'angle de cette vidéo — analyse-le
+concrètement (pose-t-il une question ? annonce-t-il juste le sujet ?
+crée-t-il une tension ?) au lieu de dire "le contenu est bon/mauvais".
+INTERDIT de comparer à "d'autres vidéos qui percent" sans donnée réelle
+— compare uniquement aux chiffres fournis ici (vues, moyenne du compte).
+
 BRIÈVETÉ (important) : réponse courte et directe, lisible en 15 secondes.
 
 Réponds avec un objet JSON (pas de markdown, pas de balises de code,
 juste du JSON brut) contenant exactement ces champs, en FRANÇAIS :
 {{
-  "strengths": ["1-2 raisons concrètes, basées sur les chiffres, expliquant ce qui a bien fonctionné sur cette vidéo"],
-  "weaknesses": ["1-2 points faibles concrets de cette vidéo précise, basés sur les chiffres"],
-  "action_plan": ["1-2 actions concrètes et spécifiques pour qu'une prochaine vidéo similaire ait plus de chances de devenir virale"]
+  "strengths": ["1-2 raisons concrètes, basées sur les chiffres et le titre, expliquant ce qui a bien fonctionné sur cette vidéo"],
+  "weaknesses": ["1-2 points faibles concrets de cette vidéo précise, nommant une technique manquante (hook, angle, structure...) plutôt qu'un défaut vague"],
+  "action_plan": ["1-2 actions concrètes et spécifiques, formulées comme une technique à appliquer, pour qu'une prochaine vidéo similaire ait plus de chances de devenir virale"]
 }}"""
 
     async with httpx.AsyncClient(timeout=30) as client:

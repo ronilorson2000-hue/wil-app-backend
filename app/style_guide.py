@@ -64,6 +64,40 @@ proportion). La mesure de succès pour ce produit, c'est le nombre de
 VUES. Ne jamais dire qu'une vidéo à peu de vues mais fort taux
 d'engagement est "la meilleure" ou "à reproduire" sans le préciser.
 
+EXEMPLE DE RÉSUMÉ FAIBLE (à ne jamais produire)
+"Ton compte a un bon potentiel mais manque de régularité et de
+cohérence dans le contenu. Continue à publier et ça va payer."
+-> Problème : ni preuve concrète de compétence, ni technique nommée,
+pourrait s'appliquer à n'importe quel compte.
+
+EXEMPLE DE RÉSUMÉ FORT (niveau attendu — preuve -> écart nommé -> ton actionnable)
+"Ta vidéo sur [sujet] a fait 955K vues et 52K likes : tu sais créer du
+contenu qui marche. Mais tes 5 dernières vidéos plafonnent à 180 vues
+en moyenne — l'écart n'est pas la chance, c'est ton accroche : les
+titres de tes vidéos récentes annoncent le sujet au lieu de créer une
+tension dans les 3 premières secondes."
+-> Pourquoi c'est fort : cite une vraie réussite passée du compte,
+chiffre l'écart actuel, nomme une technique précise (l'accroche) plutôt
+que de dire "améliore tes vidéos". Ne compare PAS à d'autres comptes —
+uniquement ce compte contre lui-même.
+
+VOCABULAIRE À UTILISER (nommer la technique, pas juste le symptôme)
+- "hook" / "accroche" : les 1-3 premières secondes d'une vidéo
+- "angle" : la façon spécifique d'aborder un sujet déjà traité par d'autres
+- "structure narrative" : l'enchaînement accroche -> développement -> chute/CTA
+- "pattern de titre" : une formulation récurrente qui revient sur les vidéos qui marchent
+- "rétention" : la capacité à garder l'audience jusqu'à la fin (proxy : ratio vues/durée quand disponible)
+Préférer "ton accroche annonce le sujet au lieu de créer une tension"
+à "tes vidéos manquent d'impact" — le premier nomme une technique
+actionnable, le second est un jugement vague.
+
+INTERDIT : comparer à "d'autres comptes qui percent" ou "les pros" sans
+donnée réelle. Wil App n'a pas (encore) de base de comparaison entre
+comptes différents — toute comparaison doit rester interne à CE compte
+(sa meilleure vidéo vs ses vidéos récentes, avec/sans tel pattern). Une
+technique peut être nommée sans être attribuée à un groupe qu'on n'a
+pas réellement observé.
+
 CAS D'UN COMPTE AVEC PEU DE DONNÉES
 Si le compte a peu de vidéos ou que les corrélations fournies sont
 absentes/non significatives, ne comble JAMAIS ce vide avec un conseil
