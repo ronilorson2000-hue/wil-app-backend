@@ -27,7 +27,7 @@ from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from langdetect import LangDetectException, detect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import (
@@ -48,6 +48,7 @@ TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY")
 TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET")
 TIKTOK_REDIRECT_URI = os.getenv("TIKTOK_REDIRECT_URI")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
 
 # On garde en mémoire les "state" générés, pour vérifier que la réponse
 # de TikTok correspond bien à une demande qu'on a nous-même initiée
@@ -774,6 +775,55 @@ async def tiktok_callback(request: Request):
           }}
 
           // --- Générateur de script personnalisé ---
+          // --- Analyse approfondie d'une vidéo importée (transcription réelle) ---
+          function analyzeUploadedVideo() {{
+            const fileInput = document.getElementById('upload-video-input');
+            const btn = document.getElementById('upload-analyze-btn');
+            const result = document.getElementById('upload-analyze-result');
+
+            if (!fileInput.files || fileInput.files.length === 0) {{
+              result.innerHTML = '<p style="color:#c0392b;">Choisis d\\'abord un fichier vidéo.</p>';
+              return;
+            }}
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('account_avg_views', window.__wilAvgViews || '');
+            formData.append('niche_category', window.__wilNicheCategory || '');
+
+            btn.disabled = true;
+            btn.textContent = 'Transcription et analyse en cours (peut prendre 1-2 min)...';
+            result.innerHTML = '';
+
+            fetch('/api/analyze-video-upload', {{ method: 'POST', body: formData }})
+              .then(r => {{
+                if (!r.ok) throw new Error('failed');
+                return r.json();
+              }})
+              .then(data => {{
+                const strengths = (data.strengths || []).map(s => `<li>${{s}}</li>`).join('');
+                const weaknesses = (data.weaknesses || []).map(s => `<li>${{s}}</li>`).join('');
+                const actions = (data.action_plan || []).map(s => `<li>${{s}}</li>`).join('');
+                result.innerHTML = `
+                  <p><strong>🎬 Hook réel</strong></p>
+                  <p style="font-style:italic;">"${{data.hook_excerpt || ''}}"</p>
+                  <p style="font-size:13px;color:#666;">${{data.hook_type || ''}}</p>
+                  <p style="margin-top:10px;"><strong>✅ Points forts</strong></p>
+                  <ul class="bullets">${{strengths}}</ul>
+                  <p><strong>⚠️ Points faibles</strong></p>
+                  <ul class="bullets">${{weaknesses}}</ul>
+                  <p><strong>🎯 Pour percer</strong></p>
+                  <ul class="bullets">${{actions}}</ul>`;
+              }})
+              .catch(() => {{
+                result.innerHTML = '<p style="color:#c0392b;">Analyse indisponible pour le moment. Réessaie.</p>';
+              }})
+              .finally(() => {{
+                btn.disabled = false;
+                btn.textContent = 'Analyser cette vidéo';
+              }});
+          }}
+
           function generateScript() {{
             const topic = document.getElementById('script-topic').value.trim();
             const tone = document.getElementById('script-tone').value.trim();
@@ -823,6 +873,19 @@ async def tiktok_callback(request: Request):
               Idées tendance de ma niche
             </button>
             <div id="trending-result" style="margin-top:14px;"></div>
+          </div>
+
+          <div class="card">
+            <p style="font-weight:bold; margin-bottom:4px;">Analyse approfondie d'une vidéo</p>
+            <p style="font-size:12px;color:#888;margin:0 0 10px;">Importe le fichier vidéo (déjà postée ou pas encore) depuis ton téléphone ou ta machine — on transcrit le vrai contenu parlé pour analyser ton hook précisément.</p>
+            <input id="upload-video-input" type="file" accept="video/*"
+                   style="width:100%; margin-bottom:10px;" />
+            <button id="upload-analyze-btn" onclick="analyzeUploadedVideo()"
+                    style="width:100%; padding:12px; border-radius:10px; border:none;
+                           background:#5B21B6; color:white; cursor:pointer; font-weight:600;">
+              Analyser cette vidéo
+            </button>
+            <div id="upload-analyze-result" style="margin-top:14px; text-align:left;"></div>
           </div>
 
           <div class="card">
@@ -2002,6 +2065,174 @@ juste du JSON brut) contenant exactement ces champs, en FRANÇAIS :
             json={
                 "model": "claude-sonnet-5",
                 "max_tokens": 500,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Erreur API Anthropic: {response.status_code} {response.text}",
+        )
+
+    raw_text = response.json()["content"][0]["text"]
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+
+    try:
+        result = json.loads(cleaned)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=502, detail="Réponse IA invalide.")
+
+    return JSONResponse(content=result)
+
+
+async def _transcribe_video(client: httpx.AsyncClient, video_bytes: bytes) -> str:
+    """
+    Transcrit un fichier vidéo/audio via AssemblyAI : upload du fichier
+    brut, lancement de la transcription, puis attente (polling) jusqu'à
+    complétion. AssemblyAI extrait l'audio automatiquement des conteneurs
+    vidéo courants (mp4, mov...), pas besoin de le faire nous-mêmes.
+    Lève une HTTPException explicite à chaque étape qui peut échouer.
+    """
+    upload_response = await client.post(
+        "https://api.assemblyai.com/v2/upload",
+        headers={"authorization": ASSEMBLYAI_API_KEY},
+        content=video_bytes,
+    )
+    if upload_response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail="Échec de l'envoi du fichier au service de transcription.",
+        )
+    upload_url = upload_response.json()["upload_url"]
+
+    transcript_response = await client.post(
+        "https://api.assemblyai.com/v2/transcript",
+        headers={"authorization": ASSEMBLYAI_API_KEY},
+        json={"audio_url": upload_url, "language_detection": True},
+    )
+    if transcript_response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail="Échec de la demande de transcription.",
+        )
+    transcript_id = transcript_response.json()["id"]
+
+    # Vidéos TikTok courtes (quelques dizaines de secondes à ~3 min) :
+    # on attend jusqu'à 2 minutes, avec un poll toutes les 2 secondes.
+    for _ in range(60):
+        poll_response = await client.get(
+            f"https://api.assemblyai.com/v2/transcript/{transcript_id}",
+            headers={"authorization": ASSEMBLYAI_API_KEY},
+        )
+        poll_data = poll_response.json()
+        status = poll_data.get("status")
+        if status == "completed":
+            return poll_data.get("text") or ""
+        if status == "error":
+            raise HTTPException(
+                status_code=502,
+                detail=f"Erreur de transcription : {poll_data.get('error')}",
+            )
+        await asyncio.sleep(2)
+
+    raise HTTPException(
+        status_code=504,
+        detail="La transcription prend trop de temps, réessaie plus tard.",
+    )
+
+
+@app.post("/api/analyze-video-upload", response_class=JSONResponse)
+async def analyze_video_upload(
+    file: UploadFile = File(...),
+    account_avg_views: int = 0,
+    niche_category: str = "",
+):
+    """
+    Analyse approfondie d'UNE vidéo à partir d'un fichier importé
+    directement par l'utilisateur (téléphone ou machine — jamais récupéré
+    depuis TikTok, l'API ne fournit aucun fichier vidéo). Transcrit le
+    contenu parlé réel via AssemblyAI, puis l'envoie à Claude pour une
+    analyse du hook/de la structure basée sur ce qui est VRAIMENT dit,
+    pas seulement le titre — contrairement à /api/analyze-video.
+
+    Fonctionne aussi bien sur une vidéo déjà postée que sur une vidéo pas
+    encore publiée (analyse "avant de poster").
+    """
+    if not ASSEMBLYAI_API_KEY:
+        raise HTTPException(status_code=500, detail="ASSEMBLYAI_API_KEY manquant dans .env")
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
+
+    video_bytes = await file.read()
+    # Garde-fou : 200 Mo max, largement suffisant pour une vidéo TikTok
+    # (quelques minutes maximum), évite un upload abusif ou accidentel.
+    if len(video_bytes) > 200 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Fichier trop volumineux (200 Mo max).")
+
+    async with httpx.AsyncClient(timeout=150) as client:
+        transcript_text = await _transcribe_video(client, video_bytes)
+
+    if not transcript_text.strip():
+        raise HTTPException(
+            status_code=502,
+            detail="Transcription vide — vérifie que la vidéo contient bien de la voix.",
+        )
+
+    comparison_text = (
+        f"Pour comparaison, la moyenne du compte est de {account_avg_views} vues par vidéo."
+        if account_avg_views > 0
+        else "Pas de moyenne de compte disponible pour comparaison — ne pas en inventer une."
+    )
+
+    prompt = f"""Tu es un coach de croissance TikTok senior, connu pour des
+analyses extrêmement concrètes et jamais génériques.
+
+{STYLE_GUIDE}
+
+Voici la TRANSCRIPTION RÉELLE (le vrai contenu parlé) de cette vidéo,
+obtenue par transcription audio — pas juste un titre :
+\"\"\"{transcript_text}\"\"\"
+
+Niche du compte : {niche_category or "non précisée"}
+{comparison_text}
+
+Analyse le HOOK réel (les toutes premières phrases prononcées, pas un
+titre) en utilisant les types d'accroches du guide de style ci-dessus
+(cadrage négatif, miroir, insider, massue, contraste) — nomme celui qui
+s'en rapproche le plus, ou dis explicitement qu'aucun n'est présent.
+Analyse aussi la structure globale (est-ce que le propos reste clair,
+y a-t-il un vrai fil, la chute/CTA est-elle nette) à partir du texte
+réel, pas d'une supposition.
+
+BRIÈVETÉ (important) : réponse courte et directe, lisible en 15 secondes.
+
+Réponds avec un objet JSON (pas de markdown, pas de balises de code,
+juste du JSON brut) contenant exactement ces champs, en FRANÇAIS :
+{{
+  "hook_excerpt": "les 1-2 premières phrases réellement prononcées, citées telles quelles",
+  "hook_type": "le type d'accroche identifié (cadrage négatif/miroir/insider/massue/contraste/aucun identifié), avec 1 phrase d'explication",
+  "strengths": ["1-2 points forts concrets basés sur le texte réel"],
+  "weaknesses": ["1-2 points faibles concrets, nommant une technique manquante (hook, structure, clarté...)"],
+  "action_plan": ["1-2 actions concrètes pour la prochaine vidéo"]
+}}"""
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-sonnet-5",
+                "max_tokens": 600,
                 "messages": [{"role": "user", "content": prompt}],
             },
         )
