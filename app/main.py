@@ -604,6 +604,11 @@ async def tiktok_callback(request: Request):
               const stats = data.stats;
               const report = data.ai_report;
               let html = '';
+              // Section "Détail par vidéo" construite séparément et ajoutée
+              // TOUT EN BAS (après l'analyse globale) : c'est la partie qui
+              // deviendra la fonctionnalité payante, donc visuellement
+              // secondaire par rapport à l'analyse de compte gratuite.
+              let videoListHtml = '';
 
               if (stats && stats.total_videos_analyzed > 0) {{
                 html += `
@@ -634,10 +639,10 @@ async def tiktok_callback(request: Request):
                         <div id="video-analysis-${{idx}}" style="margin-top:8px;font-size:13px;"></div>
                       </div>
                     </div>`).join('');
-                  html += `
+                  videoListHtml = `
                     <div class="card">
                       <p style="font-weight:bold;margin-bottom:4px;">Détail par vidéo</p>
-                      <p style="font-size:12px;color:#888;margin:0 0 8px;">Score de viralité basé sur les vues (0-100), pas sur le taux d'engagement.</p>
+                      <p style="font-size:12px;color:#888;margin:0 0 8px;">Vidéos triées par date de publication, comme sur ton profil TikTok. Score de viralité basé sur les vues (0-100), pas sur le taux d'engagement.</p>
                       <div>${{videoRows}}</div>
                     </div>`;
                 }}
@@ -672,6 +677,8 @@ async def tiktok_callback(request: Request):
               if (!html) {{
                 html = '<div class="card"><p class="loading">Analyse indisponible pour le moment.</p></div>';
               }}
+              // Détail par vidéo tout en bas, après l'analyse globale du compte.
+              html += videoListHtml;
 
               document.getElementById('analysis-result').innerHTML = html;
 
@@ -1435,15 +1442,22 @@ async def analyze_account(
             raw_videos = await _fetch_all_videos(client, access_token)
 
         enriched_videos = [_compute_engagement(v) for v in raw_videos]
-        # Trié par nombre de vues (portée réelle), PAS par taux d'engagement :
-        # le taux d'engagement (likes+comments+shares / vues) se dilue
-        # mécaniquement quand la portée augmente (une vidéo à 800 vues vue
-        # presque uniquement par des fans fidèles aura un ratio bien plus
-        # élevé qu'une vidéo à 1M de vues touchant une audience froide qui
-        # ne connaît pas le compte). Classer par engagement_rate ferait
-        # ressortir les vidéos à faible portée comme "meilleures", l'inverse
-        # de ce qu'on veut pour un outil centré sur la viralité.
-        enriched_videos.sort(key=lambda v: v["view_count"], reverse=True)
+
+        # "Meilleure"/"pire" vidéo restent sélectionnées par nombre de vues
+        # (portée réelle), PAS par taux d'engagement : le taux d'engagement
+        # se dilue mécaniquement quand la portée augmente (une vidéo à 800
+        # vues vue presque uniquement par des fans fidèles aura un ratio
+        # bien plus élevé qu'une vidéo à 1M de vues touchant une audience
+        # froide qui ne connaît pas le compte). Calculé indépendamment de
+        # l'ordre d'affichage de la liste (voir plus bas).
+        best_video = max(enriched_videos, key=lambda v: v["view_count"]) if enriched_videos else None
+        worst_video = min(enriched_videos, key=lambda v: v["view_count"]) if len(enriched_videos) > 1 else None
+
+        # La liste affichée, elle, est triée par date (plus récente
+        # d'abord) — comme le grid natif de TikTok — pas par performance :
+        # l'utilisateur doit reconnaître ses vidéos dans l'ordre où il les
+        # a postées, pas dans un ordre qui bouge à chaque analyse.
+        enriched_videos.sort(key=lambda v: v["create_time"] or 0, reverse=True)
 
         total = len(enriched_videos)
         viral_count = sum(1 for v in enriched_videos if v["view_count"] >= VIRAL_VIEW_THRESHOLD)
@@ -1466,8 +1480,8 @@ async def analyze_account(
             "non_viral_count": non_viral_count,
             "viral_percentage": viral_percentage,
             "non_viral_percentage": non_viral_percentage,
-            "best_video": enriched_videos[0] if enriched_videos else None,
-            "worst_video": enriched_videos[-1] if len(enriched_videos) > 1 else None,
+            "best_video": best_video,
+            "worst_video": worst_video,
             "videos": enriched_videos,
         }
     except HTTPException:
