@@ -16,6 +16,7 @@ la variable TIKTOK_REDIRECT_URI dans .env pointe vers cette URL publique.
 
 import asyncio
 import json
+import math
 import os
 import re
 import secrets
@@ -619,12 +620,14 @@ async def tiktok_callback(request: Request):
                       <div style="width:100px;height:140px;border-radius:8px;overflow:hidden;background:#f3f4f6;">
                         ${{v.cover_image_url ? `<img src="${{v.cover_image_url}}" style="width:100%;height:100%;object-fit:cover;" />` : ''}}
                       </div>
-                      <p style="font-size:12px;text-align:center;margin:4px 0 0;font-weight:600;">${{v.engagement_rate}}% engagement</p>
-                      <p style="font-size:11px;text-align:center;color:#999;margin:0;">${{v.view_count}} vues</p>
+                      <p style="font-size:13px;text-align:center;margin:6px 0 0;font-weight:700;color:#5B21B6;">🔥 ${{v.virality_score}}/100</p>
+                      <p style="font-size:11px;text-align:center;color:#666;margin:2px 0 0;">${{v.view_count}} vues</p>
+                      <p style="font-size:10px;text-align:center;color:#aaa;margin:0;">${{v.engagement_rate}}% engagement</p>
                     </div>`).join('');
                   html += `
                     <div class="card">
-                      <p style="font-weight:bold;margin-bottom:12px;">Détail par vidéo</p>
+                      <p style="font-weight:bold;margin-bottom:4px;">Détail par vidéo</p>
+                      <p style="font-size:12px;color:#888;margin:0 0 12px;">Score de viralité basé sur les vues (0-100), pas sur le taux d'engagement.</p>
                       <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">${{videoCards}}</div>
                     </div>`;
                 }}
@@ -878,6 +881,28 @@ def privacy_policy():
 
 
 VIRAL_VIEW_THRESHOLD = 10_000
+
+
+def _virality_score(views: int) -> int:
+    """
+    Score de viralité 0-100 pour UNE vidéo, basé sur son nombre de vues,
+    ancré sur VIRAL_VIEW_THRESHOLD plutôt que sur le taux d'engagement
+    (qui se dilue avec la portée, voir _analyze_content_patterns) et
+    plutôt que sur un classement relatif aux autres vidéos du compte (ce
+    qui donnerait un score qui varie selon quelles vidéos sont dans le
+    lot analysé, et resterait incalculable pour une vidéo isolée).
+
+    Échelle logarithmique pour que la progression reste lisible sur toute
+    la plage de vues possibles (de 0 à plusieurs millions) : franchir le
+    seuil "viral" (10k vues) donne un score autour de 67/100, 100k vues
+    ~83/100, 1M+ vues plafonne à 100/100.
+    """
+    if views <= 0:
+        return 0
+    score = 100 * math.log10(views + 1) / math.log10(VIRAL_VIEW_THRESHOLD * 100 + 1)
+    return max(0, min(100, round(score)))
+
+
 # 3 pages = 60 vidéos max. Réduit depuis 10 (200 vidéos) : chaque page est
 # un appel séquentiel à l'API TikTok (le curseur de pagination dépend de
 # la réponse précédente, impossible à paralléliser), donc c'était la
@@ -932,7 +957,7 @@ async def _fetch_all_videos(client: httpx.AsyncClient, access_token: str) -> lis
 
 
 def _compute_engagement(video: dict) -> dict:
-    """Calcule le taux d'engagement d'une vidéo et renvoie un dict enrichi."""
+    """Calcule le taux d'engagement et le score de viralité d'une vidéo, et renvoie un dict enrichi."""
     views = video.get("view_count", 0)
     likes = video.get("like_count", 0)
     comments = video.get("comment_count", 0)
@@ -945,6 +970,7 @@ def _compute_engagement(video: dict) -> dict:
         "cover_image_url": video.get("cover_image_url", ""),
         "create_time": video.get("create_time"),
         "duration": video.get("duration"),
+        "virality_score": _virality_score(views),
         "view_count": views,
         "like_count": likes,
         "comment_count": comments,
