@@ -611,18 +611,24 @@ async def tiktok_callback(request: Request):
               let videoListHtml = '';
 
               if (stats && stats.total_videos_analyzed > 0) {{
+                const scoreIcon = s => s <= 40 ? '🔴' : s <= 60 ? '🟡' : s <= 80 ? '🟠' : '🔵';
+                const ratioLine = (stats.likes_followers_ratio !== null && stats.likes_followers_ratio !== undefined)
+                  ? `<p style="font-size:12px;color:#999;margin:2px 0 0;">Ratio likes/abonnés : ${{stats.likes_followers_ratio}}</p>`
+                  : '';
                 html += `
                   <div class="card">
+                    <p style="font-size:28px;font-weight:800;margin:0;">${{scoreIcon(stats.account_virality_score)}} ${{stats.account_virality_score}}/100</p>
+                    <p style="font-size:12px;color:#888;margin:2px 0 12px;">Score de viralité du compte</p>
                     <p style="font-size:13px;color:#666;">${{stats.total_videos_analyzed}} vidéos analysées (seuil : ${{stats.viral_threshold_views/1000}}k vues)</p>
                     <div class="bar-bg"><div class="bar-fill" style="width:${{stats.viral_percentage}}%"></div></div>
                     <p style="margin-top:12px;"><strong>🚀 ${{stats.viral_percentage}}%</strong> vidéos virales &nbsp;|&nbsp; <strong>${{stats.non_viral_percentage}}%</strong> non virales</p>
                     <p>Taux d'engagement moyen : <strong>${{stats.average_engagement_rate}}%</strong></p>
+                    ${{ratioLine}}
                   </div>`;
 
                 if (stats.videos && stats.videos.length > 0) {{
                   window.__wilVideos = stats.videos;
                   window.__wilAvgViews = stats.average_view_count || '';
-                  const scoreIcon = s => s <= 40 ? '🔴' : s <= 60 ? '🟡' : s <= 80 ? '🟠' : '🔵';
                   const videoRows = stats.videos.map((v, idx) => `
                     <div style="display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid #f0f0f0;">
                       <div style="width:60px;height:84px;flex-shrink:0;border-radius:8px;overflow:hidden;background:#f3f4f6;">
@@ -1016,6 +1022,34 @@ async def _fetch_all_videos(client: httpx.AsyncClient, access_token: str) -> lis
         pages_fetched += 1
 
     return all_videos
+
+
+async def _fetch_account_stats(client: httpx.AsyncClient, access_token: str) -> dict | None:
+    """
+    Récupère les stats agrégées du compte (abonnés, likes totaux
+    cumulés depuis toujours, nombre de vidéos) via l'API TikTok — champs
+    disponibles sous le scope "user.info.stats" (déjà approuvé en
+    Production, voir TIKTOK_EXTRA_SCOPES). Renvoie None en cas d'échec
+    plutôt que de faire échouer toute l'analyse : ces stats sont un
+    complément, pas une donnée bloquante.
+    """
+    try:
+        response = await client.get(
+            "https://open.tiktokapis.com/v2/user/info/",
+            params={"fields": "follower_count,following_count,likes_count,video_count"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if response.status_code != 200:
+            return None
+        user_info = response.json().get("data", {}).get("user", {})
+        return {
+            "follower_count": user_info.get("follower_count", 0),
+            "following_count": user_info.get("following_count", 0),
+            "likes_count": user_info.get("likes_count", 0),
+            "video_count": user_info.get("video_count", 0),
+        }
+    except Exception:
+        return None
 
 
 def _compute_engagement(video: dict) -> dict:
@@ -1471,9 +1505,16 @@ async def analyze_account(
     # quand même avec une analyse basée uniquement sur le profil, plutôt
     # que de faire échouer toute la route.
     stats = None
+    account_stats = None
     try:
         async with httpx.AsyncClient() as client:
-            raw_videos = await _fetch_all_videos(client, access_token)
+            # Vidéos et stats de compte (abonnés/likes totaux) récupérées
+            # en parallèle plutôt qu'en séquence, pour ne pas ajouter de
+            # latence — cf. le travail de vitesse fait précédemment.
+            raw_videos, account_stats = await asyncio.gather(
+                _fetch_all_videos(client, access_token),
+                _fetch_account_stats(client, access_token),
+            )
 
         enriched_videos = [_compute_engagement(v) for v in raw_videos]
 
@@ -1505,10 +1546,42 @@ async def analyze_account(
             round(sum(v["view_count"] for v in enriched_videos) / total) if total > 0 else 0
         )
 
+        # Score de viralité DU COMPTE (0-100), pas juste par vidéo : mélange
+        # à parts égales la performance récente (5 dernières vidéos) et la
+        # performance globale, via le même _virality_score que les vidéos
+        # individuelles. Évite qu'un unique gros succès ancien masque un
+        # plateau actuel (ou l'inverse, qu'un plateau récent efface un vrai
+        # historique de compétence) — reflète la STRUCTURE DU RÉSUMÉ du
+        # prompt (preuve de compétence + écart actuel), pas juste une moyenne
+        # brute qui gommerait ce contraste.
+        recency_for_score = _analyze_recency(enriched_videos)
+        if recency_for_score:
+            blended_views = round(
+                0.5 * recency_for_score["recent_avg_views"] + 0.5 * recency_for_score["overall_avg_views"]
+            )
+        else:
+            blended_views = average_view_count
+        account_virality_score = _virality_score(blended_views)
+
+        # Ratio likes/abonnés (likes totaux cumulés du compte / nombre
+        # d'abonnés) : signal de fidélité de l'audience existante,
+        # complémentaire aux vues (qui mesurent la portée, pas la loyauté).
+        # None si les stats de compte n'ont pas pu être récupérées.
+        follower_count = account_stats.get("follower_count") if account_stats else None
+        account_likes_count = account_stats.get("likes_count") if account_stats else None
+        likes_followers_ratio = (
+            round(account_likes_count / follower_count, 2)
+            if follower_count else None
+        )
+
         stats = {
             "total_videos_analyzed": total,
             "average_engagement_rate": average_engagement_rate,
             "average_view_count": average_view_count,
+            "account_virality_score": account_virality_score,
+            "follower_count": follower_count,
+            "account_likes_count": account_likes_count,
+            "likes_followers_ratio": likes_followers_ratio,
             "viral_threshold_views": VIRAL_VIEW_THRESHOLD,
             "viral_count": viral_count,
             "non_viral_count": non_viral_count,
@@ -1665,6 +1738,16 @@ Analyse des hashtags utilisés :
                 "titre/format/horaire ↔ vues — ne pas en inventer."
             )
 
+            ratio_line = (
+                f"\n- Ratio likes/abonnés (likes TOTAUX du compte / abonnés) : "
+                f"{stats['likes_followers_ratio']} — signal de fidélité de "
+                f"l'audience existante, distinct des vues (qui mesurent la "
+                f"portée, pas la loyauté). Citable comme point fort UNIQUEMENT "
+                f"s'il est notablement élevé (>1) ou comme point faible s'il "
+                f"est très bas (<0.2) ; sinon ne pas le mentionner pour rien."
+                if stats.get("likes_followers_ratio") is not None else ""
+            )
+
             performance_block = f"""
 Données de performance (chiffres réels de son compte) :
 - Nombre total de vidéos analysées : {stats['total_videos_analyzed']}
@@ -1672,6 +1755,7 @@ Données de performance (chiffres réels de son compte) :
 - Taux d'engagement moyen : {stats['average_engagement_rate']}%
 - Vidéos ayant dépassé 10 000 vues ("virales") : {stats['viral_count']} ({stats['viral_percentage']}%)
 - Vidéos en dessous de 10 000 vues : {stats['non_viral_count']} ({stats['non_viral_percentage']}%)
+- Score de viralité du compte (0-100, mélange récent/global) : {stats['account_virality_score']}/100{ratio_line}
 {best_worst_text}
 {hashtag_block}
 {content_pattern_block}
