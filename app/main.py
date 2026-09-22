@@ -1337,7 +1337,7 @@ code), avec exactement ce champ :
                     "content-type": "application/json",
                 },
                 json={
-                    "model": "claude-sonnet-4-5-20250929",
+                    "model": "claude-sonnet-5",
                     "max_tokens": 500,
                     "tools": [
                         {"type": "web_search_20250305", "name": "web_search", "max_uses": 2}
@@ -1420,7 +1420,7 @@ code), {lang_instruction}, avec exactement ces champs :
                     "content-type": "application/json",
                 },
                 json={
-                    "model": "claude-sonnet-4-5-20250929",
+                    "model": "claude-sonnet-5",
                     "max_tokens": 900,
                     "tools": [
                         {"type": "web_search_20250305", "name": "web_search", "max_uses": 2}
@@ -1858,7 +1858,7 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
                     "content-type": "application/json",
                 },
                 json={
-                    "model": "claude-sonnet-4-5-20250929",
+                    "model": "claude-sonnet-5",
                     "max_tokens": 700,
                     "messages": [{"role": "user", "content": prompt}],
                 },
@@ -2000,7 +2000,7 @@ juste du JSON brut) contenant exactement ces champs, en FRANÇAIS :
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-sonnet-4-5-20250929",
+                "model": "claude-sonnet-5",
                 "max_tokens": 500,
                 "messages": [{"role": "user", "content": prompt}],
             },
@@ -2104,7 +2104,7 @@ juste du JSON brut) avec exactement ces champs :
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-sonnet-4-5-20250929",
+                "model": "claude-sonnet-5",
                 "max_tokens": 700,
                 "messages": [{"role": "user", "content": prompt}],
             },
