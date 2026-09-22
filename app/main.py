@@ -14,6 +14,7 @@ URL publique), il faut que ton tunnel Cloudflare tourne en parallèle et que
 la variable TIKTOK_REDIRECT_URI dans .env pointe vers cette URL publique.
 """
 
+import asyncio
 import json
 import os
 import re
@@ -611,6 +612,22 @@ async def tiktok_callback(request: Request):
                     <p style="margin-top:12px;"><strong>🚀 ${{stats.viral_percentage}}%</strong> vidéos virales &nbsp;|&nbsp; <strong>${{stats.non_viral_percentage}}%</strong> non virales</p>
                     <p>Taux d'engagement moyen : <strong>${{stats.average_engagement_rate}}%</strong></p>
                   </div>`;
+
+                if (stats.videos && stats.videos.length > 0) {{
+                  const videoCards = stats.videos.map(v => `
+                    <div style="width:104px;">
+                      <div style="width:100px;height:140px;border-radius:8px;overflow:hidden;background:#f3f4f6;">
+                        ${{v.cover_image_url ? `<img src="${{v.cover_image_url}}" style="width:100%;height:100%;object-fit:cover;" />` : ''}}
+                      </div>
+                      <p style="font-size:12px;text-align:center;margin:4px 0 0;font-weight:600;">${{v.engagement_rate}}% engagement</p>
+                      <p style="font-size:11px;text-align:center;color:#999;margin:0;">${{v.view_count}} vues</p>
+                    </div>`).join('');
+                  html += `
+                    <div class="card">
+                      <p style="font-weight:bold;margin-bottom:12px;">Détail par vidéo</p>
+                      <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">${{videoCards}}</div>
+                    </div>`;
+                }}
               }}
 
               if (report) {{
@@ -861,7 +878,12 @@ def privacy_policy():
 
 
 VIRAL_VIEW_THRESHOLD = 10_000
-MAX_PAGES = 10  # garde-fou : ~200 vidéos max pour éviter un appel trop long
+# 3 pages = 60 vidéos max. Réduit depuis 10 (200 vidéos) : chaque page est
+# un appel séquentiel à l'API TikTok (le curseur de pagination dépend de
+# la réponse précédente, impossible à paralléliser), donc c'était la
+# principale cause de lenteur de l'analyse. 60 vidéos récentes restent
+# largement suffisantes pour des corrélations fiables.
+MAX_PAGES = 3
 
 
 async def _fetch_all_videos(client: httpx.AsyncClient, access_token: str) -> list[dict]:
@@ -1063,6 +1085,10 @@ def _analyze_content_patterns(videos: list[dict]) -> dict:
     return signals
 
 
+def _niche_cache_key(niche_category: str, lang: str) -> str:
+    return f"{niche_category.strip().lower()}:{lang}"
+
+
 def _cache_get(cache_type: str, cache_key: str) -> dict | list | None:
     """
     Lit le cache tendances (hashtags ou idées) depuis Supabase si
@@ -1121,7 +1147,7 @@ async def _get_trending_hashtags(niche_category: str, lang: str) -> list[str] | 
     if not niche_category or not ANTHROPIC_API_KEY:
         return None
 
-    cache_key = f"{niche_category.strip().lower()}:{lang}"
+    cache_key = _niche_cache_key(niche_category, lang)
     cached = _cache_get("hashtags", cache_key)
     if cached:
         return cached
@@ -1195,7 +1221,7 @@ async def _get_trending_content_ideas(niche_category: str, lang: str) -> dict | 
     if not niche_category or not ANTHROPIC_API_KEY:
         return None
 
-    cache_key = f"{niche_category.strip().lower()}:{lang}"
+    cache_key = _niche_cache_key(niche_category, lang)
     cached = _cache_get("ideas", cache_key)
     if cached:
         return cached
@@ -1503,15 +1529,19 @@ MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
 5. Si aucun signal ni pattern clair n'est disponible par manque de données,
    dis-le honnêtement plutôt que d'inventer un conseil générique.
 
+BRIÈVETÉ (important) : le rapport doit être court et direct — un créateur
+doit pouvoir le lire en 15 secondes. Pas de phrase d'intro/conclusion
+inutile, pas de reformulation, une idée par phrase. Précis > exhaustif.
+
 Réponds avec un objet JSON (pas de markdown, pas de balises de code, juste
 du JSON brut) contenant exactement ces champs, avec du texte en FRANÇAIS :
 {{
   "niche": "une courte phrase décrivant la niche de contenu probable",
   "niche_category": "choisis EXACTEMENT une valeur parmi cette liste fermée, recopiée telle quelle (aucune autre valeur autorisée) : {json.dumps(NICHE_CATEGORIES, ensure_ascii=False)}",
-  "summary": "résumé honnête de 3-4 phrases, citant au moins un chiffre ou titre concret",
-  "strengths": ["2-3 points forts, CHACUN doit référencer un titre/chiffre précis de ce compte"],
-  "improvements": ["2-3 suggestions concrètes et actionnables, CHACUNE justifiée par une comparaison précise entre vidéos de ce compte"],
-  "hashtag_diagnosis": "2-3 phrases expliquant si les hashtags actuels aident ou nuisent à la viralité, basé sur les chiffres avec/sans hashtag et la répétition observée",
+  "summary": "1-2 phrases MAXIMUM, citant au moins un chiffre ou titre concret",
+  "strengths": ["1-2 points forts MAXIMUM, chacun en 1 phrase, référençant un titre/chiffre précis de ce compte"],
+  "improvements": ["1-2 suggestions MAXIMUM, chacune en 1 phrase, justifiée par une comparaison précise entre vidéos de ce compte"],
+  "hashtag_diagnosis": "1 phrase MAXIMUM expliquant si les hashtags actuels aident ou nuisent à la viralité",
   "suggested_hashtags": ["5 hashtags pertinents pour cette niche, sans le symbole #"]
 }}
 
@@ -1533,7 +1563,7 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
                 },
                 json={
                     "model": "claude-sonnet-4-5-20250929",
-                    "max_tokens": 1200,
+                    "max_tokens": 700,
                     "messages": [{"role": "user", "content": prompt}],
                 },
             )
@@ -1566,15 +1596,21 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
     video_titles = [v["title"] for v in stats["videos"]] if stats and stats.get("videos") else []
     lang = _detect_language(bio, video_titles)
 
-    # 3. Remplace les hashtags génériques par de vrais hashtags tendance
-    # (recherche web mise en cache 24h par catégorie de niche + langue,
-    # cf. _get_trending_hashtags). Échec silencieux si indisponible : on
-    # garde alors les suggestions génériques déjà produites à l'étape
-    # précédente.
+    # 3. Remplace les hashtags génériques par de vrais hashtags tendance,
+    # UNIQUEMENT si déjà en cache (lecture instantanée, catégorie de niche
+    # + langue, cf. _get_trending_hashtags). Si le cache est froid, on ne
+    # bloque JAMAIS la réponse sur une recherche web en direct (c'était la
+    # plus grosse source de lenteur de l'analyse) : on garde les
+    # suggestions déjà produites par l'étape précédente, et on lance le
+    # remplissage du cache en tâche de fond pour que la PROCHAINE analyse
+    # sur cette catégorie+langue soit rapide.
     if ai_report and ai_report.get("niche_category"):
-        trending = await _get_trending_hashtags(ai_report["niche_category"], lang)
+        cache_key = _niche_cache_key(ai_report["niche_category"], lang)
+        trending = _cache_get("hashtags", cache_key)
         if trending:
             ai_report["suggested_hashtags"] = trending
+        else:
+            asyncio.create_task(_get_trending_hashtags(ai_report["niche_category"], lang))
 
     # 4. Snapshot pour l'historique (diagnostic de plateau, rapport mensuel).
     # Uniquement si on a de vraies stats vidéo — un snapshot sans métriques
