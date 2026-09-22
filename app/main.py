@@ -959,12 +959,16 @@ def _analyze_hashtags(videos: list[dict]) -> dict:
     Analyse l'usage des hashtags sur l'ensemble des vidéos :
     - fréquence de chaque hashtag
     - répétition excessive (même set de hashtags copié-collé partout)
-    - hashtags utilisés uniquement sur des vidéos qui n'ont pas marché
+    - hashtags associés à des vidéos à faible PORTÉE (vues), pas à un
+      taux d'engagement faible — le taux d'engagement se dilue avec la
+      portée (voir _analyze_content_patterns), donc comparer dessus ferait
+      ressortir à tort les hashtags des vidéos à petite audience comme
+      "sous-performants" alors qu'ils ont juste touché moins de monde.
     - vidéos sans aucun hashtag
     """
     all_tags: list[str] = []
     videos_without_tags = 0
-    tag_to_engagements: dict[str, list[float]] = {}
+    tag_to_views: dict[str, list[int]] = {}
 
     for video in videos:
         tags = video.get("hashtags", [])
@@ -973,7 +977,7 @@ def _analyze_hashtags(videos: list[dict]) -> dict:
         for tag in tags:
             tag_lower = tag.lower()
             all_tags.append(tag_lower)
-            tag_to_engagements.setdefault(tag_lower, []).append(video["engagement_rate"])
+            tag_to_views.setdefault(tag_lower, []).append(video["view_count"])
 
     tag_counts = Counter(all_tags)
     total_videos = len(videos)
@@ -987,15 +991,15 @@ def _analyze_hashtags(videos: list[dict]) -> dict:
         if total_videos > 0 and count / total_videos >= 0.7
     ]
 
-    # Hashtags dont l'engagement moyen associé est nettement inférieur à
-    # la moyenne générale du compte (piste : ce hashtag n'aide pas, voire
-    # dessert les vidéos qui l'utilisent).
+    # Hashtags dont le nombre de vues moyen associé est nettement inférieur
+    # à la moyenne générale du compte (piste : ce hashtag n'aide pas la
+    # portée, voire dessert les vidéos qui l'utilisent).
     overall_avg = (
-        sum(v["engagement_rate"] for v in videos) / len(videos) if videos else 0
+        sum(v["view_count"] for v in videos) / len(videos) if videos else 0
     )
     underperforming_tags = [
-        tag for tag, engagements in tag_to_engagements.items()
-        if len(engagements) >= 2 and (sum(engagements) / len(engagements)) < overall_avg * 0.5
+        tag for tag, views in tag_to_views.items()
+        if len(views) >= 2 and (sum(views) / len(views)) < overall_avg * 0.5
     ]
 
     return {
@@ -1010,18 +1014,25 @@ def _analyze_hashtags(videos: list[dict]) -> dict:
     }
 
 
-def _avg_engagement(videos: list[dict]) -> float | None:
-    return round(sum(v["engagement_rate"] for v in videos) / len(videos), 2) if videos else None
+def _avg_views(videos: list[dict]) -> float | None:
+    return round(sum(v["view_count"] for v in videos) / len(videos), 0) if videos else None
 
 
 def _analyze_content_patterns(videos: list[dict]) -> dict:
     """
     Calcule des corrélations précises entre des caractéristiques du titre/
-    format des vidéos et leur engagement, pour donner à l'IA de vrais
-    signaux chiffrés plutôt que de la laisser "deviner" un pattern en
-    lisant une liste de titres. Chaque signal n'est renvoyé que s'il y a
+    format des vidéos et leur PORTÉE (nombre de vues), pour donner à l'IA
+    de vrais signaux chiffrés plutôt que de la laisser "deviner" un pattern
+    en lisant une liste de titres. Chaque signal n'est renvoyé que s'il y a
     au moins 2 vidéos de chaque côté de la comparaison (sinon trop peu de
     données pour être fiable, et on préfère ne rien affirmer).
+
+    On compare sur les VUES, pas le taux d'engagement : le taux
+    d'engagement se dilue mécaniquement quand la portée augmente (une
+    vidéo à faible audience touche surtout des fans fidèles, ratio gonflé),
+    donc comparer dessus ferait ressortir des formats à faible portée comme
+    "meilleurs" — l'inverse de ce qu'on veut pour identifier ce qui aide
+    vraiment un compte à percer.
     """
     signals = {}
 
@@ -1029,8 +1040,8 @@ def _analyze_content_patterns(videos: list[dict]) -> dict:
     without_question = [v for v in videos if "?" not in (v.get("title") or "")]
     if len(with_question) >= 2 and len(without_question) >= 2:
         signals["question_in_title"] = {
-            "avg_engagement_with": _avg_engagement(with_question),
-            "avg_engagement_without": _avg_engagement(without_question),
+            "avg_views_with": _avg_views(with_question),
+            "avg_views_without": _avg_views(without_question),
             "count_with": len(with_question),
             "count_without": len(without_question),
         }
@@ -1039,8 +1050,8 @@ def _analyze_content_patterns(videos: list[dict]) -> dict:
     without_digit = [v for v in videos if not any(c.isdigit() for c in (v.get("title") or ""))]
     if len(with_digit) >= 2 and len(without_digit) >= 2:
         signals["digit_in_title"] = {
-            "avg_engagement_with": _avg_engagement(with_digit),
-            "avg_engagement_without": _avg_engagement(without_digit),
+            "avg_views_with": _avg_views(with_digit),
+            "avg_views_without": _avg_views(without_digit),
             "count_with": len(with_digit),
             "count_without": len(without_digit),
         }
@@ -1053,8 +1064,8 @@ def _analyze_content_patterns(videos: list[dict]) -> dict:
         if len(short_videos) >= 2 and len(long_videos) >= 2:
             signals["video_duration"] = {
                 "median_duration_seconds": median_duration,
-                "avg_engagement_short": _avg_engagement(short_videos),
-                "avg_engagement_long": _avg_engagement(long_videos),
+                "avg_views_short": _avg_views(short_videos),
+                "avg_views_long": _avg_views(long_videos),
                 "count_short": len(short_videos),
                 "count_long": len(long_videos),
             }
@@ -1078,7 +1089,7 @@ def _analyze_content_patterns(videos: list[dict]) -> dict:
     populated_buckets = {k: v for k, v in buckets.items() if len(v) >= 2}
     if len(populated_buckets) >= 2:
         signals["posting_time"] = {
-            label: {"avg_engagement": _avg_engagement(vids), "count": len(vids)}
+            label: {"avg_views": _avg_views(vids), "count": len(vids)}
             for label, vids in populated_buckets.items()
         }
 
@@ -1343,7 +1354,15 @@ async def analyze_account(
             raw_videos = await _fetch_all_videos(client, access_token)
 
         enriched_videos = [_compute_engagement(v) for v in raw_videos]
-        enriched_videos.sort(key=lambda v: v["engagement_rate"], reverse=True)
+        # Trié par nombre de vues (portée réelle), PAS par taux d'engagement :
+        # le taux d'engagement (likes+comments+shares / vues) se dilue
+        # mécaniquement quand la portée augmente (une vidéo à 800 vues vue
+        # presque uniquement par des fans fidèles aura un ratio bien plus
+        # élevé qu'une vidéo à 1M de vues touchant une audience froide qui
+        # ne connaît pas le compte). Classer par engagement_rate ferait
+        # ressortir les vidéos à faible portée comme "meilleures", l'inverse
+        # de ce qu'on veut pour un outil centré sur la viralité.
+        enriched_videos.sort(key=lambda v: v["view_count"], reverse=True)
 
         total = len(enriched_videos)
         viral_count = sum(1 for v in enriched_videos if v["view_count"] >= VIRAL_VIEW_THRESHOLD)
@@ -1404,16 +1423,25 @@ async def analyze_account(
             best_worst_text = ""
             if best:
                 best_worst_text += (
-                    f'\nMeilleure vidéo (engagement) : "{best["title"] or "(sans titre)"}" '
+                    f'\nVidéo la plus vue (portée) : "{best["title"] or "(sans titre)"}" '
                     f'— {best["view_count"]} vues, {best["like_count"]} likes, '
                     f'{best["engagement_rate"]}% engagement'
                 )
             if worst:
                 best_worst_text += (
-                    f'\nPire vidéo (engagement) : "{worst["title"] or "(sans titre)"}" '
+                    f'\nVidéo la moins vue (portée) : "{worst["title"] or "(sans titre)"}" '
                     f'— {worst["view_count"]} vues, {worst["like_count"]} likes, '
                     f'{worst["engagement_rate"]}% engagement'
                 )
+            best_worst_text += (
+                "\nATTENTION : le taux d'engagement (%) baisse mécaniquement "
+                "quand la portée augmente (une vidéo à faible audience "
+                "touche surtout des fans fidèles, ratio gonflé ; une vidéo "
+                "qui perce touche une audience froide qui interagit moins). "
+                "Ne jamais présenter une vidéo à faible nombre de vues comme "
+                "'meilleure' juste parce que son % d'engagement est plus "
+                "élevé — la vraie réussite ici, c'est le nombre de vues."
+            )
 
             # Analyse des hashtags : répétition, sur-utilisation, hashtags
             # qui sous-performent par rapport à la moyenne du compte.
@@ -1436,45 +1464,51 @@ Analyse des hashtags utilisés :
 - Nombre de hashtags différents utilisés au total : {hashtag_stats['unique_hashtags_count']}
 - Hashtags les plus utilisés : {top_tags_text}
 - Hashtags SUR-UTILISÉS (présents sur ≥70% des vidéos, signe de copié-collé sans réflexion) : {overused_text}
-- Hashtags SOUS-PERFORMANTS (engagement moyen ≤50% de la moyenne du compte quand ils sont utilisés) : {underperforming_text}"""
+- Hashtags SOUS-PERFORMANTS (vues moyennes ≤50% de la moyenne du compte quand ils sont utilisés) : {underperforming_text}"""
 
-            # Corrélations précises titre/format/horaire ↔ engagement,
+            # Corrélations précises titre/format/horaire ↔ PORTÉE (vues),
             # calculées en Python (pas laissées à l'appréciation du modèle)
             # pour forcer des affirmations vérifiables plutôt que du ressenti.
+            # Comparaison sur les vues, pas le taux d'engagement : voir la
+            # note dans _analyze_content_patterns pour la raison (le %
+            # d'engagement se dilue mécaniquement avec la portée).
             content_patterns = _analyze_content_patterns(videos)
             pattern_lines = []
             if "question_in_title" in content_patterns:
                 p = content_patterns["question_in_title"]
                 pattern_lines.append(
-                    f"- Titres avec un '?' : {p['avg_engagement_with']}% d'engagement moyen "
-                    f"({p['count_with']} vidéos) vs {p['avg_engagement_without']}% sans '?' "
+                    f"- Titres avec un '?' : {p['avg_views_with']:.0f} vues en moyenne "
+                    f"({p['count_with']} vidéos) vs {p['avg_views_without']:.0f} vues sans '?' "
                     f"({p['count_without']} vidéos)"
                 )
             if "digit_in_title" in content_patterns:
                 p = content_patterns["digit_in_title"]
                 pattern_lines.append(
-                    f"- Titres avec un chiffre : {p['avg_engagement_with']}% d'engagement moyen "
-                    f"({p['count_with']} vidéos) vs {p['avg_engagement_without']}% sans chiffre "
+                    f"- Titres avec un chiffre : {p['avg_views_with']:.0f} vues en moyenne "
+                    f"({p['count_with']} vidéos) vs {p['avg_views_without']:.0f} vues sans chiffre "
                     f"({p['count_without']} vidéos)"
                 )
             if "video_duration" in content_patterns:
                 p = content_patterns["video_duration"]
                 pattern_lines.append(
-                    f"- Vidéos courtes (≤{p['median_duration_seconds']}s) : {p['avg_engagement_short']}% "
-                    f"d'engagement moyen ({p['count_short']} vidéos) vs vidéos longues : "
-                    f"{p['avg_engagement_long']}% ({p['count_long']} vidéos)"
+                    f"- Vidéos courtes (≤{p['median_duration_seconds']}s) : {p['avg_views_short']:.0f} "
+                    f"vues en moyenne ({p['count_short']} vidéos) vs vidéos longues : "
+                    f"{p['avg_views_long']:.0f} vues ({p['count_long']} vidéos)"
                 )
             if "posting_time" in content_patterns:
                 for label, p in content_patterns["posting_time"].items():
                     pattern_lines.append(
-                        f"- Publié le {label} : {p['avg_engagement']}% d'engagement moyen ({p['count']} vidéos)"
+                        f"- Publié le {label} : {p['avg_views']:.0f} vues en moyenne ({p['count']} vidéos)"
                     )
             content_pattern_block = (
-                "\nCorrélations calculées entre format/titre/horaire et engagement "
-                "(chiffres réels, pas une estimation) :\n" + "\n".join(pattern_lines)
+                "\nCorrélations calculées entre format/titre/horaire et PORTÉE "
+                "(nombre de vues, chiffres réels, pas une estimation) — "
+                "volontairement PAS le taux d'engagement, qui se dilue "
+                "mécaniquement avec la portée et donnerait un signal trompeur :\n"
+                + "\n".join(pattern_lines)
                 if pattern_lines else
                 "\nPas assez de vidéos pour calculer des corrélations fiables "
-                "titre/format/horaire ↔ engagement — ne pas en inventer."
+                "titre/format/horaire ↔ vues — ne pas en inventer."
             )
 
             performance_block = f"""
@@ -1512,10 +1546,12 @@ Profil :
 MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
 1. PRIORITÉ ABSOLUE : utilise les corrélations déjà calculées ci-dessus
    (section "Corrélations calculées...") — ce sont de vrais chiffres, pas
-   une estimation. Si un signal montre un écart net (ex: +15 points
-   d'engagement avec un point d'interrogation dans le titre), cite-le
+   une estimation. Si un signal montre un écart net de VUES (ex: 2x plus
+   de vues en moyenne avec un point d'interrogation dans le titre), cite-le
    explicitement avec les deux chiffres comparés. N'ignore jamais un signal
-   disponible pour dire quelque chose de plus vague à la place.
+   disponible pour dire quelque chose de plus vague à la place. Ne parle
+   JAMAIS du taux d'engagement (%) comme mesure de succès d'une vidéo —
+   utilise les VUES pour ça (voir la note dans le bloc de corrélations).
 2. Complète avec au moins 1 pattern supplémentaire trouvé toi-même en
    comparant les titres/stats des vidéos entre elles (pas des généralités
    sur TikTok en général).
