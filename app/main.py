@@ -615,20 +615,30 @@ async def tiktok_callback(request: Request):
                   </div>`;
 
                 if (stats.videos && stats.videos.length > 0) {{
-                  const videoCards = stats.videos.map(v => `
-                    <div style="width:104px;">
-                      <div style="width:100px;height:140px;border-radius:8px;overflow:hidden;background:#f3f4f6;">
+                  window.__wilVideos = stats.videos;
+                  window.__wilAvgViews = stats.average_view_count || '';
+                  const scoreIcon = s => s <= 40 ? '🔴' : s <= 60 ? '🟡' : s <= 80 ? '🟠' : '🔵';
+                  const videoRows = stats.videos.map((v, idx) => `
+                    <div style="display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid #f0f0f0;">
+                      <div style="width:60px;height:84px;flex-shrink:0;border-radius:8px;overflow:hidden;background:#f3f4f6;">
                         ${{v.cover_image_url ? `<img src="${{v.cover_image_url}}" style="width:100%;height:100%;object-fit:cover;" />` : ''}}
                       </div>
-                      <p style="font-size:13px;text-align:center;margin:6px 0 0;font-weight:700;color:#5B21B6;">🔥 ${{v.virality_score}}/100</p>
-                      <p style="font-size:11px;text-align:center;color:#666;margin:2px 0 0;">${{v.view_count}} vues</p>
-                      <p style="font-size:10px;text-align:center;color:#aaa;margin:0;">${{v.engagement_rate}}% engagement</p>
+                      <div style="flex:1;min-width:0;">
+                        <p style="font-size:13px;font-weight:700;margin:0;">${{scoreIcon(v.virality_score)}} ${{v.virality_score}}/100</p>
+                        <p style="font-size:12px;color:#666;margin:2px 0 8px;">${{v.view_count}} vues</p>
+                        <button onclick="analyzeVideo(${{idx}})" id="analyze-btn-${{idx}}"
+                                style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid #ddd;
+                                       background:#fff;cursor:pointer;">
+                          Analyser la vidéo
+                        </button>
+                        <div id="video-analysis-${{idx}}" style="margin-top:8px;font-size:13px;"></div>
+                      </div>
                     </div>`).join('');
                   html += `
                     <div class="card">
                       <p style="font-weight:bold;margin-bottom:4px;">Détail par vidéo</p>
-                      <p style="font-size:12px;color:#888;margin:0 0 12px;">Score de viralité basé sur les vues (0-100), pas sur le taux d'engagement.</p>
-                      <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">${{videoCards}}</div>
+                      <p style="font-size:12px;color:#888;margin:0 0 8px;">Score de viralité basé sur les vues (0-100), pas sur le taux d'engagement.</p>
+                      <div>${{videoRows}}</div>
                     </div>`;
                 }}
               }}
@@ -676,6 +686,51 @@ async def tiktok_callback(request: Request):
               document.getElementById('analysis-loading').innerHTML =
                 '<p class="loading">Analyse indisponible pour le moment.</p>';
             }});
+
+          // --- Analyse IA d'une vidéo précise (bouton sous chaque vignette) ---
+          function analyzeVideo(idx) {{
+            const v = (window.__wilVideos || [])[idx];
+            if (!v) return;
+            const btn = document.getElementById(`analyze-btn-${{idx}}`);
+            const result = document.getElementById(`video-analysis-${{idx}}`);
+            btn.disabled = true;
+            btn.textContent = 'Analyse en cours...';
+            result.innerHTML = '';
+
+            const params = new URLSearchParams({{
+              title: v.title || '',
+              view_count: v.view_count || 0,
+              like_count: v.like_count || 0,
+              comment_count: v.comment_count || 0,
+              share_count: v.share_count || 0,
+              duration: v.duration || '',
+              virality_score: v.virality_score || 0,
+              account_avg_views: window.__wilAvgViews || '',
+              niche_category: window.__wilNicheCategory || '',
+            }});
+
+            fetch(`/api/analyze-video?${{params.toString()}}`)
+              .then(r => r.json())
+              .then(data => {{
+                const strengths = (data.strengths || []).map(s => `<li>${{s}}</li>`).join('');
+                const weaknesses = (data.weaknesses || []).map(s => `<li>${{s}}</li>`).join('');
+                const actions = (data.action_plan || []).map(s => `<li>${{s}}</li>`).join('');
+                result.innerHTML = `
+                  <p style="margin:6px 0 2px;"><strong>✅ Points forts</strong></p>
+                  <ul class="bullets" style="margin:0;">${{strengths}}</ul>
+                  <p style="margin:6px 0 2px;"><strong>⚠️ Points faibles</strong></p>
+                  <ul class="bullets" style="margin:0;">${{weaknesses}}</ul>
+                  <p style="margin:6px 0 2px;"><strong>🎯 Pour percer</strong></p>
+                  <ul class="bullets" style="margin:0;">${{actions}}</ul>`;
+              }})
+              .catch(() => {{
+                result.innerHTML = '<p style="color:#c0392b;font-size:12px;">Analyse indisponible pour le moment.</p>';
+              }})
+              .finally(() => {{
+                btn.disabled = false;
+                btn.textContent = 'Analyser la vidéo';
+              }});
+          }}
 
           // --- Idées de vidéos et hooks tendance ---
           function loadTrendingIdeas() {{
@@ -1398,10 +1453,14 @@ async def analyze_account(
         average_engagement_rate = (
             round(sum(v["engagement_rate"] for v in enriched_videos) / total, 2) if total > 0 else 0
         )
+        average_view_count = (
+            round(sum(v["view_count"] for v in enriched_videos) / total) if total > 0 else 0
+        )
 
         stats = {
             "total_videos_analyzed": total,
             "average_engagement_rate": average_engagement_rate,
+            "average_view_count": average_view_count,
             "viral_threshold_views": VIRAL_VIEW_THRESHOLD,
             "viral_count": viral_count,
             "non_viral_count": non_viral_count,
@@ -1686,6 +1745,104 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
         "ai_report": ai_report,
         "lang": lang,
     })
+
+
+@app.get("/api/analyze-video", response_class=JSONResponse)
+async def analyze_video(
+    title: str = "",
+    view_count: int = 0,
+    like_count: int = 0,
+    comment_count: int = 0,
+    share_count: int = 0,
+    duration: int = 0,
+    virality_score: int = 0,
+    account_avg_views: int = 0,
+    niche_category: str = "",
+):
+    """
+    Analyse IA d'UNE vidéo précise : pourquoi elle a (ou n'a pas) percé,
+    ses points forts, ses points faibles, et des actions concrètes pour
+    la suite. Appelée depuis le bouton "Analyser la vidéo" sous chaque
+    vignette du dashboard.
+
+    Ne nécessite PAS de session TikTok : les stats de la vidéo sont déjà
+    connues côté client (renvoyées par /api/analyze-account), donc pas
+    besoin de rappeler l'API TikTok ni de revalider une session — juste
+    un appel Claude sur des chiffres déjà en main, rapide et simple.
+    """
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
+
+    comparison_text = (
+        f"Pour comparaison, la moyenne du compte est de {account_avg_views} vues par vidéo."
+        if account_avg_views > 0
+        else "Pas de moyenne de compte disponible pour comparaison — ne pas en inventer une."
+    )
+
+    prompt = f"""Tu es un coach de croissance TikTok senior, connu pour des
+analyses extrêmement concrètes et jamais génériques.
+
+{STYLE_GUIDE}
+
+Analyse CETTE vidéo précise, avec ses vraies données (pas le compte en
+général) :
+- Titre : "{title or '(sans titre)'}"
+- Vues : {view_count}
+- Likes : {like_count}, Commentaires : {comment_count}, Partages : {share_count}
+- Durée : {duration if duration else 'inconnue'} secondes
+- Score de viralité calculé (0-100, basé sur les vues) : {virality_score}/100
+- Niche du compte : {niche_category or 'non précisée'}
+{comparison_text}
+
+Explique pourquoi cette vidéo a (ou n'a pas) percé, en te basant
+UNIQUEMENT sur les chiffres ci-dessus — pas de conseil qui pourrait
+s'appliquer à n'importe quelle vidéo.
+
+BRIÈVETÉ (important) : réponse courte et directe, lisible en 15 secondes.
+
+Réponds avec un objet JSON (pas de markdown, pas de balises de code,
+juste du JSON brut) contenant exactement ces champs, en FRANÇAIS :
+{{
+  "strengths": ["1-2 raisons concrètes, basées sur les chiffres, expliquant ce qui a bien fonctionné sur cette vidéo"],
+  "weaknesses": ["1-2 points faibles concrets de cette vidéo précise, basés sur les chiffres"],
+  "action_plan": ["1-2 actions concrètes et spécifiques pour qu'une prochaine vidéo similaire ait plus de chances de devenir virale"]
+}}"""
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-sonnet-4-5-20250929",
+                "max_tokens": 500,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Erreur API Anthropic: {response.status_code} {response.text}",
+        )
+
+    raw_text = response.json()["content"][0]["text"]
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+
+    try:
+        result = json.loads(cleaned)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=502, detail="Réponse IA invalide.")
+
+    return JSONResponse(content=result)
 
 
 @app.get("/api/generate-script", response_class=JSONResponse)
