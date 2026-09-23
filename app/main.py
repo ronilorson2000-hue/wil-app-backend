@@ -720,10 +720,18 @@ async def tiktok_callback(request: Request):
                 const hashtagDiag = report.hashtag_diagnosis
                   ? `<p><strong>🏷 Diagnostic hashtags</strong></p><p style="font-size:14px;">${{report.hashtag_diagnosis}}</p>`
                   : '';
+                const nicheFocus = report.niche_focus_advice
+                  ? `<div style="background:#f9fafb;border-radius:10px;padding:14px;margin:12px 0;">
+                       <p style="font-weight:bold;margin:0 0 8px;">🧭 Plusieurs sujets détectés sur ton compte</p>
+                       <div>${{(report.niches_detected || []).map(n => `<span class="tag">${{n}}</span>`).join('')}}</div>
+                       <p style="font-size:14px;margin:8px 0 0;">${{report.niche_focus_advice}}</p>
+                     </div>`
+                  : '';
                 html += `
                   <div class="card">
                     <span class="chip">${{report.niche || ''}}</span>
                     <p style="margin-top:12px;">${{report.summary || ''}}</p>
+                    ${{nicheFocus}}
                     <p><strong>✅ Points forts</strong></p>
                     <ul class="bullets">${{strengths}}</ul>
                     <p><strong>📈 À améliorer</strong></p>
@@ -738,6 +746,12 @@ async def tiktok_callback(request: Request):
                 window.__wilBio = "{bio_enc}";
               }}
               window.__wilLang = data.lang || 'fr';
+              // Contexte du compte pour le diagnostic étendu par vidéo
+              // (voir analyzeVideo ci-dessous) : hashtags sur-utilisés/
+              // sous-performants et meilleur créneau, calculés côté serveur.
+              window.__wilBestPostingBucket = (stats && stats.best_posting_bucket) || '';
+              window.__wilOverusedHashtags = (stats && stats.overused_hashtags || []).join(',');
+              window.__wilUnderperformingHashtags = (stats && stats.underperforming_hashtags || []).join(',');
 
               if (!html) {{
                 html = '<div class="card"><p class="loading">Analyse indisponible pour le moment.</p></div>';
@@ -779,20 +793,30 @@ async def tiktok_callback(request: Request):
               virality_score: v.virality_score || 0,
               account_avg_views: window.__wilAvgViews || '',
               niche_category: window.__wilNicheCategory || '',
+              create_time: v.create_time || 0,
+              best_posting_bucket: window.__wilBestPostingBucket || '',
+              overused_hashtags: window.__wilOverusedHashtags || '',
+              underperforming_hashtags: window.__wilUnderperformingHashtags || '',
             }});
 
             fetch(`/api/analyze-video?${{params.toString()}}`)
               .then(r => r.json())
               .then(data => {{
+                const diagnosis = data.main_diagnosis
+                  ? `<p style="margin:6px 0 2px;"><strong>🔍 Le vrai problème</strong></p><p style="margin:0 0 8px;">${{data.main_diagnosis}}</p>`
+                  : '';
                 const strengths = (data.strengths || []).map(s => `<li>${{s}}</li>`).join('');
+                const strengthsBlock = strengths
+                  ? `<p style="margin:6px 0 2px;"><strong>✅ Points forts</strong></p><ul class="bullets" style="margin:0;">${{strengths}}</ul>`
+                  : '';
                 const weaknesses = (data.weaknesses || []).map(s => `<li>${{s}}</li>`).join('');
                 const actions = (data.action_plan || []).map(s => `<li>${{s}}</li>`).join('');
                 result.innerHTML = `
-                  <p style="margin:6px 0 2px;"><strong>✅ Points forts</strong></p>
-                  <ul class="bullets" style="margin:0;">${{strengths}}</ul>
-                  <p style="margin:6px 0 2px;"><strong>⚠️ Points faibles</strong></p>
+                  ${{diagnosis}}
+                  ${{strengthsBlock}}
+                  <p style="margin:6px 0 2px;"><strong>⚠️ À éviter</strong></p>
                   <ul class="bullets" style="margin:0;">${{weaknesses}}</ul>
-                  <p style="margin:6px 0 2px;"><strong>🎯 Pour percer</strong></p>
+                  <p style="margin:6px 0 2px;"><strong>🎯 À faire</strong></p>
                   <ul class="bullets" style="margin:0;">${{actions}}</ul>`;
               }})
               .catch(() => {{
