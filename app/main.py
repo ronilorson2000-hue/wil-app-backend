@@ -223,25 +223,6 @@ app.add_middleware(
 )
 
 
-# DIAGNOSTIC TEMPORAIRE — À RETIRER une fois le bug du 23/09/2026 identifié.
-# Renvoie la trace complète en JSON au lieu d'un 500 générique, pour
-# diagnostiquer une erreur reproductible uniquement en production (clé
-# ANTHROPIC_API_KEY absente en local).
-import traceback as _traceback
-
-
-@app.exception_handler(Exception)
-async def _debug_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={
-            "debug_error": str(exc),
-            "debug_type": type(exc).__name__,
-            "debug_traceback": _traceback.format_exc(),
-        },
-    )
-
-
 @app.get("/favicon.ico")
 def favicon():
     """
@@ -1109,6 +1090,23 @@ def _virality_score(views: int) -> int:
         return 0
     score = 100 * math.log10(views + 1) / math.log10(VIRAL_VIEW_THRESHOLD * 100 + 1)
     return max(0, min(100, round(score)))
+
+
+def _extract_text_block(response_json: dict) -> str:
+    """
+    Extrait le texte d'une réponse Claude en cherchant le premier bloc de
+    type "text" dans response["content"], au lieu de supposer que
+    content[0] est ce bloc. Claude Sonnet 5 a le raisonnement étendu actif
+    par défaut : content[0] peut être un bloc "thinking" avant le texte,
+    ce qui faisait planter le code avec un KeyError('text') sur
+    content[0]["text"] (bug identifié le 23/09/2026 juste après la
+    bascule vers Sonnet 5). Renvoie le DERNIER bloc texte trouvé (le plus
+    susceptible d'être la réponse finale plutôt qu'un raisonnement
+    intermédiaire), vide si aucun.
+    """
+    content_blocks = response_json.get("content", [])
+    text_blocks = [b["text"] for b in content_blocks if b.get("type") == "text"]
+    return text_blocks[-1] if text_blocks else ""
 
 
 # 3 pages = 60 vidéos max. Réduit depuis 10 (200 vidéos) : chaque page est
@@ -2029,7 +2027,7 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
             response = None
 
         if response and response.status_code == 200:
-            raw_text = response.json()["content"][0]["text"]
+            raw_text = _extract_text_block(response.json())
 
             cleaned = raw_text.strip()
             if cleaned.startswith("```"):
@@ -2179,7 +2177,7 @@ juste du JSON brut) contenant exactement ces champs, en FRANÇAIS :
             detail=f"Erreur API Anthropic: {response.status_code} {response.text}",
         )
 
-    raw_text = response.json()["content"][0]["text"]
+    raw_text = _extract_text_block(response.json())
     cleaned = raw_text.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`")
@@ -2353,7 +2351,7 @@ juste du JSON brut) contenant exactement ces champs, en FRANÇAIS :
             detail=f"Erreur API Anthropic: {response.status_code} {response.text}",
         )
 
-    raw_text = response.json()["content"][0]["text"]
+    raw_text = _extract_text_block(response.json())
     cleaned = raw_text.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`")
@@ -2457,7 +2455,7 @@ juste du JSON brut) avec exactement ces champs :
             detail=f"Erreur API Anthropic: {response.status_code} {response.text}",
         )
 
-    raw_text = response.json()["content"][0]["text"]
+    raw_text = _extract_text_block(response.json())
     cleaned = raw_text.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`")
