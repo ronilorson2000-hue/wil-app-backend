@@ -223,6 +223,25 @@ app.add_middleware(
 )
 
 
+# DIAGNOSTIC TEMPORAIRE — À RETIRER une fois le bug du 23/09/2026 identifié.
+# Renvoie la trace complète en JSON au lieu d'un 500 générique, pour
+# diagnostiquer une erreur reproductible uniquement en production (clé
+# ANTHROPIC_API_KEY absente en local).
+import traceback as _traceback
+
+
+@app.exception_handler(Exception)
+async def _debug_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "debug_error": str(exc),
+            "debug_type": type(exc).__name__,
+            "debug_traceback": _traceback.format_exc(),
+        },
+    )
+
+
 @app.get("/favicon.ico")
 def favicon():
     """
