@@ -1278,6 +1278,39 @@ def _avg_views(videos: list[dict]) -> float | None:
     return round(sum(v["view_count"] for v in videos) / len(videos), 0) if videos else None
 
 
+def _posting_time_bucket(create_time: int | None) -> str | None:
+    """
+    Classe un horodatage Unix dans un créneau de 6h (heure UTC — pas
+    forcément l'heure locale du créateur). Factorisé pour être réutilisé
+    à la fois sur l'ensemble des vidéos d'un compte (_analyze_content_patterns)
+    et sur UNE vidéo précise (analyze_video, pour comparer son créneau à
+    celui qui marche le mieux sur ce compte).
+    """
+    if not create_time:
+        return None
+    hour = time.gmtime(create_time).tm_hour
+    if hour < 6:
+        return "nuit (0h-6h UTC)"
+    if hour < 12:
+        return "matin (6h-12h UTC)"
+    if hour < 18:
+        return "après-midi (12h-18h UTC)"
+    return "soir (18h-24h UTC)"
+
+
+def _best_posting_bucket(content_patterns: dict) -> str | None:
+    """
+    Renvoie le label du créneau de publication avec le plus de vues en
+    moyenne sur ce compte (voir signals["posting_time"] dans
+    _analyze_content_patterns), ou None si le signal n'a pas pu être
+    calculé (pas assez de vidéos réparties sur au moins 2 créneaux).
+    """
+    posting_time = content_patterns.get("posting_time")
+    if not posting_time:
+        return None
+    return max(posting_time.items(), key=lambda item: item[1]["avg_views"])[0]
+
+
 def _analyze_content_patterns(videos: list[dict]) -> dict:
     """
     Calcule des corrélations précises entre des caractéristiques du titre/
@@ -1335,17 +1368,9 @@ def _analyze_content_patterns(videos: list[dict]) -> dict:
     # pas un horaire exact à respecter).
     buckets = {"nuit (0h-6h UTC)": [], "matin (6h-12h UTC)": [], "après-midi (12h-18h UTC)": [], "soir (18h-24h UTC)": []}
     for v in videos:
-        if not v.get("create_time"):
-            continue
-        hour = time.gmtime(v["create_time"]).tm_hour
-        if hour < 6:
-            buckets["nuit (0h-6h UTC)"].append(v)
-        elif hour < 12:
-            buckets["matin (6h-12h UTC)"].append(v)
-        elif hour < 18:
-            buckets["après-midi (12h-18h UTC)"].append(v)
-        else:
-            buckets["soir (18h-24h UTC)"].append(v)
+        label = _posting_time_bucket(v.get("create_time"))
+        if label:
+            buckets[label].append(v)
     populated_buckets = {k: v for k, v in buckets.items() if len(v) >= 2}
     if len(populated_buckets) >= 2:
         signals["posting_time"] = {
@@ -1852,6 +1877,15 @@ Analyse des hashtags utilisés :
             # note dans _analyze_content_patterns pour la raison (le %
             # d'engagement se dilue mécaniquement avec la portée).
             content_patterns = _analyze_content_patterns(videos)
+
+            # Exposés dans `stats` (pas juste utilisés pour le prompt) pour
+            # que le client puisse les repasser à /api/analyze-video lors
+            # d'un diagnostic approfondi d'UNE vidéo précise (comparer ses
+            # hashtags/son créneau à ce qui marche le mieux sur CE compte).
+            stats["overused_hashtags"] = hashtag_stats["overused_hashtags"]
+            stats["underperforming_hashtags"] = hashtag_stats["underperforming_hashtags"]
+            stats["best_posting_bucket"] = _best_posting_bucket(content_patterns)
+
             pattern_lines = []
             if "question_in_title" in content_patterns:
                 p = content_patterns["question_in_title"]
@@ -2108,6 +2142,72 @@ contient de toute façon pas)."""
     })
 
 
+def _build_underperformance_diagnosis(
+    title: str,
+    create_time: int,
+    best_posting_bucket: str,
+    overused_hashtags: str,
+    underperforming_hashtags: str,
+) -> str:
+    """
+    Construit le bloc "4 CAUSES POSSIBLES" pour une vidéo sous le seuil de
+    viralité : accroche, reste du texte, hashtags, heure de publication.
+    Chaque ligne s'appuie sur une vraie preuve disponible plutôt que de
+    présumer que l'accroche est LE problème par défaut — répond
+    directement à "comment savoir que le hook n'est pas le problème".
+    Les paramètres best_posting_bucket/overused_hashtags/
+    underperforming_hashtags sont ceux renvoyés dans `stats` par
+    /api/analyze-account ; vides si non fournis par le client.
+    """
+    video_hashtags = re.findall(r"#(\w+)", title)
+    text_without_hashtags = re.sub(r"#\w+", "", title).strip() or "(aucun texte, que des hashtags ou rien)"
+    hook_excerpt = title[:60] + ("..." if len(title) > 60 else "") if title else "(pas de titre du tout)"
+
+    overused_set = {t.strip().lower() for t in overused_hashtags.split(",") if t.strip()}
+    underperf_set = {t.strip().lower() for t in underperforming_hashtags.split(",") if t.strip()}
+    flagged = [h for h in video_hashtags if h.lower() in overused_set or h.lower() in underperf_set]
+
+    if flagged:
+        hashtag_line = (
+            f"3. HASHTAGS (suspect) : cette vidéo utilise "
+            f"{', '.join('#' + h for h in flagged)}, identifié(s) au niveau du "
+            f"compte comme sur-utilisé(s) ou associé(s) à une portée plus faible."
+        )
+    elif video_hashtags:
+        hashtag_line = (
+            "3. HASHTAGS (probablement pas la cause) : aucun des hashtags de "
+            "cette vidéo ne fait partie des hashtags à problème connus sur ce compte."
+        )
+    else:
+        hashtag_line = "3. HASHTAGS : cette vidéo n'a aucun hashtag — à mentionner si pertinent, sans en faire une cause certaine."
+
+    video_bucket = _posting_time_bucket(create_time)
+    if video_bucket and best_posting_bucket:
+        if video_bucket == best_posting_bucket:
+            posting_line = (
+                f"4. HEURE DE PUBLICATION (probablement pas la cause) : publiée "
+                f"en {video_bucket}, qui est justement le créneau le plus fort de ce compte."
+            )
+        else:
+            posting_line = (
+                f"4. HEURE DE PUBLICATION (suspect) : publiée en {video_bucket}, "
+                f"alors que {best_posting_bucket} obtient plus de vues en moyenne sur ce compte."
+            )
+    else:
+        posting_line = "4. HEURE DE PUBLICATION : pas assez de données pour comparer cette vidéo au reste du compte."
+
+    return f"""
+4 CAUSES POSSIBLES À VÉRIFIER (cette vidéo est sous le seuil de viralité
+— ne présume PAS que c'est forcément l'accroche, vérifie les 4) :
+1. ACCROCHE (les tout premiers mots) : "{hook_excerpt}" — pose-t-elle une
+   question, une tension, un truc surprenant dans les premiers mots ? Ou
+   part-elle directement dans le sujet sans rien pour donner envie de rester ?
+2. RESTE DU TEXTE (hors hashtags) : "{text_without_hashtags}" — est-ce une
+   vraie phrase qui donne une raison de regarder, ou vide/générique ?
+{hashtag_line}
+{posting_line}"""
+
+
 @app.get("/api/analyze-video", response_class=JSONResponse)
 async def analyze_video(
     title: str = "",
@@ -2119,12 +2219,27 @@ async def analyze_video(
     virality_score: int = 0,
     account_avg_views: int = 0,
     niche_category: str = "",
+    create_time: int = 0,
+    best_posting_bucket: str = "",
+    overused_hashtags: str = "",
+    underperforming_hashtags: str = "",
 ):
     """
     Analyse IA d'UNE vidéo précise : pourquoi elle a (ou n'a pas) percé,
     ses points forts, ses points faibles, et des actions concrètes pour
     la suite. Appelée depuis le bouton "Analyser la vidéo" sous chaque
     vignette du dashboard.
+
+    Pour une vidéo SOUS le seuil de viralité (VIRAL_VIEW_THRESHOLD), on
+    ne présume PAS que l'accroche est systématiquement en cause : on
+    rassemble les preuves disponibles sur 4 causes possibles (accroche,
+    reste du texte, hashtags, heure de publication) pour que l'IA désigne
+    la plus probable — voir `_build_underperformance_diagnosis`.
+    `create_time`, `best_posting_bucket`, `overused_hashtags` et
+    `underperforming_hashtags` sont optionnels : ce sont les mêmes
+    valeurs que celles renvoyées dans `stats` par /api/analyze-account
+    (best_posting_bucket, overused_hashtags, underperforming_hashtags),
+    à repasser telles quelles par le client pour ce diagnostic étendu.
 
     Ne nécessite PAS de session TikTok : les stats de la vidéo sont déjà
     connues côté client (renvoyées par /api/analyze-account), donc pas
@@ -2138,6 +2253,19 @@ async def analyze_video(
         f"Pour comparaison, la moyenne du compte est de {account_avg_views} vues par vidéo."
         if account_avg_views > 0
         else "Pas de moyenne de compte disponible pour comparaison — ne pas en inventer une."
+    )
+
+    is_underperforming = 0 < view_count < VIRAL_VIEW_THRESHOLD
+    diagnosis_block = (
+        _build_underperformance_diagnosis(
+            title=title,
+            create_time=create_time,
+            best_posting_bucket=best_posting_bucket,
+            overused_hashtags=overused_hashtags,
+            underperforming_hashtags=underperforming_hashtags,
+        )
+        if is_underperforming
+        else ""
     )
 
     prompt = f"""Tu es un coach de croissance TikTok senior, connu pour des
@@ -2154,30 +2282,41 @@ général) :
 - Score de viralité calculé (0-100, basé sur les vues) : {virality_score}/100
 - Niche du compte : {niche_category or 'non précisée'}
 {comparison_text}
+{diagnosis_block}
 
 Explique pourquoi cette vidéo a (ou n'a pas) percé, en te basant sur les
 chiffres ci-dessus. Pas de conseil qui pourrait s'appliquer à n'importe
 quelle vidéo.
-
-NOMME UNE TECHNIQUE PRÉCISE (voir VOCABULAIRE À UTILISER dans le guide
-de style ci-dessus) plutôt qu'un jugement vague : le titre ("{title or '(sans titre)'}")
-est ta seule fenêtre sur le hook/l'angle de cette vidéo — analyse-le
-concrètement (pose-t-il une question ? annonce-t-il juste le sujet ?
-crée-t-il une tension ?) au lieu de dire "le contenu est bon/mauvais".
+{
+    "NE PRÉSUME PAS que l'accroche est systématiquement en cause : "
+    "utilise le bloc \"4 CAUSES POSSIBLES\" ci-dessus pour désigner EN "
+    "PRIORITÉ celle qui a le plus de preuves à charge (accroche, reste "
+    "du texte, hashtags, ou heure de publication) — pas une intuition "
+    "générique. Si 2 causes ont des preuves, tu peux nommer les deux "
+    "dans \"main_diagnosis\", mais reste précis."
+    if is_underperforming else
+    "NOMME UNE TECHNIQUE PRÉCISE (voir VOCABULAIRE À UTILISER dans le "
+    "guide de style ci-dessus) plutôt qu'un jugement vague : le titre "
+    "est ta seule fenêtre sur le hook/l'angle de cette vidéo — "
+    "analyse-le concrètement (pose-t-il une question ? annonce-t-il "
+    "juste le sujet ? crée-t-il une tension ?) au lieu de dire "
+    "\"le contenu est bon/mauvais\"."
+}
 INTERDIT de comparer à "d'autres vidéos qui percent" sans donnée réelle
 — compare uniquement aux chiffres fournis ici (vues, moyenne du compte).
 
 RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2 du guide de
 style) : "strengths" PEUT citer LE chiffre le plus marquant s'il prouve
 une vraie réussite de cette vidéo (ex: "cette vidéo a fait 955K vues") —
-un seul, le plus parlant. "weaknesses" et "action_plan" restent SANS
-AUCUN CHIFFRE : traduis toujours en mots simples ("beaucoup moins vue
-que d'habitude"). Écris comme pour un élève de CM2 : phrases courtes,
-mots simples, une idée par phrase. "weaknesses" et "action_plan"
-doivent être des INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de
-style), pas des observations : "weaknesses" = ce qu'il NE FAUT PAS
-faire ("Arrête de..."), "action_plan" = ce qu'il FAUT faire à la place
-("Fais...", "Commence par...").
+un seul, le plus parlant. "main_diagnosis", "weaknesses" et
+"action_plan" restent SANS AUCUN CHIFFRE : traduis toujours en mots
+simples ("beaucoup moins vue que d'habitude"). Écris comme pour un
+élève de CM2 : phrases courtes, mots simples, une idée par phrase.
+"weaknesses" et "action_plan" doivent être des INSTRUCTIONS à
+l'impératif (RÈGLE D'OR N°3 du guide de style), pas des observations :
+"weaknesses" = ce qu'il NE FAUT PAS faire ("Arrête de..."),
+"action_plan" = ce qu'il FAUT faire à la place ("Fais...", "Commence
+par...").
 
 BRIÈVETÉ (important) : réponse courte et directe, lisible en 15 secondes.
 
@@ -2185,8 +2324,9 @@ Réponds avec un objet JSON (pas de markdown, pas de balises de code,
 juste du JSON brut) contenant exactement ces champs, en FRANÇAIS TRÈS
 SIMPLE (niveau CM2) :
 {{
+  "main_diagnosis": "{'1 phrase MAXIMUM, sans chiffre, désignant EN CLAIR laquelle (ou lesquelles) parmi accroche / reste du texte / hashtags / heure de publication est la cause la plus probable pour CETTE vidéo, basée sur le bloc 4 CAUSES POSSIBLES ci-dessus — jamais accroche par défaut si les preuves pointent ailleurs' if is_underperforming else 'chaîne vide, cette vidéo est déjà virale'}",
   "strengths": ["1-2 raisons concrètes MAXIMUM, en phrases simples, expliquant ce qui a bien fonctionné sur cette vidéo — UN chiffre marquant autorisé s'il prouve la réussite (règle d'or n°2)"],
-  "weaknesses": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Arrête de...' ou 'Évite de...', en phrases simples et SANS chiffre, nommant une technique manquante plutôt qu'un défaut vague"],
+  "weaknesses": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Arrête de...' ou 'Évite de...', en phrases simples et SANS chiffre, cohérentes avec main_diagnosis"],
   "action_plan": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Fais...' ou 'Commence par...', en phrases simples et SANS chiffre, pour qu'une prochaine vidéo similaire ait plus de chances de devenir virale"]
 }}"""
 
