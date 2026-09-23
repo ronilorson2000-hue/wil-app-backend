@@ -1871,7 +1871,6 @@ async def analyze_account(
     # 2. Analyse IA (profil + performance si disponible), si Anthropic
     # est configuré. Fonctionne même sans les stats vidéo (stats=None).
     ai_report = None
-    _debug_ai_report_failure = None
     if ANTHROPIC_API_KEY:
         if stats and stats["videos"]:
             videos = stats["videos"]
@@ -2257,20 +2256,11 @@ contient de toute façon pas)."""
                         "messages": [{"role": "user", "content": prompt}],
                     },
                 )
-        except httpx.HTTPError as e:
+        except httpx.HTTPError:
             response = None
-            _debug_ai_report_failure = {"phase": "httpx_error", "error": str(e)}
-
-        if response and response.status_code != 200:
-            _debug_ai_report_failure = {
-                "phase": "bad_status",
-                "status_code": response.status_code,
-                "body_start": response.text[:300],
-            }
 
         if response and response.status_code == 200:
-            response_json = response.json()
-            raw_text = _extract_text_block(response_json)
+            raw_text = _extract_text_block(response.json())
 
             cleaned = raw_text.strip()
             if cleaned.startswith("```"):
@@ -2282,17 +2272,6 @@ contient de toute façon pas)."""
                 ai_report = json.loads(cleaned)
             except json.JSONDecodeError:
                 ai_report = None
-                # TEMPORAIRE : diagnostic pour comprendre pourquoi ai_report
-                # revient parfois null en prod (cf. bug du 23/09/2026 où
-                # max_tokens=1500 était trop juste vu la taille du prompt
-                # actuel) — à retirer une fois confirmé côté serveur réel.
-                _debug_ai_report_failure = {
-                    "phase": "json_decode_error",
-                    "stop_reason": response_json.get("stop_reason"),
-                    "content_block_types": [b.get("type") for b in response_json.get("content", [])],
-                    "raw_text_len": len(raw_text),
-                    "raw_text_start": raw_text[:200],
-                }
 
             # Claude doit choisir dans la liste fermée NICHE_CATEGORIES, mais
             # on ne lui fait pas confiance aveuglément (variation de formulation,
@@ -2335,7 +2314,6 @@ contient de toute façon pas)."""
         "stats": stats,
         "ai_report": ai_report,
         "lang": lang,
-        "_debug_ai_report_failure": _debug_ai_report_failure,
     })
 
 
