@@ -1935,65 +1935,88 @@ Profil :
 
 MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
 1. PRIORITÉ ABSOLUE : utilise les corrélations déjà calculées ci-dessus
-   (section "Corrélations calculées...") — ce sont de vrais chiffres, pas
-   une estimation. Si un signal montre un écart net de VUES (ex: 2x plus
-   de vues en moyenne avec un point d'interrogation dans le titre), cite-le
-   explicitement avec les deux chiffres comparés. N'ignore jamais un signal
-   disponible pour dire quelque chose de plus vague à la place. Ne parle
-   JAMAIS du taux d'engagement (%) comme mesure de succès d'une vidéo —
-   utilise les VUES pour ça (voir la note dans le bloc de corrélations).
-2. Si un "Signal de récence" est marqué comme un vrai plateau, nomme-le
-   explicitement (ex: "tes 5 dernières vidéos plafonnent à X vues, ta
-   meilleure a fait Y") — c'est souvent LE constat le plus utile pour un
-   créateur, ne le noie pas dans le reste.
+   (section "Corrélations calculées...") — ce sont de vrais signaux, pas
+   une estimation. Si un signal montre un écart net (ex: beaucoup plus de
+   vues avec un point d'interrogation dans le titre), utilise-le pour
+   choisir quoi dire. Pour "summary"/"strengths" : tu PEUX citer le
+   chiffre le plus marquant tel quel (ex: "955K vues, 52K likes") s'il
+   prouve une vraie réussite — règle d'or n°2 (hybride) du guide de
+   style. Pour "improvements"/"hashtag_diagnosis" : traduis TOUJOURS en
+   mot simple de comparaison ("beaucoup plus", "très peu"), JAMAIS de
+   chiffre exact. N'ignore jamais un signal disponible pour dire quelque
+   chose de plus vague à la place. Ne parle JAMAIS du taux d'engagement
+   (%) comme mesure de succès d'une vidéo — les vues sont la vraie
+   mesure (voir la note dans le bloc de corrélations).
+2. Si un "Signal de récence" est marqué comme un vrai plateau, dis-le
+   simplement (ex: "tes dernières vidéos ont beaucoup moins de succès que
+   ta meilleure vidéo") — c'est souvent LE constat le plus utile pour un
+   créateur, ne le noie pas dans le reste. Aucun chiffre.
 3. Complète avec au moins 1 pattern supplémentaire trouvé toi-même en
    comparant les titres/stats des vidéos entre elles (pas des généralités
-   sur TikTok en général).
-4. NOMME UNE TECHNIQUE PRÉCISE, pas juste un défaut. Utilise le
-   vocabulaire natif du métier (hook/accroche, angle, structure narrative,
-   pattern de titre, déclencheur, rétention) pour dire CE QUI manque
-   concrètement — "il te manque un angle sur ce sujet" ou "ton accroche
-   ne pose pas de tension dans les 3 premières secondes" plutôt que "sois
-   plus créatif" ou "améliore tes vidéos".
+   sur TikTok en général) — toujours traduit en mots simples.
+4. NOMME UNE TECHNIQUE PRÉCISE, pas juste un défaut, ET formule-la comme
+   une INSTRUCTION à l'impératif (RÈGLE D'OR N°3 du guide de style) : soit
+   ce qu'il FAUT faire ("Commence par..."), soit ce qu'il NE FAUT PAS
+   faire ("Arrête de..."). Utilise le vocabulaire du guide de style
+   (accroche, angle, déclencheur, comment la vidéo est construite, donner
+   envie de rester) pour dire CE QUI manque concrètement — "Arrête
+   d'annoncer juste le sujet dans ton accroche, commence plutôt par une
+   question" plutôt que "sois plus créatif" ou "ton accroche pourrait
+   être améliorée".
 5. INTERDIT : ne JAMAIS comparer ce compte à "d'autres comptes qui
    percent" ou "les pros" sans donnée réelle pour l'étayer — on n'a pas
    de base de comparaison entre comptes aujourd'hui. Reste sur les
-   propres chiffres de CE compte (sa meilleure vidéo vs ses vidéos
+   propres résultats de CE compte (sa meilleure vidéo vs ses vidéos
    récentes, avec/sans tel pattern, etc.). Nommer une technique manquante
    (règle 4) ne veut pas dire inventer une comparaison à des tiers.
-6. Chaque point fort et chaque amélioration doit citer un élément
-   spécifique de CE compte (un titre, un chiffre, une comparaison) —
-   jamais un conseil qui pourrait s'appliquer à n'importe quel compte.
+6. Chaque point fort et chaque amélioration doit s'appuyer sur un élément
+   réel de CE compte (un titre, un vrai signal) — jamais un conseil qui
+   pourrait s'appliquer à n'importe quel compte. Un point fort peut citer
+   UN chiffre marquant (règle d'or n°2) ; une amélioration n'en cite
+   JAMAIS.
 7. Pour le diagnostic hashtags : utilise en priorité les hashtags
    SUR-UTILISÉS et SOUS-PERFORMANTS déjà identifiés ci-dessus plutôt que de
-   re-analyser toi-même — base-toi UNIQUEMENT sur les chiffres fournis, ne
-   suppose rien d'autre.
+   re-analyser toi-même — base-toi UNIQUEMENT sur les signaux fournis, ne
+   suppose rien d'autre, et traduis en mots simples sans chiffre.
 8. Si aucun signal ni pattern clair n'est disponible par manque de données,
    dis-le honnêtement plutôt que d'inventer un conseil générique.
 
-STRUCTURE DU RÉSUMÉ (important) : en 1-2 phrases, suis cet arc — (a) une
-preuve concrète que ce créateur sait déjà créer du bon contenu (un chiffre
-ou une vidéo qui a marché), (b) l'écart précis avec sa situation actuelle,
-formulé avec une technique nommée (règle 4) — pas juste "il te manque de
-la régularité". Termine sur un ton qui donne envie d'agir, pas alarmiste.
+RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2) : "summary" et
+"strengths" PEUVENT citer LE chiffre le plus marquant s'il prouve une
+vraie réussite (ex: "955K vues, 52K likes") — jamais une liste de
+chiffres, un seul, le plus parlant. "improvements" et
+"hashtag_diagnosis" restent SANS AUCUN CHIFFRE : uniquement des mots de
+comparaison simples. Et écris comme si tu parlais à un élève de CM2 :
+phrases courtes, mots simples, une idée par phrase.
+
+STRUCTURE DU RÉSUMÉ (important) : en 1-2 phrases courtes, suis cet arc —
+(a) une preuve que ce créateur sait déjà créer du bon contenu (une vidéo
+qui a bien marché — cite le chiffre le plus marquant s'il y en a un,
+sinon décris-la en mots simples), (b) l'écart avec sa situation
+actuelle, expliqué avec une technique nommée (règle 4) et SANS chiffre
+— pas juste "il te manque de la régularité". Termine sur un ton qui
+donne envie d'agir, pas alarmiste.
 
 BRIÈVETÉ (important) : le rapport doit être court et direct — un créateur
 doit pouvoir le lire en 15 secondes. Pas de phrase d'intro/conclusion
 inutile, pas de reformulation, une idée par phrase. Précis > exhaustif.
 
 Réponds avec un objet JSON (pas de markdown, pas de balises de code, juste
-du JSON brut) contenant exactement ces champs, avec du texte en FRANÇAIS :
+du JSON brut) contenant exactement ces champs, avec du texte en FRANÇAIS
+TRÈS SIMPLE (niveau CM2) :
 {{
   "niche": "une courte phrase décrivant la niche de contenu probable",
   "niche_category": "choisis EXACTEMENT une valeur parmi cette liste fermée, recopiée telle quelle (aucune autre valeur autorisée) : {json.dumps(NICHE_CATEGORIES, ensure_ascii=False)}",
-  "summary": "1-2 phrases MAXIMUM suivant la STRUCTURE DU RÉSUMÉ ci-dessus (preuve de compétence -> écart précis nommé -> ton actionnable)",
-  "strengths": ["1-2 points forts MAXIMUM, chacun en 1 phrase, référençant un titre/chiffre précis de ce compte"],
-  "improvements": ["1-2 suggestions MAXIMUM, chacune en 1 phrase, nommant une technique précise (règle 4) justifiée par une comparaison chiffrée sur CE compte"],
-  "hashtag_diagnosis": "1 phrase MAXIMUM expliquant si les hashtags actuels aident ou nuisent à la viralité",
+  "summary": "1-2 phrases MAXIMUM, niveau CM2, suivant la STRUCTURE DU RÉSUMÉ ci-dessus — UN chiffre marquant autorisé pour la preuve de réussite, ZÉRO chiffre pour l'écart/reproche",
+  "strengths": ["1-2 points forts MAXIMUM, chacun en 1 phrase simple, appuyé sur un vrai signal de ce compte — ce que le créateur fait déjà bien et doit continuer ; UN chiffre marquant autorisé s'il prouve la réussite (règle d'or n°2)"],
+  "improvements": ["1-2 instructions MAXIMUM à l'impératif (RÈGLE D'OR N°3), chacune en 1 phrase simple, ZÉRO chiffre : soit ce qu'il FAUT faire ('Commence à...'), soit ce qu'il NE FAUT PAS faire ('Arrête de...') — jamais une simple observation"],
+  "hashtag_diagnosis": "1 phrase MAXIMUM, ZÉRO chiffre, expliquant si les hashtags actuels aident ou nuisent",
   "suggested_hashtags": ["5 hashtags pertinents pour cette niche, sans le symbole #"]
 }}
 
-Le contenu de chaque champ doit être rédigé entièrement en français."""
+Le contenu de chaque champ doit être rédigé entièrement en français, très
+simple, sans aucun chiffre (sauf le champ suggested_hashtags qui n'en
+contient de toute façon pas)."""
 
         # Note : la recherche web en direct (pour des hashtags vraiment
         # "tendance maintenant") a été désactivée pour l'instant, car plus
@@ -2132,9 +2155,9 @@ général) :
 - Niche du compte : {niche_category or 'non précisée'}
 {comparison_text}
 
-Explique pourquoi cette vidéo a (ou n'a pas) percé, en te basant
-UNIQUEMENT sur les chiffres ci-dessus — pas de conseil qui pourrait
-s'appliquer à n'importe quelle vidéo.
+Explique pourquoi cette vidéo a (ou n'a pas) percé, en te basant sur les
+chiffres ci-dessus. Pas de conseil qui pourrait s'appliquer à n'importe
+quelle vidéo.
 
 NOMME UNE TECHNIQUE PRÉCISE (voir VOCABULAIRE À UTILISER dans le guide
 de style ci-dessus) plutôt qu'un jugement vague : le titre ("{title or '(sans titre)'}")
@@ -2144,14 +2167,27 @@ crée-t-il une tension ?) au lieu de dire "le contenu est bon/mauvais".
 INTERDIT de comparer à "d'autres vidéos qui percent" sans donnée réelle
 — compare uniquement aux chiffres fournis ici (vues, moyenne du compte).
 
+RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2 du guide de
+style) : "strengths" PEUT citer LE chiffre le plus marquant s'il prouve
+une vraie réussite de cette vidéo (ex: "cette vidéo a fait 955K vues") —
+un seul, le plus parlant. "weaknesses" et "action_plan" restent SANS
+AUCUN CHIFFRE : traduis toujours en mots simples ("beaucoup moins vue
+que d'habitude"). Écris comme pour un élève de CM2 : phrases courtes,
+mots simples, une idée par phrase. "weaknesses" et "action_plan"
+doivent être des INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de
+style), pas des observations : "weaknesses" = ce qu'il NE FAUT PAS
+faire ("Arrête de..."), "action_plan" = ce qu'il FAUT faire à la place
+("Fais...", "Commence par...").
+
 BRIÈVETÉ (important) : réponse courte et directe, lisible en 15 secondes.
 
 Réponds avec un objet JSON (pas de markdown, pas de balises de code,
-juste du JSON brut) contenant exactement ces champs, en FRANÇAIS :
+juste du JSON brut) contenant exactement ces champs, en FRANÇAIS TRÈS
+SIMPLE (niveau CM2) :
 {{
-  "strengths": ["1-2 raisons concrètes, basées sur les chiffres et le titre, expliquant ce qui a bien fonctionné sur cette vidéo"],
-  "weaknesses": ["1-2 points faibles concrets de cette vidéo précise, nommant une technique manquante (hook, angle, structure...) plutôt qu'un défaut vague"],
-  "action_plan": ["1-2 actions concrètes et spécifiques, formulées comme une technique à appliquer, pour qu'une prochaine vidéo similaire ait plus de chances de devenir virale"]
+  "strengths": ["1-2 raisons concrètes MAXIMUM, en phrases simples, expliquant ce qui a bien fonctionné sur cette vidéo — UN chiffre marquant autorisé s'il prouve la réussite (règle d'or n°2)"],
+  "weaknesses": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Arrête de...' ou 'Évite de...', en phrases simples et SANS chiffre, nommant une technique manquante plutôt qu'un défaut vague"],
+  "action_plan": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Fais...' ou 'Commence par...', en phrases simples et SANS chiffre, pour qu'une prochaine vidéo similaire ait plus de chances de devenir virale"]
 }}"""
 
     try:
@@ -2310,23 +2346,40 @@ Niche du compte : {niche_category or "non précisée"}
 {comparison_text}
 
 Analyse le HOOK réel (les toutes premières phrases prononcées, pas un
-titre) en utilisant les types d'accroches du guide de style ci-dessus
-(cadrage négatif, miroir, insider, massue, contraste) — nomme celui qui
-s'en rapproche le plus, ou dis explicitement qu'aucun n'est présent.
-Analyse aussi la structure globale (est-ce que le propos reste clair,
-y a-t-il un vrai fil, la chute/CTA est-elle nette) à partir du texte
-réel, pas d'une supposition.
+titre) en t'appuyant EN INTERNE sur les "TYPES D'ACCROCHES RÉELLES" du
+guide de style ci-dessus pour comprendre ce qui se joue — mais dans ta
+réponse, décris ce que fait ce hook en mots simples (ex : "le spectateur
+se reconnaît tout de suite dans ce que tu dis"), JAMAIS avec un nom
+technique de catégorie. Si aucun type ne correspond clairement, dis
+simplement qu'il n'y a pas vraiment d'accroche identifiable.
+Analyse aussi comment la vidéo est construite du début à la fin (est-ce
+que le propos reste clair, y a-t-il un vrai fil, la fin donne-t-elle
+envie d'agir) à partir du texte réel, pas d'une supposition.
+
+RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2 du guide de
+style) : "strengths" PEUT citer LE chiffre le plus marquant SI une vraie
+donnée chiffrée est disponible ci-dessus (ex: comparaison à la moyenne
+du compte) et qu'elle prouve une réussite — sinon reste en mots simples,
+n'invente jamais un chiffre. "hook_type", "weaknesses" et "action_plan"
+restent SANS AUCUN CHIFFRE. Écris comme pour un élève de CM2 : phrases
+courtes, mots simples, une idée par phrase, aucun nom technique de
+catégorie d'accroche. "weaknesses" et "action_plan" doivent être des
+INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de style), pas des
+observations : "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrête
+de..."), "action_plan" = ce qu'il FAUT faire à la place ("Fais...",
+"Commence par...").
 
 BRIÈVETÉ (important) : réponse courte et directe, lisible en 15 secondes.
 
 Réponds avec un objet JSON (pas de markdown, pas de balises de code,
-juste du JSON brut) contenant exactement ces champs, en FRANÇAIS :
+juste du JSON brut) contenant exactement ces champs, en FRANÇAIS TRÈS
+SIMPLE (niveau CM2) :
 {{
   "hook_excerpt": "les 1-2 premières phrases réellement prononcées, citées telles quelles",
-  "hook_type": "le type d'accroche identifié (cadrage négatif/miroir/insider/massue/contraste/aucun identifié), avec 1 phrase d'explication",
-  "strengths": ["1-2 points forts concrets basés sur le texte réel"],
-  "weaknesses": ["1-2 points faibles concrets, nommant une technique manquante (hook, structure, clarté...)"],
-  "action_plan": ["1-2 actions concrètes pour la prochaine vidéo"]
+  "hook_type": "1 phrase simple décrivant CE QUE FAIT ce hook (sans nom technique de catégorie), ou dis qu'il n'y a pas vraiment d'accroche",
+  "strengths": ["1-2 points forts concrets MAXIMUM, en phrases simples, basés sur le texte réel — ce que le créateur fait déjà bien et doit continuer ; UN chiffre marquant autorisé si une vraie donnée le permet"],
+  "weaknesses": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Arrête de...' ou 'Évite de...', en phrases simples et sans chiffre, nommant une technique manquante"],
+  "action_plan": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Fais...' ou 'Commence par...', en phrases simples et sans chiffre, pour la prochaine vidéo"]
 }}"""
 
     try:
