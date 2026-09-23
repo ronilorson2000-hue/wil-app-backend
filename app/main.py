@@ -480,8 +480,19 @@ async def tiktok_callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
 
-    if not code or not state or not _consume_pending_state(state):
-        raise HTTPException(status_code=400, detail="Code ou state invalide/manquant")
+    # Détail explicite du cas d'échec (plutôt qu'un message générique) pour
+    # pouvoir diagnostiquer depuis la réponse HTTP sans avoir besoin des
+    # logs serveur — cf. le bug du 23/09/2026 où le message générique ne
+    # permettait pas de savoir si le vrai problème avait changé ou non.
+    if not code:
+        raise HTTPException(status_code=400, detail="Paramètre 'code' manquant dans le retour TikTok.")
+    if not state:
+        raise HTTPException(status_code=400, detail="Paramètre 'state' manquant dans le retour TikTok.")
+    if not _consume_pending_state(state):
+        raise HTTPException(
+            status_code=400,
+            detail=f"State '{state[:12]}...' introuvable, déjà utilisé, ou expiré (>10 min) — reconnecte-toi depuis le début.",
+        )
 
     # Échange du code contre un access_token (appel serveur-à-serveur,
     # jamais fait depuis le navigateur pour ne pas exposer le client_secret)
