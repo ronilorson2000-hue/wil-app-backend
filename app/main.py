@@ -1749,6 +1749,7 @@ async def analyze_account(
     # 2. Analyse IA (profil + performance si disponible), si Anthropic
     # est configuré. Fonctionne même sans les stats vidéo (stats=None).
     ai_report = None
+    _debug_claude = "ANTHROPIC_API_KEY absent" if not ANTHROPIC_API_KEY else "stats/videos absents"
     if ANTHROPIC_API_KEY:
         if stats and stats["videos"]:
             videos = stats["videos"]
@@ -2008,6 +2009,7 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
         # suivant (if response and response.status_code == 200) retombe
         # alors proprement sur ai_report=None au lieu de planter.
         response = None
+        _debug_claude = None
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.post(
@@ -2023,8 +2025,9 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
                         "messages": [{"role": "user", "content": prompt}],
                     },
                 )
-        except httpx.HTTPError:
+        except httpx.HTTPError as e:
             response = None
+            _debug_claude = f"httpx.HTTPError: {e}"
 
         if response and response.status_code == 200:
             raw_text = _extract_text_block(response.json())
@@ -2037,8 +2040,11 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
                 cleaned = cleaned.strip()
             try:
                 ai_report = json.loads(cleaned)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 ai_report = None
+                _debug_claude = f"JSONDecodeError: {e} | raw_text[:500]={raw_text[:500]!r}"
+        elif response:
+            _debug_claude = f"status={response.status_code} body[:500]={response.text[:500]!r}"
 
             # Claude doit choisir dans la liste fermée NICHE_CATEGORIES, mais
             # on ne lui fait pas confiance aveuglément (variation de formulation,
@@ -2081,6 +2087,7 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
         "stats": stats,
         "ai_report": ai_report,
         "lang": lang,
+        "_debug_claude": _debug_claude,  # TEMPORAIRE — à retirer une fois diagnostiqué
     })
 
 
