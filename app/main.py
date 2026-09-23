@@ -1311,6 +1311,38 @@ def _best_posting_bucket(content_patterns: dict) -> str | None:
     return max(posting_time.items(), key=lambda item: item[1]["avg_views"])[0]
 
 
+def _posting_consistency(videos: list[dict]) -> dict | None:
+    """
+    Mesure si le compte publie à peu près à la même heure à chaque fois,
+    ou si ses horaires de publication sont dispersés dans la journée —
+    calculé en Python sur des créneaux de 2h (pas une estimation), pour
+    pouvoir recommander une heure de publication fixe quand ce n'est pas
+    déjà le cas. Renvoie None si moins de 5 vidéos ont un horodatage
+    connu (pas assez de données pour juger d'une régularité).
+    """
+    hours = [time.gmtime(v["create_time"]).tm_hour for v in videos if v.get("create_time")]
+    if len(hours) < 5:
+        return None
+
+    bucket_counts: dict[int, int] = {}
+    for h in hours:
+        bucket = h // 2
+        bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
+    best_bucket, best_count = max(bucket_counts.items(), key=lambda item: item[1])
+    consistency_ratio = round(best_count / len(hours), 2)
+
+    return {
+        "total_with_timestamp": len(hours),
+        "typical_hour_range": f"{best_bucket * 2}h-{best_bucket * 2 + 2}h",
+        "matching_count": best_count,
+        "consistency_ratio": consistency_ratio,
+        # En dessous de 40% des vidéos dans le même créneau de 2h, les
+        # horaires sont considérés comme dispersés, pas juste un peu
+        # variables — évite de crier à l'irrégularité sur du bruit normal.
+        "is_irregular": consistency_ratio < 0.4,
+    }
+
+
 def _analyze_content_patterns(videos: list[dict]) -> dict:
     """
     Calcule des corrélations précises entre des caractéristiques du titre/
@@ -1924,6 +1956,33 @@ Analyse des hashtags utilisés :
                 "titre/format/horaire ↔ vues — ne pas en inventer."
             )
 
+            # Régularité de l'HEURE de publication (créneaux de 2h, distinct
+            # du signal PORTÉE ci-dessus qui compare les vues par créneau de
+            # 6h) — sert uniquement à détecter si les horaires sont dispersés
+            # dans la journée, pour recommander une heure fixe si besoin.
+            posting_consistency = _posting_consistency(videos)
+            if posting_consistency:
+                consistency_block = (
+                    f"\nRégularité de l'heure de publication : sur "
+                    f"{posting_consistency['total_with_timestamp']} vidéos avec "
+                    f"horaire connu, {posting_consistency['matching_count']} sont "
+                    f"publiées vers {posting_consistency['typical_hour_range']} UTC "
+                    f"(soit {round(posting_consistency['consistency_ratio'] * 100)}% "
+                    f"du total)."
+                    + (
+                        " C'est en dessous de 40% : les horaires de publication "
+                        "sont dispersés dans la journée, pas de vraie régularité."
+                        if posting_consistency["is_irregular"] else
+                        " C'est au-dessus de 40% : le compte publie déjà de façon "
+                        "assez régulière, ne pas en faire un point d'amélioration."
+                    )
+                )
+            else:
+                consistency_block = (
+                    "\nRégularité de l'heure de publication : pas assez de "
+                    "vidéos avec horaire connu pour juger — ne pas en inventer."
+                )
+
             ratio_line = (
                 f"\n- Ratio likes/abonnés (likes TOTAUX du compte / abonnés) : "
                 f"{stats['likes_followers_ratio']} — signal de fidélité de "
@@ -1945,6 +2004,7 @@ Données de performance (chiffres réels de son compte) :
 {best_worst_text}
 {hashtag_block}
 {content_pattern_block}
+{consistency_block}
 
 Titres des vidéos récentes, avec leurs stats individuelles (utilise-les
 pour repérer de VRAIS patterns concrets — sujets récurrents, mots dans
@@ -2038,6 +2098,16 @@ MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
    Si le compte parle déjà d'un seul sujet cohérent, mets une seule
    entrée dans "niches_detected" et laisse "niche_focus_advice" vide
    ("").
+10. RÉGULARITÉ DE L'HEURE DE PUBLICATION : si le signal "Régularité de
+    l'heure de publication" ci-dessus dit que les horaires sont
+    dispersés (pas de vraie régularité), AJOUTE une instruction dans
+    "improvements" pour poster à la même heure tous les jours — mentionne
+    le créneau qui marche le mieux si "Corrélations calculées..." en
+    donne un, sinon dis simplement de choisir une heure fixe et de s'y
+    tenir. Une heure de publication fixe aide TikTok à savoir quand
+    montrer les nouvelles vidéos à l'audience habituelle. Si le signal
+    dit au contraire que le compte est déjà régulier, ne mentionne rien
+    là-dessus (pas la peine de pointer un non-problème).
 
 RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2) : "summary" et
 "strengths" PEUVENT citer LE chiffre le plus marquant s'il prouve une
