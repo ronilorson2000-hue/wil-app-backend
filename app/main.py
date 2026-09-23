@@ -1982,8 +1982,8 @@ MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
    (%) comme mesure de succès d'une vidéo — les vues sont la vraie
    mesure (voir la note dans le bloc de corrélations).
 2. Si un "Signal de récence" est marqué comme un vrai plateau, dis-le
-   simplement (ex: "tes dernières vidéos ont beaucoup moins de succès que
-   ta meilleure vidéo") — c'est souvent LE constat le plus utile pour un
+   simplement (ex: "vos dernières vidéos ont beaucoup moins de succès que
+   votre meilleure vidéo") — c'est souvent LE constat le plus utile pour un
    créateur, ne le noie pas dans le reste. Aucun chiffre.
 3. Complète avec au moins 1 pattern supplémentaire trouvé toi-même en
    comparant les titres/stats des vidéos entre elles (pas des généralités
@@ -1993,9 +1993,9 @@ MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
    ce qu'il FAUT faire ("Commence par..."), soit ce qu'il NE FAUT PAS
    faire ("Arrête de..."). Utilise le vocabulaire du guide de style
    (accroche, angle, déclencheur, comment la vidéo est construite, donner
-   envie de rester) pour dire CE QUI manque concrètement — "Arrête
-   d'annoncer juste le sujet dans ton accroche, commence plutôt par une
-   question" plutôt que "sois plus créatif" ou "ton accroche pourrait
+   envie de rester) pour dire CE QUI manque concrètement — "Arrêtez
+   d'annoncer juste le sujet dans votre accroche, commencez plutôt par une
+   question" plutôt que "soyez plus créatif" ou "votre accroche pourrait
    être améliorée".
 5. INTERDIT : ne JAMAIS comparer ce compte à "d'autres comptes qui
    percent" ou "les pros" sans donnée réelle pour l'étayer — on n'a pas
@@ -2044,15 +2044,17 @@ RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2) : "summary" et
 vraie réussite (ex: "955K vues, 52K likes") — jamais une liste de
 chiffres, un seul, le plus parlant. "improvements", "hashtag_diagnosis"
 et "niche_focus_advice" restent SANS AUCUN CHIFFRE : uniquement des mots
-de comparaison simples. Et écris comme si tu parlais à un élève de CM2 :
-phrases courtes, mots simples, une idée par phrase.
+de comparaison simples. VOUVOIEMENT OBLIGATOIRE dans tous les champs
+(voir TON À ADOPTER du guide de style) : "vous", "votre", "vos" —
+jamais "tu", "ton", "tes". Et écris avec des mots simples, niveau CM2 :
+phrases courtes, une idée par phrase.
 
 STRUCTURE DU RÉSUMÉ (important) : en 1-2 phrases courtes, suis cet arc —
 (a) une preuve que ce créateur sait déjà créer du bon contenu (une vidéo
 qui a bien marché — cite le chiffre le plus marquant s'il y en a un,
 sinon décris-la en mots simples), (b) l'écart avec sa situation
 actuelle, expliqué avec une technique nommée (règle 4) et SANS chiffre
-— pas juste "il te manque de la régularité". Termine sur un ton qui
+— pas juste "il vous manque de la régularité". Termine sur un ton qui
 donne envie d'agir, pas alarmiste.
 
 BRIÈVETÉ (important) : le rapport doit être court et direct — un créateur
@@ -2344,8 +2346,9 @@ style) : "strengths" PEUT citer LE chiffre le plus marquant s'il prouve
 une vraie réussite de cette vidéo (ex: "cette vidéo a fait 955K vues") —
 un seul, le plus parlant. "main_diagnosis", "weaknesses" et
 "action_plan" restent SANS AUCUN CHIFFRE : traduis toujours en mots
-simples ("beaucoup moins vue que d'habitude"). Écris comme pour un
-élève de CM2 : phrases courtes, mots simples, une idée par phrase.
+simples ("beaucoup moins vue que d'habitude"). VOUVOIEMENT OBLIGATOIRE
+("vous", "votre", "vos" — jamais "tu"/"ton"/"tes") et mots simples,
+niveau CM2 : phrases courtes, une idée par phrase.
 "weaknesses" et "action_plan" doivent être des INSTRUCTIONS à
 l'impératif (RÈGLE D'OR N°3 du guide de style), pas des observations :
 "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrête de..."),
@@ -2523,7 +2526,7 @@ Analyse le HOOK réel (les toutes premières phrases prononcées, pas un
 titre) en t'appuyant EN INTERNE sur les "TYPES D'ACCROCHES RÉELLES" du
 guide de style ci-dessus pour comprendre ce qui se joue — mais dans ta
 réponse, décris ce que fait ce hook en mots simples (ex : "le spectateur
-se reconnaît tout de suite dans ce que tu dis"), JAMAIS avec un nom
+se reconnaît tout de suite dans ce que vous dites"), JAMAIS avec un nom
 technique de catégorie. Si aucun type ne correspond clairement, dis
 simplement qu'il n'y a pas vraiment d'accroche identifiable.
 Analyse aussi comment la vidéo est construite du début à la fin (est-ce
@@ -2535,9 +2538,10 @@ style) : "strengths" PEUT citer LE chiffre le plus marquant SI une vraie
 donnée chiffrée est disponible ci-dessus (ex: comparaison à la moyenne
 du compte) et qu'elle prouve une réussite — sinon reste en mots simples,
 n'invente jamais un chiffre. "hook_type", "weaknesses" et "action_plan"
-restent SANS AUCUN CHIFFRE. Écris comme pour un élève de CM2 : phrases
-courtes, mots simples, une idée par phrase, aucun nom technique de
-catégorie d'accroche. "weaknesses" et "action_plan" doivent être des
+restent SANS AUCUN CHIFFRE. VOUVOIEMENT OBLIGATOIRE ("vous", "votre",
+"vos" — jamais "tu"/"ton"/"tes") et mots simples, niveau CM2 : phrases
+courtes, une idée par phrase, aucun nom technique de catégorie
+d'accroche. "weaknesses" et "action_plan" doivent être des
 INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de style), pas des
 observations : "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrête
 de..."), "action_plan" = ce qu'il FAUT faire à la place ("Fais...",
