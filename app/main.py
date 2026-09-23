@@ -2098,16 +2098,21 @@ MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
    Si le compte parle déjà d'un seul sujet cohérent, mets une seule
    entrée dans "niches_detected" et laisse "niche_focus_advice" vide
    ("").
-10. RÉGULARITÉ DE L'HEURE DE PUBLICATION : si le signal "Régularité de
-    l'heure de publication" ci-dessus dit que les horaires sont
-    dispersés (pas de vraie régularité), AJOUTE une instruction dans
-    "improvements" pour poster à la même heure tous les jours — mentionne
-    le créneau qui marche le mieux si "Corrélations calculées..." en
-    donne un, sinon dis simplement de choisir une heure fixe et de s'y
-    tenir. Une heure de publication fixe aide TikTok à savoir quand
-    montrer les nouvelles vidéos à l'audience habituelle. Si le signal
-    dit au contraire que le compte est déjà régulier, ne mentionne rien
-    là-dessus (pas la peine de pointer un non-problème).
+10. QUAND PUBLIER : si le bloc "Corrélations calculées..." donne un
+    créneau ("Publié le matin/l'après-midi/le soir/la nuit : X vues en
+    moyenne...") clairement au-dessus des autres, ET que le signal
+    "Régularité de l'heure de publication" montre que les horaires sont
+    dispersés (pas de vraie régularité) : AJOUTE une instruction dans
+    "improvements" qui dit clairement de publier plutôt le matin, l'après-
+    midi ou le soir (choisis le mot qui correspond au créneau gagnant,
+    pas l'heure UTC exacte) — c'est probablement le moment où ses
+    abonnés sont le plus connectés, puisque c'est là que ses vidéos ont
+    le mieux marché jusqu'ici. Mentionne aussi de garder ce même moment
+    de la journée à chaque publication plutôt que de changer à chaque
+    fois. Si le compte publie déjà presque toujours au bon moment
+    (régulier ET dans le meilleur créneau), ne mentionne rien là-dessus
+    (pas la peine de pointer un non-problème). Si aucun créneau ne se
+    détache clairement, ne l'invente pas (règle d'or n°1).
 
 RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2) : "summary" et
 "strengths" PEUVENT citer LE chiffre le plus marquant s'il prouve une
