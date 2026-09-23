@@ -1311,35 +1311,34 @@ def _best_posting_bucket(content_patterns: dict) -> str | None:
     return max(posting_time.items(), key=lambda item: item[1]["avg_views"])[0]
 
 
-def _posting_consistency(videos: list[dict]) -> dict | None:
+def _posting_time_alignment(content_patterns: dict) -> dict | None:
     """
-    Mesure si le compte publie à peu près à la même heure à chaque fois,
-    ou si ses horaires de publication sont dispersés dans la journée —
-    calculé en Python sur des créneaux de 2h (pas une estimation), pour
-    pouvoir recommander une heure de publication fixe quand ce n'est pas
-    déjà le cas. Renvoie None si moins de 5 vidéos ont un horodatage
-    connu (pas assez de données pour juger d'une régularité).
+    Mesure si le compte publie DÉJÀ majoritairement dans son créneau le
+    plus performant (`best_posting_bucket`, celui avec le plus de vues
+    en moyenne), ou s'il disperse ses publications ailleurs. C'est le
+    vrai critère pour recommander de poster de préférence au moment où
+    les abonnés sont le plus connectés — peu importe si le compte est
+    par ailleurs "régulier" à un mauvais horaire, ce qui compte c'est
+    l'alignement avec le créneau qui marche le mieux. Renvoie None si
+    aucun créneau ne se détache clairement (pas assez de données).
     """
-    hours = [time.gmtime(v["create_time"]).tm_hour for v in videos if v.get("create_time")]
-    if len(hours) < 5:
+    posting_time = content_patterns.get("posting_time")
+    if not posting_time:
         return None
-
-    bucket_counts: dict[int, int] = {}
-    for h in hours:
-        bucket = h // 2
-        bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
-    best_bucket, best_count = max(bucket_counts.items(), key=lambda item: item[1])
-    consistency_ratio = round(best_count / len(hours), 2)
-
+    best_label, best_data = max(posting_time.items(), key=lambda item: item[1]["avg_views"])
+    total_with_bucket = sum(b["count"] for b in posting_time.values())
+    if total_with_bucket == 0:
+        return None
+    aligned_ratio = round(best_data["count"] / total_with_bucket, 2)
     return {
-        "total_with_timestamp": len(hours),
-        "typical_hour_range": f"{best_bucket * 2}h-{best_bucket * 2 + 2}h",
-        "matching_count": best_count,
-        "consistency_ratio": consistency_ratio,
-        # En dessous de 40% des vidéos dans le même créneau de 2h, les
-        # horaires sont considérés comme dispersés, pas juste un peu
-        # variables — évite de crier à l'irrégularité sur du bruit normal.
-        "is_irregular": consistency_ratio < 0.4,
+        "best_bucket": best_label,
+        "best_bucket_count": best_data["count"],
+        "total_with_bucket": total_with_bucket,
+        "aligned_ratio": aligned_ratio,
+        # En dessous de 50%, la majorité des vidéos sortent EN DEHORS du
+        # créneau le plus performant : il y a une vraie marge de progrès
+        # à recommander de poster plus souvent au bon moment.
+        "is_misaligned": aligned_ratio < 0.5,
     }
 
 
@@ -1956,31 +1955,34 @@ Analyse des hashtags utilisés :
                 "titre/format/horaire ↔ vues — ne pas en inventer."
             )
 
-            # Régularité de l'HEURE de publication (créneaux de 2h, distinct
-            # du signal PORTÉE ci-dessus qui compare les vues par créneau de
-            # 6h) — sert uniquement à détecter si les horaires sont dispersés
-            # dans la journée, pour recommander une heure fixe si besoin.
-            posting_consistency = _posting_consistency(videos)
-            if posting_consistency:
+            # Alignement avec le créneau le plus performant (distinct du
+            # détail par créneau donné dans "Corrélations calculées..."
+            # ci-dessous) — sert à savoir si le compte poste déjà de
+            # préférence au moment où ses vidéos marchent le mieux, ou
+            # s'il disperse ses publications ailleurs.
+            posting_alignment = _posting_time_alignment(content_patterns)
+            if posting_alignment:
                 consistency_block = (
-                    f"\nRégularité de l'heure de publication : sur "
-                    f"{posting_consistency['total_with_timestamp']} vidéos avec "
-                    f"horaire connu, {posting_consistency['matching_count']} sont "
-                    f"publiées vers {posting_consistency['typical_hour_range']} UTC "
-                    f"(soit {round(posting_consistency['consistency_ratio'] * 100)}% "
-                    f"du total)."
+                    f"\nAlignement avec le meilleur créneau : sur "
+                    f"{posting_alignment['total_with_bucket']} vidéos réparties par "
+                    f"créneau, {posting_alignment['best_bucket_count']} sont publiées "
+                    f"{posting_alignment['best_bucket']} (le créneau le plus "
+                    f"performant), soit {round(posting_alignment['aligned_ratio'] * 100)}% "
+                    f"du total."
                     + (
-                        " C'est en dessous de 40% : les horaires de publication "
-                        "sont dispersés dans la journée, pas de vraie régularité."
-                        if posting_consistency["is_irregular"] else
-                        " C'est au-dessus de 40% : le compte publie déjà de façon "
-                        "assez régulière, ne pas en faire un point d'amélioration."
+                        " C'est en dessous de 50% : la majorité des vidéos sortent "
+                        "EN DEHORS de ce créneau — vraie marge de progrès à "
+                        "recommander de poster de préférence à ce moment-là."
+                        if posting_alignment["is_misaligned"] else
+                        " C'est au-dessus de 50% : le compte poste déjà "
+                        "majoritairement au bon moment, ne pas en faire un point "
+                        "d'amélioration."
                     )
                 )
             else:
                 consistency_block = (
-                    "\nRégularité de l'heure de publication : pas assez de "
-                    "vidéos avec horaire connu pour juger — ne pas en inventer."
+                    "\nAlignement avec le meilleur créneau : pas assez de données "
+                    "pour juger — ne pas en inventer."
                 )
 
             ratio_line = (
@@ -2098,25 +2100,27 @@ MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
    Si le compte parle déjà d'un seul sujet cohérent, mets une seule
    entrée dans "niches_detected" et laisse "niche_focus_advice" vide
    ("").
-10. QUAND PUBLIER : si le bloc "Corrélations calculées..." donne un
-    créneau ("Publié le matin/l'après-midi/le soir/la nuit : X vues en
-    moyenne...") clairement au-dessus des autres, ET que le signal
-    "Régularité de l'heure de publication" montre que les horaires sont
-    dispersés (pas de vraie régularité) : AJOUTE une instruction dans
-    "improvements" qui dit clairement de publier plutôt le matin, l'après-
-    midi ou le soir (choisis le mot qui correspond au créneau gagnant,
-    pas l'heure UTC exacte). La RAISON à donner doit être que c'est
+10. QUAND PUBLIER : regarde le signal "Alignement avec le meilleur
+    créneau" ci-dessus. S'il dit que la majorité des vidéos sortent EN
+    DEHORS du créneau le plus performant : AJOUTE TOUJOURS une
+    instruction dans "improvements" qui dit clairement de publier de
+    préférence le matin, l'après-midi ou le soir (utilise le mot du
+    créneau gagnant donné dans le signal, jamais une heure UTC exacte).
+    C'est une recommandation à donner CHAQUE FOIS que ce déséquilibre
+    est présent, pas seulement si les horaires semblent par ailleurs
+    "désordonnés" — même un compte qui poste toujours au même mauvais
+    moment doit être corrigé. La RAISON à donner doit être que c'est
     probablement le moment où ses abonnés sont le plus connectés — c'est
     CETTE explication qu'il faut écrire, pas "c'est le moment où vos
     vidéos ont fait le plus de vues" (trop technique) ; le nombre de vues
     plus élevé sur ce créneau est la preuve interne qui te permet de le
     dire, mais ne l'écris pas dans le texte final (règle d'or n°2).
     Mentionne aussi de garder ce même moment de la journée à chaque
-    publication plutôt que de changer à chaque fois. Si le compte publie
-    déjà presque toujours au bon moment
-    (régulier ET dans le meilleur créneau), ne mentionne rien là-dessus
-    (pas la peine de pointer un non-problème). Si aucun créneau ne se
-    détache clairement, ne l'invente pas (règle d'or n°1).
+    publication plutôt que de changer à chaque fois. Si le signal dit au
+    contraire que le compte poste déjà majoritairement au bon moment, ne
+    mentionne rien là-dessus (pas la peine de pointer un non-problème).
+    Si aucun créneau ne se détache clairement, ne l'invente pas (règle
+    d'or n°1).
 
 RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2) : "summary" et
 "strengths" PEUVENT citer LE chiffre le plus marquant s'il prouve une
