@@ -1618,7 +1618,14 @@ async def analyze_account(
     stats = None
     account_stats = None
     try:
-        async with httpx.AsyncClient() as client:
+        # Timeout explicite et généreux : le défaut d'httpx (5s) est trop
+        # court pour une pagination de plusieurs pages vers l'API TikTok
+        # depuis Render, et un dépassement levait une httpx.ReadTimeout
+        # brute non rattrapée par le except HTTPException ci-dessous,
+        # provoquant un 500 au lieu du repli "analyse sans stats vidéo"
+        # pourtant prévu (bug identifié le 23/09/2026 via reproduction
+        # locale avec une vraie session).
+        async with httpx.AsyncClient(timeout=30) as client:
             # Vidéos et stats de compte (abonnés/likes totaux) récupérées
             # en parallèle plutôt qu'en séquence, pour ne pas ajouter de
             # latence — cf. le travail de vitesse fait précédemment.
@@ -1702,9 +1709,14 @@ async def analyze_account(
             "worst_video": worst_video,
             "videos": enriched_videos,
         }
-    except HTTPException:
-        # video.list indisponible (scope pas encore approuvé, ou compte
-        # sans vidéo) : on continue sans les stats vidéo, pas bloquant.
+    except (HTTPException, httpx.HTTPError):
+        # video.list indisponible (scope pas encore approuvé, compte sans
+        # vidéo, OU erreur réseau/timeout vers l'API TikTok) : on continue
+        # sans les stats vidéo, pas bloquant. httpx.HTTPError est la
+        # classe de base de TOUTES les erreurs de transport httpx (timeout,
+        # connexion refusée...) — sans ça, ces erreurs réseau remontaient
+        # non gérées et faisaient planter toute la route en 500 au lieu du
+        # repli "analyse sans stats vidéo" pourtant prévu.
         stats = None
 
     # 2. Analyse IA (profil + performance si disponible), si Anthropic
