@@ -1071,6 +1071,13 @@ def privacy_policy():
 
 VIRAL_VIEW_THRESHOLD = 10_000
 
+# En dessous de ce seuil, si peu de vues signifie presque toujours que
+# TikTok a arrêté de pousser la vidéo dès les toutes premières secondes
+# — le signe classique d'un hook qui ne retient pas l'attention. Sert de
+# seuil de sévérité supplémentaire dans /api/analyze-video (voir
+# analyze_video), en plus de VIRAL_VIEW_THRESHOLD.
+VERY_LOW_VIEW_THRESHOLD = 1_000
+
 
 def _virality_score(views: int) -> int:
     """
@@ -2052,8 +2059,8 @@ MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
    sur TikTok en général) — toujours traduit en mots simples.
 4. NOMME UNE TECHNIQUE PRÉCISE, pas juste un défaut, ET formule-la comme
    une INSTRUCTION à l'impératif (RÈGLE D'OR N°3 du guide de style) : soit
-   ce qu'il FAUT faire ("Commence par..."), soit ce qu'il NE FAUT PAS
-   faire ("Arrête de..."). Utilise le vocabulaire du guide de style
+   ce qu'il FAUT faire ("Commencez par..."), soit ce qu'il NE FAUT PAS
+   faire ("Arrêtez de..."). Utilise le vocabulaire du guide de style
    (accroche, angle, déclencheur, comment la vidéo est construite, donner
    envie de rester) pour dire CE QUI manque concrètement — "Arrêtez
    d'annoncer juste le sujet dans votre accroche, commencez plutôt par une
@@ -2154,7 +2161,7 @@ TRÈS SIMPLE (niveau CM2) :
   "niche_focus_advice": "1 phrase MAXIMUM, CM2, ZÉRO chiffre, instruction à l'impératif pour se concentrer sur le sujet qui marche le mieux (règle 9) — chaîne vide si 'niches_detected' n'a qu'une seule entrée",
   "summary": "1-2 phrases MAXIMUM, niveau CM2, suivant la STRUCTURE DU RÉSUMÉ ci-dessus — UN chiffre marquant autorisé pour la preuve de réussite, ZÉRO chiffre pour l'écart/reproche",
   "strengths": ["1-2 points forts MAXIMUM, chacun en 1 phrase simple, appuyé sur un vrai signal de ce compte — ce que le créateur fait déjà bien et doit continuer ; UN chiffre marquant autorisé s'il prouve la réussite (règle d'or n°2)"],
-  "improvements": ["1-2 instructions MAXIMUM à l'impératif (RÈGLE D'OR N°3), chacune en 1 phrase simple, ZÉRO chiffre : soit ce qu'il FAUT faire ('Commence à...'), soit ce qu'il NE FAUT PAS faire ('Arrête de...') — jamais une simple observation"],
+  "improvements": ["1-2 instructions MAXIMUM à l'impératif (RÈGLE D'OR N°3), chacune en 1 phrase simple, ZÉRO chiffre : soit ce qu'il FAUT faire ('Commencez à...'), soit ce qu'il NE FAUT PAS faire ('Arrêtez de...') — jamais une simple observation"],
   "hashtag_diagnosis": "1 phrase MAXIMUM, ZÉRO chiffre, expliquant si les hashtags actuels aident ou nuisent — nomme explicitement le problème de répétition si des hashtags sur-utilisés sont listés ci-dessus (règle 7)",
   "suggested_hashtags": ["5 hashtags pertinents pour la niche à privilégier (celle nommée dans niche_focus_advice si plusieurs niches détectées, sinon la niche unique du compte), sans le symbole #"]
 }}
@@ -2375,6 +2382,7 @@ async def analyze_video(
     )
 
     is_underperforming = 0 < view_count < VIRAL_VIEW_THRESHOLD
+    is_very_low_performing = 0 < view_count < VERY_LOW_VIEW_THRESHOLD
     diagnosis_block = (
         _build_underperformance_diagnosis(
             title=title,
@@ -2386,6 +2394,60 @@ async def analyze_video(
         if is_underperforming
         else ""
     )
+    very_low_block = (
+        f"""
+ALERTE : cette vidéo a fait moins de {VERY_LOW_VIEW_THRESHOLD} vues. À ce
+niveau, c'est presque toujours le signe que TikTok a arrêté de la
+montrer dès les toutes premières secondes — le signe classique d'une
+accroche qui ne retient pas l'attention. PARS de cette hypothèse forte
+pour l'accroche, PUIS vérifie quand même les 3 autres causes du bloc
+ci-dessus (texte, hashtags, heure) pour voir si elles aggravent le
+problème — mais l'accroche doit être mentionnée comme un problème dans
+"main_diagnosis" et/ou "weaknesses", sauf preuve vraiment évidente que
+ce n'est pas le cas (ex: accroche déjà excellente ET une autre cause
+beaucoup plus flagrante)."""
+        if is_very_low_performing
+        else ""
+    )
+
+    if is_very_low_performing:
+        main_diagnosis_desc = (
+            "1 phrase MAXIMUM, sans chiffre, désignant EN CLAIR laquelle (ou "
+            "lesquelles) parmi accroche / reste du texte / hashtags / heure de "
+            "publication est la cause la plus probable pour CETTE vidéo, basée "
+            "sur le bloc 4 CAUSES POSSIBLES ci-dessus — DOIT mentionner un "
+            "problème d'accroche (voir ALERTE ci-dessus), sauf preuve vraiment "
+            "évidente du contraire"
+        )
+        strengths_desc = (
+            "1 SEUL point positif MAXIMUM (pas 2), en phrase simple — cette "
+            "vidéo a fait très peu de vues, ne cherche pas à en trouver "
+            "plusieurs à tout prix ; laisse la liste VIDE si tu n'en trouves "
+            "vraiment aucun de sincère"
+        )
+        weaknesses_count = "2-3"
+    elif is_underperforming:
+        main_diagnosis_desc = (
+            "1 phrase MAXIMUM, sans chiffre, désignant EN CLAIR laquelle (ou "
+            "lesquelles) parmi accroche / reste du texte / hashtags / heure de "
+            "publication est la cause la plus probable pour CETTE vidéo, basée "
+            "sur le bloc 4 CAUSES POSSIBLES ci-dessus — jamais accroche par "
+            "défaut si les preuves pointent ailleurs"
+        )
+        strengths_desc = (
+            "1-2 raisons concrètes MAXIMUM, en phrases simples, expliquant ce "
+            "qui a bien fonctionné sur cette vidéo — UN chiffre marquant "
+            "autorisé s'il prouve la réussite (règle d'or n°2)"
+        )
+        weaknesses_count = "1-2"
+    else:
+        main_diagnosis_desc = "chaîne vide, cette vidéo est déjà virale"
+        strengths_desc = (
+            "1-2 raisons concrètes MAXIMUM, en phrases simples, expliquant ce "
+            "qui a bien fonctionné sur cette vidéo — UN chiffre marquant "
+            "autorisé s'il prouve la réussite (règle d'or n°2)"
+        )
+        weaknesses_count = "1-2"
 
     prompt = f"""Tu es un coach de croissance TikTok senior, connu pour des
 analyses extrêmement concrètes et jamais génériques.
@@ -2402,6 +2464,7 @@ général) :
 - Niche du compte : {niche_category or 'non précisée'}
 {comparison_text}
 {diagnosis_block}
+{very_low_block}
 
 Explique pourquoi cette vidéo a (ou n'a pas) percé, en te basant sur les
 chiffres ci-dessus. Pas de conseil qui pourrait s'appliquer à n'importe
@@ -2434,8 +2497,8 @@ simples ("beaucoup moins vue que d'habitude"). VOUVOIEMENT OBLIGATOIRE
 niveau CM2 : phrases courtes, une idée par phrase.
 "weaknesses" et "action_plan" doivent être des INSTRUCTIONS à
 l'impératif (RÈGLE D'OR N°3 du guide de style), pas des observations :
-"weaknesses" = ce qu'il NE FAUT PAS faire ("Arrête de..."),
-"action_plan" = ce qu'il FAUT faire à la place ("Fais...", "Commence
+"weaknesses" = ce qu'il NE FAUT PAS faire ("Arrêtez de..."),
+"action_plan" = ce qu'il FAUT faire à la place ("Faites...", "Commencez
 par...").
 
 BRIÈVETÉ (important) : réponse courte et directe, lisible en 15 secondes.
@@ -2444,10 +2507,10 @@ Réponds avec un objet JSON (pas de markdown, pas de balises de code,
 juste du JSON brut) contenant exactement ces champs, en FRANÇAIS TRÈS
 SIMPLE (niveau CM2) :
 {{
-  "main_diagnosis": "{'1 phrase MAXIMUM, sans chiffre, désignant EN CLAIR laquelle (ou lesquelles) parmi accroche / reste du texte / hashtags / heure de publication est la cause la plus probable pour CETTE vidéo, basée sur le bloc 4 CAUSES POSSIBLES ci-dessus — jamais accroche par défaut si les preuves pointent ailleurs' if is_underperforming else 'chaîne vide, cette vidéo est déjà virale'}",
-  "strengths": ["1-2 raisons concrètes MAXIMUM, en phrases simples, expliquant ce qui a bien fonctionné sur cette vidéo — UN chiffre marquant autorisé s'il prouve la réussite (règle d'or n°2)"],
-  "weaknesses": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Arrête de...' ou 'Évite de...', en phrases simples et SANS chiffre, cohérentes avec main_diagnosis"],
-  "action_plan": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Fais...' ou 'Commence par...', en phrases simples et SANS chiffre, pour qu'une prochaine vidéo similaire ait plus de chances de devenir virale"]
+  "main_diagnosis": "{main_diagnosis_desc}",
+  "strengths": ["{strengths_desc}"],
+  "weaknesses": ["{weaknesses_count} instructions MAXIMUM à l'impératif commençant par 'Arrêtez de...' ou 'Évitez de...', en phrases simples et SANS chiffre, cohérentes avec main_diagnosis"],
+  "action_plan": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Faites...' ou 'Commencez par...', en phrases simples et SANS chiffre, pour qu'une prochaine vidéo similaire ait plus de chances de devenir virale"]
 }}"""
 
     try:
@@ -2626,9 +2689,9 @@ restent SANS AUCUN CHIFFRE. VOUVOIEMENT OBLIGATOIRE ("vous", "votre",
 courtes, une idée par phrase, aucun nom technique de catégorie
 d'accroche. "weaknesses" et "action_plan" doivent être des
 INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de style), pas des
-observations : "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrête
-de..."), "action_plan" = ce qu'il FAUT faire à la place ("Fais...",
-"Commence par...").
+observations : "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrêtez
+de..."), "action_plan" = ce qu'il FAUT faire à la place ("Faites...",
+"Commencez par...").
 
 BRIÈVETÉ (important) : réponse courte et directe, lisible en 15 secondes.
 
@@ -2639,8 +2702,8 @@ SIMPLE (niveau CM2) :
   "hook_excerpt": "les 1-2 premières phrases réellement prononcées, citées telles quelles",
   "hook_type": "1 phrase simple décrivant CE QUE FAIT ce hook (sans nom technique de catégorie), ou dis qu'il n'y a pas vraiment d'accroche",
   "strengths": ["1-2 points forts concrets MAXIMUM, en phrases simples, basés sur le texte réel — ce que le créateur fait déjà bien et doit continuer ; UN chiffre marquant autorisé si une vraie donnée le permet"],
-  "weaknesses": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Arrête de...' ou 'Évite de...', en phrases simples et sans chiffre, nommant une technique manquante"],
-  "action_plan": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Fais...' ou 'Commence par...', en phrases simples et sans chiffre, pour la prochaine vidéo"]
+  "weaknesses": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Arrêtez de...' ou 'Évitez de...', en phrases simples et sans chiffre, nommant une technique manquante"],
+  "action_plan": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Faites...' ou 'Commencez par...', en phrases simples et sans chiffre, pour la prochaine vidéo"]
 }}"""
 
     try:
