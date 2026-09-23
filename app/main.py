@@ -2105,11 +2105,15 @@ MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
     dispersés (pas de vraie régularité) : AJOUTE une instruction dans
     "improvements" qui dit clairement de publier plutôt le matin, l'après-
     midi ou le soir (choisis le mot qui correspond au créneau gagnant,
-    pas l'heure UTC exacte) — c'est probablement le moment où ses
-    abonnés sont le plus connectés, puisque c'est là que ses vidéos ont
-    le mieux marché jusqu'ici. Mentionne aussi de garder ce même moment
-    de la journée à chaque publication plutôt que de changer à chaque
-    fois. Si le compte publie déjà presque toujours au bon moment
+    pas l'heure UTC exacte). La RAISON à donner doit être que c'est
+    probablement le moment où ses abonnés sont le plus connectés — c'est
+    CETTE explication qu'il faut écrire, pas "c'est le moment où vos
+    vidéos ont fait le plus de vues" (trop technique) ; le nombre de vues
+    plus élevé sur ce créneau est la preuve interne qui te permet de le
+    dire, mais ne l'écris pas dans le texte final (règle d'or n°2).
+    Mentionne aussi de garder ce même moment de la journée à chaque
+    publication plutôt que de changer à chaque fois. Si le compte publie
+    déjà presque toujours au bon moment
     (régulier ET dans le meilleur créneau), ne mentionne rien là-dessus
     (pas la peine de pointer un non-problème). Si aucun créneau ne se
     détache clairement, ne l'invente pas (règle d'or n°1).
