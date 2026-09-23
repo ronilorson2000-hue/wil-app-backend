@@ -505,19 +505,26 @@ async def tiktok_callback(request: Request):
         )
 
     # Échange du code contre un access_token (appel serveur-à-serveur,
-    # jamais fait depuis le navigateur pour ne pas exposer le client_secret)
-    async with httpx.AsyncClient() as client:
-        token_response = await client.post(
-            "https://open.tiktokapis.com/v2/oauth/token/",
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            data={
-                "client_key": TIKTOK_CLIENT_KEY,
-                "client_secret": TIKTOK_CLIENT_SECRET,
-                "code": code,
-                "grant_type": "authorization_code",
-                "redirect_uri": TIKTOK_REDIRECT_URI,
-            },
-        )
+    # jamais fait depuis le navigateur pour ne pas exposer le client_secret).
+    # Timeout explicite + try/except : un timeout réseau (httpx.HTTPError,
+    # pas une HTTPException) vers TikTok plantait sinon toute la route en
+    # 500 au lieu d'un message d'erreur lisible — même bug déjà corrigé
+    # pour les appels TikTok/Anthropic dans analyze_account.
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            token_response = await client.post(
+                "https://open.tiktokapis.com/v2/oauth/token/",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                data={
+                    "client_key": TIKTOK_CLIENT_KEY,
+                    "client_secret": TIKTOK_CLIENT_SECRET,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": TIKTOK_REDIRECT_URI,
+                },
+            )
+    except httpx.HTTPError:
+        return "<h1>Erreur réseau vers TikTok</h1><p>Réessaie dans un instant.</p>"
     token_data = token_response.json()
 
     if "access_token" not in token_data:
@@ -529,15 +536,18 @@ async def tiktok_callback(request: Request):
     # TikTok pour récupérer les infos de profil de l'utilisateur (dont
     # open_id, nécessaire pour identifier ce compte de façon stable dans
     # le temps — utilisé notamment par account_snapshots).
-    async with httpx.AsyncClient() as client:
-        user_response = await client.get(
-            "https://open.tiktokapis.com/v2/user/info/",
-            params={
-                "fields": "open_id,display_name,avatar_url,username,"
-                          "bio_description,profile_web_link,is_verified"
-            },
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            user_response = await client.get(
+                "https://open.tiktokapis.com/v2/user/info/",
+                params={
+                    "fields": "open_id,display_name,avatar_url,username,"
+                              "bio_description,profile_web_link,is_verified"
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+    except httpx.HTTPError:
+        return "<h1>Erreur réseau vers TikTok</h1><p>Réessaie dans un instant.</p>"
     user_data = user_response.json()
 
     user_info = user_data.get("data", {}).get("user", {})
@@ -1972,22 +1982,34 @@ Le contenu de chaque champ doit être rédigé entièrement en français."""
         # les connaissances générales de Claude, pas sur une recherche en
         # temps réel. À réactiver plus tard si besoin (voir version
         # précédente avec le paramètre "tools": [{"type": "web_search_..."}]).
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-                json={
-                    "model": "claude-sonnet-5",
-                    "max_tokens": 700,
-                    "messages": [{"role": "user", "content": prompt}],
-                },
-            )
+        # Appel enveloppé dans un try/except : sans ça, une erreur réseau/
+        # timeout vers l'API Anthropic (httpx.HTTPError, PAS une
+        # HTTPException) remonte non gérée et fait planter toute la route
+        # en 500 — exact même bug que celui déjà corrigé pour l'appel
+        # TikTok, trouvé le 23/09/2026 dans cette 2e section qui n'était
+        # pas protégée. response reste None si l'appel échoue, et le bloc
+        # suivant (if response and response.status_code == 200) retombe
+        # alors proprement sur ai_report=None au lieu de planter.
+        response = None
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": ANTHROPIC_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": "claude-sonnet-5",
+                        "max_tokens": 700,
+                        "messages": [{"role": "user", "content": prompt}],
+                    },
+                )
+        except httpx.HTTPError:
+            response = None
 
-        if response.status_code == 200:
+        if response and response.status_code == 200:
             raw_text = response.json()["content"][0]["text"]
 
             cleaned = raw_text.strip()
@@ -2114,20 +2136,23 @@ juste du JSON brut) contenant exactement ces champs, en FRANÇAIS :
   "action_plan": ["1-2 actions concrètes et spécifiques, formulées comme une technique à appliquer, pour qu'une prochaine vidéo similaire ait plus de chances de devenir virale"]
 }}"""
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": "claude-sonnet-5",
-                "max_tokens": 500,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-        )
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-sonnet-5",
+                    "max_tokens": 500,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="Erreur réseau vers l'API Anthropic.")
 
     if response.status_code != 200:
         raise HTTPException(
@@ -2235,8 +2260,11 @@ async def analyze_video_upload(
     if len(video_bytes) > 200 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Fichier trop volumineux (200 Mo max).")
 
-    async with httpx.AsyncClient(timeout=150) as client:
-        transcript_text = await _transcribe_video(client, video_bytes)
+    try:
+        async with httpx.AsyncClient(timeout=150) as client:
+            transcript_text = await _transcribe_video(client, video_bytes)
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="Erreur réseau vers le service de transcription.")
 
     if not transcript_text.strip():
         raise HTTPException(
@@ -2282,20 +2310,23 @@ juste du JSON brut) contenant exactement ces champs, en FRANÇAIS :
   "action_plan": ["1-2 actions concrètes pour la prochaine vidéo"]
 }}"""
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": "claude-sonnet-5",
-                "max_tokens": 600,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-        )
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-sonnet-5",
+                    "max_tokens": 600,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="Erreur réseau vers l'API Anthropic.")
 
     if response.status_code != 200:
         raise HTTPException(
