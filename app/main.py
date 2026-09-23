@@ -2011,16 +2011,40 @@ MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
 7. Pour le diagnostic hashtags : utilise en priorité les hashtags
    SUR-UTILISÉS et SOUS-PERFORMANTS déjà identifiés ci-dessus plutôt que de
    re-analyser toi-même — base-toi UNIQUEMENT sur les signaux fournis, ne
-   suppose rien d'autre, et traduis en mots simples sans chiffre.
+   suppose rien d'autre, et traduis en mots simples sans chiffre. Si des
+   hashtags SUR-UTILISÉS sont listés (présents sur la plupart des
+   vidéos), c'est TOUJOURS un problème à nommer clairement dans
+   "hashtag_diagnosis" : dis explicitement qu'il met (presque) toujours
+   les mêmes hashtags et qu'il doit les varier d'une vidéo à l'autre —
+   ne laisse jamais ce signal de côté s'il est présent.
 8. Si aucun signal ni pattern clair n'est disponible par manque de données,
    dis-le honnêtement plutôt que d'inventer un conseil générique.
+9. DIVERSITÉ DE NICHE : regarde les titres des vidéos récentes listés
+   ci-dessus — est-ce que TOUTES parlent globalement du même sujet, ou
+   est-ce que le compte mélange plusieurs sujets clairement différents
+   (ex : parfois cuisine, parfois sport, parfois mode) ? Si tu détectes
+   AU MOINS 2 sujets vraiment différents (pas juste des variations d'un
+   même thème) :
+   - liste-les dans "niches_detected" (2-3 maximum, noms courts)
+   - repère lequel de ces sujets revient sur les vidéos qui ont le plus
+     de vues parmi les titres fournis
+   - dans "niche_focus_advice", explique EN MOTS SIMPLES pourquoi
+     changer de sujet à chaque vidéo freine la viralité (TikTok a du mal
+     à recommander un compte à une audience stable s'il ne sait jamais
+     de quoi parlera la prochaine vidéo), et donne une instruction claire
+     à l'impératif pour se concentrer sur le sujet qui marche le mieux
+     (nomme-le), en mentionnant que l'autre sujet est celui à mettre de
+     côté ou à retravailler.
+   Si le compte parle déjà d'un seul sujet cohérent, mets une seule
+   entrée dans "niches_detected" et laisse "niche_focus_advice" vide
+   ("").
 
 RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2) : "summary" et
 "strengths" PEUVENT citer LE chiffre le plus marquant s'il prouve une
 vraie réussite (ex: "955K vues, 52K likes") — jamais une liste de
-chiffres, un seul, le plus parlant. "improvements" et
-"hashtag_diagnosis" restent SANS AUCUN CHIFFRE : uniquement des mots de
-comparaison simples. Et écris comme si tu parlais à un élève de CM2 :
+chiffres, un seul, le plus parlant. "improvements", "hashtag_diagnosis"
+et "niche_focus_advice" restent SANS AUCUN CHIFFRE : uniquement des mots
+de comparaison simples. Et écris comme si tu parlais à un élève de CM2 :
 phrases courtes, mots simples, une idée par phrase.
 
 STRUCTURE DU RÉSUMÉ (important) : en 1-2 phrases courtes, suis cet arc —
@@ -2041,11 +2065,13 @@ TRÈS SIMPLE (niveau CM2) :
 {{
   "niche": "une courte phrase décrivant la niche de contenu probable",
   "niche_category": "choisis EXACTEMENT une valeur parmi cette liste fermée, recopiée telle quelle (aucune autre valeur autorisée) : {json.dumps(NICHE_CATEGORIES, ensure_ascii=False)}",
+  "niches_detected": ["1 à 3 sujets courts trouvés sur ce compte (règle 9) — une seule entrée si le compte est déjà cohérent sur un seul sujet"],
+  "niche_focus_advice": "1 phrase MAXIMUM, CM2, ZÉRO chiffre, instruction à l'impératif pour se concentrer sur le sujet qui marche le mieux (règle 9) — chaîne vide si 'niches_detected' n'a qu'une seule entrée",
   "summary": "1-2 phrases MAXIMUM, niveau CM2, suivant la STRUCTURE DU RÉSUMÉ ci-dessus — UN chiffre marquant autorisé pour la preuve de réussite, ZÉRO chiffre pour l'écart/reproche",
   "strengths": ["1-2 points forts MAXIMUM, chacun en 1 phrase simple, appuyé sur un vrai signal de ce compte — ce que le créateur fait déjà bien et doit continuer ; UN chiffre marquant autorisé s'il prouve la réussite (règle d'or n°2)"],
   "improvements": ["1-2 instructions MAXIMUM à l'impératif (RÈGLE D'OR N°3), chacune en 1 phrase simple, ZÉRO chiffre : soit ce qu'il FAUT faire ('Commence à...'), soit ce qu'il NE FAUT PAS faire ('Arrête de...') — jamais une simple observation"],
-  "hashtag_diagnosis": "1 phrase MAXIMUM, ZÉRO chiffre, expliquant si les hashtags actuels aident ou nuisent",
-  "suggested_hashtags": ["5 hashtags pertinents pour cette niche, sans le symbole #"]
+  "hashtag_diagnosis": "1 phrase MAXIMUM, ZÉRO chiffre, expliquant si les hashtags actuels aident ou nuisent — nomme explicitement le problème de répétition si des hashtags sur-utilisés sont listés ci-dessus (règle 7)",
+  "suggested_hashtags": ["5 hashtags pertinents pour la niche à privilégier (celle nommée dans niche_focus_advice si plusieurs niches détectées, sinon la niche unique du compte), sans le symbole #"]
 }}
 
 Le contenu de chaque champ doit être rédigé entièrement en français, très
@@ -2165,13 +2191,21 @@ def _build_underperformance_diagnosis(
 
     overused_set = {t.strip().lower() for t in overused_hashtags.split(",") if t.strip()}
     underperf_set = {t.strip().lower() for t in underperforming_hashtags.split(",") if t.strip()}
-    flagged = [h for h in video_hashtags if h.lower() in overused_set or h.lower() in underperf_set]
+    flagged_overused = [h for h in video_hashtags if h.lower() in overused_set]
+    flagged_underperforming = [h for h in video_hashtags if h.lower() in underperf_set and h.lower() not in overused_set]
 
-    if flagged:
+    if flagged_overused:
         hashtag_line = (
-            f"3. HASHTAGS (suspect) : cette vidéo utilise "
-            f"{', '.join('#' + h for h in flagged)}, identifié(s) au niveau du "
-            f"compte comme sur-utilisé(s) ou associé(s) à une portée plus faible."
+            f"3. HASHTAGS (suspect — répétition) : cette vidéo utilise "
+            f"{', '.join('#' + h for h in flagged_overused)}, que ce compte met sur "
+            f"presque toutes ses vidéos. Toujours les mêmes hashtags = TikTok a du mal "
+            f"à savoir à qui montrer les vidéos, il faut les varier d'une vidéo à l'autre."
+        )
+    elif flagged_underperforming:
+        hashtag_line = (
+            f"3. HASHTAGS (suspect — portée) : cette vidéo utilise "
+            f"{', '.join('#' + h for h in flagged_underperforming)}, associé(s) sur ce "
+            f"compte à une portée plus faible que les autres hashtags utilisés."
         )
     elif video_hashtags:
         hashtag_line = (
