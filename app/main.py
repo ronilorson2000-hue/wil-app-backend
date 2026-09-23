@@ -634,6 +634,24 @@ async def tiktok_callback(request: Request):
         </style>
       </head>
       <body>
+        <div style="max-width:460px; margin:0 auto 16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          <button onclick="document.getElementById('video-upload-card').scrollIntoView({{behavior:'auto', block:'start'}})"
+                  style="padding:10px 16px; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff;
+                         color:#1d4ed8; font-weight:600; font-size:13px; cursor:pointer;">
+            🎬 Analyser la vidéo
+          </button>
+          <button onclick="document.getElementById('script-card').scrollIntoView({{behavior:'auto', block:'start'}})"
+                  style="padding:10px 16px; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff;
+                         color:#1d4ed8; font-weight:600; font-size:13px; cursor:pointer;">
+            📝 Analyser le script
+          </button>
+          <button onclick="document.getElementById('trending-card').scrollIntoView({{behavior:'auto', block:'start'}})"
+                  style="padding:10px 16px; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff;
+                         color:#1d4ed8; font-weight:600; font-size:13px; cursor:pointer;">
+            💡 Idées de vidéo
+          </button>
+        </div>
+
         <p style="color:#22c55e; font-weight:bold;">✅ Connected successfully</p>
         <div class="card profile">
           <img src="{avatar_url}" alt="Profile picture" />
@@ -947,8 +965,8 @@ async def tiktok_callback(request: Request):
           }}
         </script>
 
-        <div id="extra-tools" style="display:none; max-width:460px; margin:0 auto;">
-          <div class="card">
+        <div id="extra-tools" style="max-width:460px; margin:0 auto;">
+          <div class="card" id="trending-card">
             <button id="trending-btn" onclick="loadTrendingIdeas()"
                     style="width:100%; padding:12px; border-radius:10px; border:1px solid #ddd;
                            background:#fff; cursor:pointer; font-weight:600;">
@@ -957,7 +975,7 @@ async def tiktok_callback(request: Request):
             <div id="trending-result" style="margin-top:14px;"></div>
           </div>
 
-          <div class="card">
+          <div class="card" id="video-upload-card">
             <p style="font-weight:bold; margin-bottom:4px;">Analyse approfondie d'une vidéo</p>
             <p style="font-size:12px;color:#888;margin:0 0 10px;">Importe le fichier vidéo (déjà postée ou pas encore) depuis ton téléphone ou ta machine — on transcrit le vrai contenu parlé pour analyser ton hook précisément.</p>
             <input id="upload-video-input" type="file" accept="video/*"
@@ -970,7 +988,7 @@ async def tiktok_callback(request: Request):
             <div id="upload-analyze-result" style="margin-top:14px; text-align:left;"></div>
           </div>
 
-          <div class="card">
+          <div class="card" id="script-card">
             <p style="font-weight:bold; margin-bottom:10px;">Générer un script personnalisé</p>
             <textarea id="script-topic" placeholder="Sujet de la vidéo *" rows="2"
                       style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; margin-bottom:10px; font-family:inherit;"></textarea>
