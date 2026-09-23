@@ -675,9 +675,19 @@ async def tiktok_callback(request: Request):
         <script>
           const sessionId = "{session_id}";
           fetch(`/api/analyze-account?session=${{sessionId}}&display_name={display_name_enc}&username={username_enc}&bio={bio_enc}`)
-            .then(r => r.json())
-            .then(data => {{
+            .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
+            .then(({{ok, status, data}}) => {{
               document.getElementById('analysis-loading').style.display = 'none';
+              // Si le serveur a répondu avec une erreur (401 session expirée,
+              // 502 API TikTok/Anthropic indisponible...), on affiche la
+              // VRAIE raison (data.detail, fournie par FastAPI) au lieu d'un
+              // message générique qui masque le problème.
+              if (!ok) {{
+                const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
+                document.getElementById('analysis-result').innerHTML =
+                  `<div class="card"><p class="loading" style="color:#c0392b;">${{reason}}</p></div>`;
+                return;
+              }}
               const stats = data.stats;
               const report = data.ai_report;
               let html = '';
@@ -786,9 +796,9 @@ async def tiktok_callback(request: Request):
                 document.getElementById('extra-tools').style.display = 'block';
               }}
             }})
-            .catch(() => {{
+            .catch((e) => {{
               document.getElementById('analysis-loading').innerHTML =
-                '<p class="loading">Analyse indisponible pour le moment.</p>';
+                `<p class="loading" style="color:#c0392b;">Erreur réseau ou serveur injoignable : ${{e && e.message ? e.message : e}}</p>`;
             }});
 
           // --- Analyse IA d'une vidéo précise (bouton sous chaque vignette) ---
@@ -818,8 +828,13 @@ async def tiktok_callback(request: Request):
             }});
 
             fetch(`/api/analyze-video?${{params.toString()}}`)
-              .then(r => r.json())
-              .then(data => {{
+              .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
+              .then(({{ok, status, data}}) => {{
+                if (!ok) {{
+                  const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
+                  result.innerHTML = `<p style="color:#c0392b;font-size:12px;">${{reason}}</p>`;
+                  return;
+                }}
                 const diagnosis = data.main_diagnosis
                   ? `<p style="margin:6px 0 2px;"><strong>🔍 Le vrai problème</strong></p><p style="margin:0 0 8px;">${{data.main_diagnosis}}</p>`
                   : '';
@@ -837,8 +852,8 @@ async def tiktok_callback(request: Request):
                   <p style="margin:6px 0 2px;"><strong>🎯 À faire</strong></p>
                   <ul class="bullets" style="margin:0;">${{actions}}</ul>`;
               }})
-              .catch(() => {{
-                result.innerHTML = '<p style="color:#c0392b;font-size:12px;">Analyse indisponible pour le moment.</p>';
+              .catch((e) => {{
+                result.innerHTML = `<p style="color:#c0392b;font-size:12px;">Erreur réseau : ${{e && e.message ? e.message : e}}</p>`;
               }})
               .finally(() => {{
                 btn.disabled = false;
@@ -1856,6 +1871,7 @@ async def analyze_account(
     # 2. Analyse IA (profil + performance si disponible), si Anthropic
     # est configuré. Fonctionne même sans les stats vidéo (stats=None).
     ai_report = None
+    _debug_ai_report_failure = None
     if ANTHROPIC_API_KEY:
         if stats and stats["videos"]:
             videos = stats["videos"]
@@ -2236,16 +2252,25 @@ contient de toute façon pas)."""
                     },
                     json={
                         "model": "claude-sonnet-5",
-                        "max_tokens": 1500,
+                        "max_tokens": 3000,
                         "output_config": {"effort": "low"},
                         "messages": [{"role": "user", "content": prompt}],
                     },
                 )
-        except httpx.HTTPError:
+        except httpx.HTTPError as e:
             response = None
+            _debug_ai_report_failure = {"phase": "httpx_error", "error": str(e)}
+
+        if response and response.status_code != 200:
+            _debug_ai_report_failure = {
+                "phase": "bad_status",
+                "status_code": response.status_code,
+                "body_start": response.text[:300],
+            }
 
         if response and response.status_code == 200:
-            raw_text = _extract_text_block(response.json())
+            response_json = response.json()
+            raw_text = _extract_text_block(response_json)
 
             cleaned = raw_text.strip()
             if cleaned.startswith("```"):
@@ -2257,6 +2282,17 @@ contient de toute façon pas)."""
                 ai_report = json.loads(cleaned)
             except json.JSONDecodeError:
                 ai_report = None
+                # TEMPORAIRE : diagnostic pour comprendre pourquoi ai_report
+                # revient parfois null en prod (cf. bug du 23/09/2026 où
+                # max_tokens=1500 était trop juste vu la taille du prompt
+                # actuel) — à retirer une fois confirmé côté serveur réel.
+                _debug_ai_report_failure = {
+                    "phase": "json_decode_error",
+                    "stop_reason": response_json.get("stop_reason"),
+                    "content_block_types": [b.get("type") for b in response_json.get("content", [])],
+                    "raw_text_len": len(raw_text),
+                    "raw_text_start": raw_text[:200],
+                }
 
             # Claude doit choisir dans la liste fermée NICHE_CATEGORIES, mais
             # on ne lui fait pas confiance aveuglément (variation de formulation,
@@ -2299,6 +2335,7 @@ contient de toute façon pas)."""
         "stats": stats,
         "ai_report": ai_report,
         "lang": lang,
+        "_debug_ai_report_failure": _debug_ai_report_failure,
     })
 
 
