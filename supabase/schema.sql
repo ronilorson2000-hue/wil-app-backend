@@ -67,6 +67,16 @@ create table if not exists niche_benchmarks (
     primary key (niche_category, lang)
 );
 
+-- States OAuth en attente (protection anti-CSRF du flow TikTok Login).
+-- Remplace le set() en mémoire : sans ça, un redémarrage du serveur
+-- (redéploiement Render, veille du plan gratuit) pile pendant qu'un
+-- utilisateur est en train de se connecter fait échouer sa connexion
+-- avec une erreur 400 "Code ou state invalide/manquant".
+create table if not exists pending_states (
+    state text primary key,
+    created_at timestamptz not null default now()
+);
+
 -- Note sécurité : ce backend accède à ces tables uniquement via la clé
 -- service_role (jamais exposée au client Flutter/web), donc Row Level
 -- Security n'est pas activé par défaut ici. Si un jour le client accède

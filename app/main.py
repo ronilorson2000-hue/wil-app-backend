@@ -50,11 +50,41 @@ TIKTOK_REDIRECT_URI = os.getenv("TIKTOK_REDIRECT_URI")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
 
-# On garde en mémoire les "state" générés, pour vérifier que la réponse
-# de TikTok correspond bien à une demande qu'on a nous-même initiée
-# (protection basique contre les attaques CSRF). En production, on
-# utiliserait plutôt une vraie base de données ou des sessions signées.
+# Les "state" générés servent à vérifier que la réponse de TikTok
+# correspond bien à une demande qu'on a nous-même initiée (protection
+# anti-CSRF). Repli en mémoire tant que Supabase n'est pas configuré —
+# voir _store_pending_state/_consume_pending_state. IMPORTANT : un state
+# en mémoire seule ne survit pas à un redémarrage du serveur (redéploiement
+# Render, veille du plan gratuit...), ce qui casse la connexion de tout
+# utilisateur pile au milieu du flow OAuth à ce moment-là — d'où le passage
+# par Supabase, comme pour _sessions.
 _pending_states: set[str] = set()
+PENDING_STATE_TTL_SECONDS = 10 * 60  # 10 minutes, largement suffisant pour un flow OAuth
+
+
+def _store_pending_state(state: str) -> None:
+    supabase = get_supabase()
+    if supabase:
+        supabase.table("pending_states").insert({"state": state}).execute()
+    else:
+        _pending_states.add(state)
+
+
+def _consume_pending_state(state: str) -> bool:
+    """Vérifie qu'un state est valide (existant et pas trop vieux) ET le retire, en un seul geste."""
+    supabase = get_supabase()
+    if supabase:
+        res = supabase.table("pending_states").select("*").eq("state", state).limit(1).execute()
+        if not res.data:
+            return False
+        supabase.table("pending_states").delete().eq("state", state).execute()
+        created_at = datetime.fromisoformat(res.data[0]["created_at"]).timestamp()
+        return (time.time() - created_at) < PENDING_STATE_TTL_SECONDS
+
+    if state in _pending_states:
+        _pending_states.discard(state)
+        return True
+    return False
 
 # Stocke temporairement les access_token après connexion, associés à un
 # identifiant de session aléatoire. On ne transmet jamais l'access_token
@@ -417,7 +447,7 @@ def tiktok_login(source: str = "web"):
     # source de la demande (web ou app), en préfixant la valeur aléatoire.
     prefix = "app_" if source == "app" else "web_"
     state = prefix + secrets.token_urlsafe(24)
-    _pending_states.add(state)
+    _store_pending_state(state)
 
     base_scope = "user.info.basic,user.info.profile"
     scope = f"{base_scope},{EXTRA_SCOPES}" if EXTRA_SCOPES else base_scope
@@ -450,11 +480,8 @@ async def tiktok_callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
 
-    if not code or not state or state not in _pending_states:
+    if not code or not state or not _consume_pending_state(state):
         raise HTTPException(status_code=400, detail="Code ou state invalide/manquant")
-
-    # Le state a rempli son rôle, on l'enlève pour ne pas le réutiliser
-    _pending_states.discard(state)
 
     # Échange du code contre un access_token (appel serveur-à-serveur,
     # jamais fait depuis le navigateur pour ne pas exposer le client_secret)
