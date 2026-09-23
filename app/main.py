@@ -462,7 +462,17 @@ def tiktok_login(source: str = "web"):
     query_string = "&".join(f"{key}={value}" for key, value in params.items())
     authorize_url = f"https://www.tiktok.com/v2/auth/authorize/?{query_string}"
 
-    return RedirectResponse(authorize_url)
+    # En-têtes anti-cache explicites : chaque appel génère un state unique
+    # à usage unique. Sans ça, Cloudflare (le site passe par leur CDN, cf.
+    # les en-têtes Cf-Ray observés en prod) ou le navigateur pourrait
+    # mettre cette redirection en cache et resservir un ancien state déjà
+    # consommé/expiré lors d'une connexion ultérieure, provoquant le "State
+    # introuvable" alors même que le mécanisme Supabase fonctionne
+    # correctement (vérifié séparément).
+    return RedirectResponse(authorize_url, headers={
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+    })
 
 
 @app.get("/auth/tiktok/callback", response_class=HTMLResponse)
