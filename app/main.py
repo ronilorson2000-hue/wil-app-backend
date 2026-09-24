@@ -39,7 +39,7 @@ from fastapi.responses import (
 )
 
 from app.db import get_supabase
-from app.style_guide import STYLE_GUIDE
+from app.style_guide import get_style_guide
 from app.translations import DEFAULT_LANG, LANG_FLAGS, LANG_NAMES, SUPPORTED_LANGS, t
 
 # Charge les variables du fichier .env (clés TikTok, redirect URI, etc.)
@@ -1574,34 +1574,45 @@ def _extract_text_block(response_json: dict) -> str:
     return text_blocks[-1] if text_blocks else ""
 
 
-# Bloc partagé par TOUTES les routes IA (analyse de compte, de vidéo,
-# de transcript, upload...) : identique mot pour mot à chaque appel, donc
-# marqué "cache_control" pour le prompt caching Anthropic. Le premier
-# appel paye 1,25x le prix normal sur ce bloc (écriture du cache), tous
-# les appels suivants dans les 5 minutes (n'importe quelle route, le
-# cache est partagé) ne payent que 0,10x — 90% moins cher. Ne JAMAIS
-# rendre ce bloc dynamique (chiffres, nom du compte...) : la moindre
-# différence d'un seul caractère invalide le cache pour cet appel.
-_CACHED_SYSTEM_BLOCK = f"""Tu es un expert TikTok senior — coach de croissance, scénariste et
-monteur — connu pour des analyses extrêmement concrètes et jamais
-génériques.
+# Intro partagée par TOUTES les routes IA, une version par langue
+# d'interface (voir app/translations.py SUPPORTED_LANGS). Chaque bloc est
+# identique mot pour mot à chaque appel DANS LA MÊME LANGUE, donc marqué
+# "cache_control" pour le prompt caching Anthropic — un cache distinct
+# par langue. Le premier appel dans une langue paye 1,25x le prix normal
+# sur ce bloc (écriture du cache), tous les appels suivants dans les 5
+# minutes (n'importe quelle route, même langue) ne payent que 0,10x —
+# 90% moins cher. Ne JAMAIS rendre ce bloc dynamique (chiffres, nom du
+# compte...) : la moindre différence d'un seul caractère invalide le
+# cache pour cet appel.
+_AI_INTRO_BY_LANG = {
+    "fr": "Tu es un expert TikTok senior — coach de croissance, scénariste et monteur — connu pour des analyses extrêmement concrètes et jamais génériques. Rédige ta réponse entièrement en français.",
+    "en": "You are a senior TikTok expert — growth coach, scriptwriter and editor — known for extremely concrete analyses that are never generic. Write your entire response in English.",
+    "de": "Sie sind ein erfahrener TikTok-Experte — Wachstumscoach, Drehbuchautor und Cutter — bekannt für äußerst konkrete, nie generische Analysen. Verfassen Sie Ihre gesamte Antwort auf Deutsch.",
+    "es": "Eres un experto senior de TikTok — coach de crecimiento, guionista y editor — conocido por análisis extremadamente concretos y nunca genéricos. Redacta tu respuesta completa en español.",
+    "pt": "Você é um especialista sénior em TikTok — coach de crescimento, argumentista e editor — conhecido por análises extremamente concretas e nunca genéricas. Escreva a sua resposta inteiramente em português.",
+    "it": "Sei un esperto senior di TikTok — coach di crescita, sceneggiatore e montatore — noto per analisi estremamente concrete e mai generiche. Scrivi la tua risposta interamente in italiano.",
+}
 
-{STYLE_GUIDE}"""
+_CACHED_SYSTEM_BLOCKS = {
+    lang: f"{_AI_INTRO_BY_LANG[lang]}\n\n{get_style_guide(lang)}"
+    for lang in SUPPORTED_LANGS
+}
 
 
-def _cached_messages(dynamic_prompt: str) -> list[dict]:
+def _cached_messages(dynamic_prompt: str, ui_lang: str = DEFAULT_LANG) -> list[dict]:
     """
     Construit le tableau "messages" pour l'API Anthropic en séparant le
-    bloc commun mis en cache (_CACHED_SYSTEM_BLOCK) du reste du prompt,
-    propre à chaque appel (données du compte/vidéo, instructions
+    bloc commun mis en cache (_CACHED_SYSTEM_BLOCKS[ui_lang]) du reste du
+    prompt, propre à chaque appel (données du compte/vidéo, instructions
     spécifiques, schéma JSON attendu) et donc jamais mis en cache.
     """
+    lang = ui_lang if ui_lang in _CACHED_SYSTEM_BLOCKS else DEFAULT_LANG
     return [{
         "role": "user",
         "content": [
             {
                 "type": "text",
-                "text": _CACHED_SYSTEM_BLOCK,
+                "text": _CACHED_SYSTEM_BLOCKS[lang],
                 "cache_control": {"type": "ephemeral"},
             },
             {
@@ -2178,6 +2189,7 @@ async def analyze_account(
     display_name: str = "",
     username: str = "",
     bio: str = "",
+    ui_lang: str = DEFAULT_LANG,
 ):
     """
     Route UNIQUE et complète d'analyse de compte. Combine :
@@ -2687,7 +2699,7 @@ contient de toute façon pas)."""
                         "model": "claude-sonnet-5",
                         "max_tokens": 3000,
                         "output_config": {"effort": "low"},
-                        "messages": _cached_messages(prompt),
+                        "messages": _cached_messages(prompt, ui_lang),
                     },
                 )
         except httpx.HTTPError:
@@ -2840,6 +2852,7 @@ async def analyze_video(
     best_posting_bucket: str = "",
     overused_hashtags: str = "",
     underperforming_hashtags: str = "",
+    ui_lang: str = DEFAULT_LANG,
 ):
     """
     Analyse IA d'UNE vidéo précise : pourquoi elle a (ou n'a pas) percé,
@@ -3012,7 +3025,7 @@ SIMPLE (niveau CM2) :
                     "model": "claude-sonnet-5",
                     "max_tokens": 1000,
                     "output_config": {"effort": "low"},
-                    "messages": _cached_messages(prompt),
+                    "messages": _cached_messages(prompt, ui_lang),
                 },
             )
     except httpx.HTTPError:
@@ -3101,6 +3114,7 @@ async def analyze_video_upload(
     file: UploadFile = File(...),
     account_avg_views: int = 0,
     niche_category: str = "",
+    ui_lang: str = DEFAULT_LANG,
 ):
     """
     Analyse approfondie d'UNE vidéo à partir d'un fichier importé
@@ -3200,7 +3214,7 @@ SIMPLE (niveau CM2) :
                     "model": "claude-sonnet-5",
                     "max_tokens": 1200,
                     "output_config": {"effort": "low"},
-                    "messages": _cached_messages(prompt),
+                    "messages": _cached_messages(prompt, ui_lang),
                 },
             )
     except httpx.HTTPError:
@@ -3253,6 +3267,7 @@ async def analyze_transcript(
     claimed_likes: int = 0,
     claimed_comments: int = 0,
     claimed_shares: int = 0,
+    ui_lang: str = DEFAULT_LANG,
 ):
     """
     Analyse un transcript de vidéo TikTok déjà transcrit (audio → texte
@@ -3376,7 +3391,7 @@ en FRANÇAIS, avec exactement ces champs :
                     "model": "claude-sonnet-5",
                     "max_tokens": 2000,
                     "output_config": {"effort": "low"},
-                    "messages": _cached_messages(prompt),
+                    "messages": _cached_messages(prompt, ui_lang),
                 },
             )
     except httpx.HTTPError:
