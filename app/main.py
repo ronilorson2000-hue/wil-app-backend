@@ -625,8 +625,8 @@ async def tiktok_callback(request: Request):
           a.home {{ display:inline-block; margin-top: 30px; color:#555; }}
           .loading {{ color: #777; font-size: 14px; }}
           .bar-bg {{ background: #e5e7eb; border-radius: 8px; height: 16px; overflow: hidden; }}
-          .bar-fill {{ background: #5B21B6; height: 100%; }}
-          .chip {{ display: inline-block; background: #EC4899; color: white; padding: 4px 12px;
+          .bar-fill {{ background: #2563EB; height: 100%; }}
+          .chip {{ display: inline-block; background: #2563EB; color: white; padding: 4px 12px;
                    border-radius: 999px; font-size: 13px; font-weight: bold; }}
           .tag {{ display: inline-block; background: #f3f4f6; padding: 3px 10px; border-radius: 999px;
                   font-size: 12px; margin: 3px; }}
@@ -997,7 +997,7 @@ async def tiktok_callback(request: Request):
                    style="width:100%; margin-bottom:10px;" />
             <button id="upload-analyze-btn" onclick="analyzeUploadedVideo()"
                     style="width:100%; padding:12px; border-radius:10px; border:none;
-                           background:#5B21B6; color:white; cursor:pointer; font-weight:600;">
+                           background:#1D4ED8; color:white; cursor:pointer; font-weight:600;">
               Analyser cette vidéo
             </button>
             <div id="upload-analyze-result" style="margin-top:14px; text-align:left;"></div>
@@ -1013,7 +1013,7 @@ async def tiktok_callback(request: Request):
                       style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; margin-bottom:10px; font-family:inherit;"></textarea>
             <button id="script-btn" onclick="generateScript()"
                     style="width:100%; padding:12px; border-radius:10px; border:none;
-                           background:#EC4899; color:white; cursor:pointer; font-weight:600;">
+                           background:#2563EB; color:white; cursor:pointer; font-weight:600;">
               Générer le script
             </button>
             <div id="script-result" style="margin-top:14px; text-align:left;"></div>
