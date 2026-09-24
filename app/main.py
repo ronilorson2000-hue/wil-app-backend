@@ -40,6 +40,7 @@ from fastapi.responses import (
 
 from app.db import get_supabase
 from app.style_guide import STYLE_GUIDE
+from app.translations import DEFAULT_LANG, LANG_FLAGS, LANG_NAMES, SUPPORTED_LANGS, t
 
 # Charge les variables du fichier .env (clés TikTok, redirect URI, etc.)
 load_dotenv()
@@ -234,6 +235,73 @@ def favicon():
     return FileResponse(favicon_path)
 
 
+UI_LANG_COOKIE = "wil_lang"
+
+
+def _detect_ui_lang(request: Request) -> str:
+    """
+    Détermine la langue d'interface à utiliser : priorité au choix
+    explicite de l'utilisateur (cookie posé par /set-language), sinon
+    déduite de l'en-tête Accept-Language envoyé par le navigateur/
+    téléphone du visiteur, sinon repli sur le français.
+    """
+    cookie_lang = request.cookies.get(UI_LANG_COOKIE)
+    if cookie_lang in SUPPORTED_LANGS:
+        return cookie_lang
+
+    accept_language = request.headers.get("accept-language", "")
+    for part in accept_language.split(","):
+        code = part.split(";")[0].strip().lower()[:2]
+        if code in SUPPORTED_LANGS:
+            return code
+
+    return DEFAULT_LANG
+
+
+def _language_menu_html(current_lang: str, current_path: str) -> str:
+    """
+    Génère le menu déroulant "Langue" (accordéon natif <details>, sans
+    JS) réutilisé sur toutes les pages publiques.
+    """
+    from urllib.parse import quote
+
+    next_enc = quote(current_path, safe="")
+    options = "".join(
+        f'<a href="/set-language?lang={code}&to={next_enc}" '
+        f'class="block px-4 py-2 text-sm hover:bg-slate-50 whitespace-nowrap '
+        f'{"font-semibold text-blue-600" if code == current_lang else "text-slate-600"}">'
+        f"{LANG_FLAGS[code]} {LANG_NAMES[code]}</a>"
+        for code in SUPPORTED_LANGS
+    )
+    return f"""
+          <details class="relative">
+            <summary class="list-none cursor-pointer flex items-center gap-1 hover:text-slate-900">
+              {LANG_FLAGS[current_lang]} {t(current_lang, "nav_language")}
+            </summary>
+            <div class="absolute right-0 mt-2 min-w-[9rem] bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-20">
+              {options}
+            </div>
+          </details>
+    """
+
+
+@app.get("/set-language")
+def set_language(lang: str, to: str = "/"):
+    """
+    Enregistre le choix explicite de langue de l'utilisateur dans un
+    cookie longue durée (1 an), puis le redirige vers la page d'où il
+    vient. Cette langue devient ensuite la langue de l'interface ET
+    celle utilisée par l'IA pour rédiger les rapports d'analyse.
+    """
+    if lang not in SUPPORTED_LANGS:
+        lang = DEFAULT_LANG
+    if not to.startswith("/"):
+        to = "/"
+    response = RedirectResponse(to)
+    response.set_cookie(UI_LANG_COOKIE, lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return response
+
+
 @app.head("/")
 def home_head():
     """
@@ -248,14 +316,22 @@ def home_head():
 
 
 @app.get("/", response_class=HTMLResponse)
-def home():
+def home(request: Request):
     """
     Page d'accueil présentant le service en détail : fonctionnalités,
     tarifs, fonctionnement, et liens légaux visibles directement, sans
     menu ni connexion requise (exigence explicite de TikTok).
+
+    Traduite en 6 langues (fr/en/de/es/pt/it) — voir app/translations.py.
+    La langue est déterminée par _detect_ui_lang (cookie explicite, sinon
+    Accept-Language du navigateur/téléphone, sinon français par défaut).
     """
-    return """
-    <html>
+    lang = _detect_ui_lang(request)
+    tt = lambda key: t(lang, key)  # noqa: E731
+    lang_menu = _language_menu_html(lang, "/")
+
+    return f"""
+    <html lang="{lang}">
       <head>
         <meta charset="utf-8">
         <title>Wil App</title>
@@ -265,10 +341,10 @@ def home():
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
-          tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } };
+          tailwind.config = {{ theme: {{ extend: {{ fontFamily: {{ sans: ['Inter', 'system-ui', 'sans-serif'] }} }} }} }};
         </script>
         <style>
-          body { font-family: 'Inter', system-ui, sans-serif; }
+          body {{ font-family: 'Inter', system-ui, sans-serif; }}
         </style>
       </head>
       <body class="bg-white text-slate-900 antialiased">
@@ -279,14 +355,15 @@ def home():
             <span class="font-bold text-lg">Wil App</span>
           </div>
           <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <a href="/services" class="hover:text-slate-900">Services</a>
-            <a href="#how-it-works" class="hover:text-slate-900">Comment ça marche</a>
-            <a href="#pricing" class="hover:text-slate-900">Pricing</a>
-            <a href="#faq" class="hover:text-slate-900">FAQ</a>
-            <a href="/about" class="hover:text-slate-900">About</a>
-            <a href="/contact" class="hover:text-slate-900">Contact</a>
+            <a href="/services" class="hover:text-slate-900">{tt("nav_services")}</a>
+            <a href="#how-it-works" class="hover:text-slate-900">{tt("nav_how_it_works")}</a>
+            <a href="#pricing" class="hover:text-slate-900">{tt("nav_pricing")}</a>
+            <a href="#faq" class="hover:text-slate-900">{tt("nav_faq")}</a>
+            <a href="/about" class="hover:text-slate-900">{tt("nav_about")}</a>
+            <a href="/contact" class="hover:text-slate-900">{tt("nav_contact")}</a>
+            {lang_menu}
           </div>
-          <a href="/auth/tiktok/login" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">Se connecter</a>
+          <a href="/auth/tiktok/login" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">{tt("nav_login")}</a>
         </nav>
 
         <div class="relative overflow-hidden">
@@ -297,17 +374,17 @@ def home():
           </div>
           <header class="relative max-w-3xl mx-auto text-center px-6 pt-20 pb-24">
             <div class="inline-block px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold mb-6">
-              ✨ Analyse TikTok propulsée par l'IA
+              {tt("hero_badge")}
             </div>
             <h1 class="text-5xl font-extrabold tracking-tight leading-tight mb-5">
-              Comprends pourquoi tes vidéos marchent — <span class="text-sky-400">ou pas</span>
+              {tt("hero_title_1")}<span class="text-sky-400">{tt("hero_title_2")}</span>
             </h1>
             <p class="text-lg text-slate-500 mb-10 leading-relaxed">
-              Analytics and insights for TikTok creators. Connecte ton compte et reçois un diagnostic clair de ta viralité, tes hashtags et tes accroches.
+              {tt("hero_subtitle")}
             </p>
             <a href="/auth/tiktok/login"
                class="inline-block px-6 py-[0.9rem] sm:px-[3.6rem] sm:py-[1.8rem] rounded-lg sm:rounded-[0.9rem] text-white font-bold text-xs sm:text-[1.35rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
-              Se connecter avec TikTok
+              {tt("hero_cta")}
             </a>
           </header>
         </div>
@@ -315,7 +392,7 @@ def home():
         <div class="max-w-5xl mx-auto px-6">
 
           <section id="how-it-works" class="py-20">
-            <h2 class="text-3xl font-bold text-center mb-14">Comment ça marche</h2>
+            <h2 class="text-3xl font-bold text-center mb-14">{tt("hiw_title")}</h2>
             <div class="grid sm:grid-cols-3 gap-6">
               <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
                 <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
@@ -323,8 +400,8 @@ def home():
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0l-3 3m3-3H3" />
                   </svg>
                 </div>
-                <h3 class="font-bold text-base mb-2">Connecte ton compte TikTok</h3>
-                <p class="text-slate-500 text-sm leading-relaxed">Connecte-toi en toute sécurité avec ton compte TikTok en un clic — aucune donnée sensible n'est demandée.</p>
+                <h3 class="font-bold text-base mb-2">{tt("hiw_1_title")}</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">{tt("hiw_1_desc")}</p>
               </div>
               <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
                 <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
@@ -333,8 +410,8 @@ def home():
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4" d="M8 13l2-2 2 1.5 3-3.5" />
                   </svg>
                 </div>
-                <h3 class="font-bold text-base mb-2">Reçois ton diagnostic automatiquement</h3>
-                <p class="text-slate-500 text-sm leading-relaxed">Dès la connexion, Wil App analyse ton compte : score de viralité, taux d'engagement, points forts, points à améliorer et hashtags suggérés — sans rien configurer.</p>
+                <h3 class="font-bold text-base mb-2">{tt("hiw_2_title")}</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">{tt("hiw_2_desc")}</p>
               </div>
               <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
                 <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
@@ -342,74 +419,74 @@ def home():
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
                   </svg>
                 </div>
-                <h3 class="font-bold text-base mb-2">Va plus loin avec les outils dédiés</h3>
-                <p class="text-slate-500 text-sm leading-relaxed">Analyse une vidéo précise, le script d'une vidéo à venir, ou découvre des idées de vidéos tendance adaptées à ta niche.</p>
+                <h3 class="font-bold text-base mb-2">{tt("hiw_3_title")}</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">{tt("hiw_3_desc")}</p>
               </div>
             </div>
           </section>
 
           <section id="pricing" class="py-20 border-t border-slate-100">
-            <h2 class="text-3xl font-bold text-center mb-14">Pricing</h2>
+            <h2 class="text-3xl font-bold text-center mb-14">{tt("pricing_title")}</h2>
             <div class="grid sm:grid-cols-2 gap-6 max-w-xl mx-auto">
               <div class="border border-slate-200 rounded-2xl p-8 text-center flex flex-col">
-                <h3 class="font-bold text-lg mb-2">Free</h3>
-                <div class="text-3xl font-extrabold mb-5">$0<span class="text-sm font-normal text-slate-400">/month</span></div>
+                <h3 class="font-bold text-lg mb-2">{tt("pricing_free_name")}</h3>
+                <div class="text-3xl font-extrabold mb-5">$0<span class="text-sm font-normal text-slate-400">{tt("pricing_free_period")}</span></div>
                 <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-                  <li>✔ Connect your TikTok account</li>
-                  <li>✔ Basic profile overview</li>
+                  <li>✔ {tt("pricing_free_feature1")}</li>
+                  <li>✔ {tt("pricing_free_feature2")}</li>
                 </ul>
-                <a href="/auth/tiktok/login" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">Se connecter avec TikTok</a>
+                <a href="/auth/tiktok/login" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">{tt("pricing_free_cta")}</a>
               </div>
               <div class="border-2 border-blue-600 rounded-2xl p-8 text-center relative flex flex-col">
-                <h3 class="font-bold text-lg mb-2">Pro</h3>
-                <div class="text-2xl font-extrabold mb-5 text-blue-600">Coming soon</div>
+                <h3 class="font-bold text-lg mb-2">{tt("pricing_pro_name")}</h3>
+                <div class="text-2xl font-extrabold mb-5 text-blue-600">{tt("pricing_pro_price")}</div>
                 <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-                  <li>✔ Everything in Free</li>
-                  <li>✔ Advanced account insights</li>
-                  <li>✔ Priority support</li>
+                  <li>✔ {tt("pricing_pro_feature1")}</li>
+                  <li>✔ {tt("pricing_pro_feature2")}</li>
+                  <li>✔ {tt("pricing_pro_feature3")}</li>
                 </ul>
-                <button disabled class="mt-auto px-6 py-3 rounded-xl bg-blue-300 text-white font-semibold text-sm cursor-not-allowed">Bientôt disponible</button>
+                <button disabled class="mt-auto px-6 py-3 rounded-xl bg-blue-300 text-white font-semibold text-sm cursor-not-allowed">{tt("pricing_pro_cta")}</button>
               </div>
             </div>
           </section>
 
           <section id="faq" class="py-20 border-t border-slate-100">
-            <h2 class="text-3xl font-bold text-center mb-14">Questions fréquentes</h2>
+            <h2 class="text-3xl font-bold text-center mb-14">{tt("faq_title")}</h2>
             <div class="max-w-2xl mx-auto space-y-3">
               <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
-                  Est-ce que Wil App a accès à mon mot de passe TikTok ?
+                  {tt("faq_q1")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
-                <p class="text-slate-500 text-sm leading-relaxed mt-3">Non. La connexion utilise le Login Kit officiel de TikTok (OAuth) — Wil App ne voit et ne stocke jamais ton mot de passe, et tu peux révoquer l'accès à tout moment depuis les paramètres de ton compte TikTok.</p>
+                <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a1")}</p>
               </details>
               <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
-                  Comment fonctionne l'analyse de mon compte ?
+                  {tt("faq_q2")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
-                <p class="text-slate-500 text-sm leading-relaxed mt-3">Dès la connexion, Wil App récupère tes vidéos et calcule ton score de viralité, ton taux d'engagement, puis génère un rapport IA (points forts, points à améliorer, hashtags suggérés) basé sur tes vraies statistiques.</p>
+                <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a2")}</p>
               </details>
               <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
-                  Puis-je analyser une vidéo ou un script avant de le publier ?
+                  {tt("faq_q3")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
-                <p class="text-slate-500 text-sm leading-relaxed mt-3">Oui. Les outils dédiés "Analyser la vidéo" et "Analyser le script" te donnent un diagnostic (accroche, rythme, structure, points forts/faibles) sur un contenu déjà tourné ou encore à l'état de script.</p>
+                <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a3")}</p>
               </details>
               <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
-                  L'offre gratuite est-elle limitée dans le temps ?
+                  {tt("faq_q4")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
-                <p class="text-slate-500 text-sm leading-relaxed mt-3">Non, l'offre Free reste gratuite pour connecter ton compte et voir ton aperçu de profil. L'offre Pro (bientôt disponible) ajoutera des analyses avancées et un support prioritaire.</p>
+                <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a4")}</p>
               </details>
               <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
-                  Comment révoquer l'accès ou poser une question ?
+                  {tt("faq_q5")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
-                <p class="text-slate-500 text-sm leading-relaxed mt-3">Tu peux révoquer l'accès de Wil App à tout moment depuis les paramètres de connexions tierces de ton compte TikTok. Pour toute autre question, écris-nous à <a href="mailto:contact.wilapp@proton.me" class="text-blue-600 font-medium hover:text-blue-700">contact.wilapp@proton.me</a>.</p>
+                <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a5")} <a href="mailto:contact.wilapp@proton.me" class="text-blue-600 font-medium hover:text-blue-700">contact.wilapp@proton.me</a>.</p>
               </details>
             </div>
           </section>
@@ -422,35 +499,35 @@ def home():
                 <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-sky-300 flex items-center justify-center text-blue-900 font-bold text-sm">W</div>
                 <span class="font-bold text-lg text-white">Wil App</span>
               </div>
-              <p class="text-sm text-blue-200 leading-relaxed mb-4">Analytics et diagnostic IA pour créateurs TikTok — comprends pourquoi tes vidéos marchent, ou pas.</p>
+              <p class="text-sm text-blue-200 leading-relaxed mb-4">{tt("footer_tagline")}</p>
               <a href="https://wa.me/447446953451" target="_blank" rel="noopener"
                  class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-800 hover:bg-blue-700 transition text-sm font-medium text-white">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
                   <path d="M12.04 2c-5.52 0-10 4.48-10 10 0 1.77.46 3.44 1.26 4.89L2 22l5.25-1.28A9.96 9.96 0 0012.04 22c5.52 0 10-4.48 10-10s-4.48-10-10-10zm0 18.2c-1.6 0-3.14-.43-4.47-1.24l-.32-.19-3.12.76.79-3.04-.2-.31A8.18 8.18 0 013.84 12c0-4.53 3.68-8.2 8.2-8.2s8.2 3.68 8.2 8.2-3.67 8.2-8.2 8.2zm4.5-6.13c-.25-.12-1.45-.72-1.68-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.14.16-.29.18-.53.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.35-.77-1.85-.2-.48-.41-.42-.56-.43h-.48c-.16 0-.43.06-.65.31-.23.25-.86.84-.86 2.05s.88 2.38 1 2.55c.12.16 1.73 2.64 4.19 3.7.59.25 1.05.4 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.45-.59 1.66-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.47-.28z"/>
                 </svg>
-                WhatsApp
+                {tt("footer_whatsapp")}
               </a>
             </div>
             <div>
-              <h4 class="font-semibold text-white mb-3 text-sm">Produit</h4>
+              <h4 class="font-semibold text-white mb-3 text-sm">{tt("footer_col_product")}</h4>
               <ul class="space-y-2 text-sm text-blue-200">
-                <li><a href="/services" class="hover:text-white transition">Services</a></li>
-                <li><a href="#pricing" class="hover:text-white transition">Pricing</a></li>
-                <li><a href="#faq" class="hover:text-white transition">FAQ</a></li>
+                <li><a href="/services" class="hover:text-white transition">{tt("nav_services")}</a></li>
+                <li><a href="#pricing" class="hover:text-white transition">{tt("nav_pricing")}</a></li>
+                <li><a href="#faq" class="hover:text-white transition">{tt("nav_faq")}</a></li>
               </ul>
             </div>
             <div>
-              <h4 class="font-semibold text-white mb-3 text-sm">Informations</h4>
+              <h4 class="font-semibold text-white mb-3 text-sm">{tt("footer_col_info")}</h4>
               <ul class="space-y-2 text-sm text-blue-200">
-                <li><a href="/about" class="hover:text-white transition">About</a></li>
-                <li><a href="/contact" class="hover:text-white transition">Contact</a></li>
-                <li><a href="/terms" class="hover:text-white transition">Terms of Service</a></li>
-                <li><a href="/privacy" class="hover:text-white transition">Privacy Policy</a></li>
+                <li><a href="/about" class="hover:text-white transition">{tt("nav_about")}</a></li>
+                <li><a href="/contact" class="hover:text-white transition">{tt("nav_contact")}</a></li>
+                <li><a href="/terms" class="hover:text-white transition">{tt("footer_terms")}</a></li>
+                <li><a href="/privacy" class="hover:text-white transition">{tt("footer_privacy")}</a></li>
               </ul>
             </div>
           </div>
           <div class="border-t border-blue-800 text-center py-6 px-6 text-xs text-blue-300">
-            © 2026 Wil App. All rights reserved.
+            © 2026 Wil App. {tt("footer_rights")}
           </div>
         </footer>
       </body>
