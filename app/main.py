@@ -338,17 +338,30 @@ def home():
             <h2 class="text-3xl font-bold text-center mb-14">Comment ça marche</h2>
             <div class="grid sm:grid-cols-3 gap-6">
               <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-                <div class="w-10 h-10 rounded-full bg-blue-700 text-white flex items-center justify-center text-lg mb-4">🔗</div>
+                <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-8 h-8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0l-3 3m3-3H3" />
+                  </svg>
+                </div>
                 <h3 class="font-bold text-base mb-2">Connecte ton compte TikTok</h3>
                 <p class="text-slate-500 text-sm leading-relaxed">Connecte-toi en toute sécurité avec ton compte TikTok en un clic — aucune donnée sensible n'est demandée.</p>
               </div>
               <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-                <div class="w-10 h-10 rounded-full bg-blue-700 text-white flex items-center justify-center text-lg mb-4">📊</div>
+                <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-8 h-8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4" d="M8 13l2-2 2 1.5 3-3.5" />
+                  </svg>
+                </div>
                 <h3 class="font-bold text-base mb-2">Reçois ton diagnostic automatiquement</h3>
                 <p class="text-slate-500 text-sm leading-relaxed">Dès la connexion, Wil App analyse ton compte : score de viralité, taux d'engagement, points forts, points à améliorer et hashtags suggérés — sans rien configurer.</p>
               </div>
               <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-                <div class="w-10 h-10 rounded-full bg-blue-700 text-white flex items-center justify-center text-lg mb-4">🚀</div>
+                <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-8 h-8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                  </svg>
+                </div>
                 <h3 class="font-bold text-base mb-2">Va plus loin avec les outils dédiés</h3>
                 <p class="text-slate-500 text-sm leading-relaxed">Analyse une vidéo précise, le script d'une vidéo à venir, ou découvre des idées de vidéos tendance adaptées à ta niche.</p>
               </div>
