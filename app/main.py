@@ -635,17 +635,17 @@ async def tiktok_callback(request: Request):
       </head>
       <body>
         <div style="max-width:460px; margin:0 auto 16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-          <button onclick="document.getElementById('video-upload-card').scrollIntoView({{behavior:'auto', block:'start'}})"
+          <button onclick="location.href='/tools/analyze-video?niche_category='+encodeURIComponent(window.__wilNicheCategory||'')+'&account_avg_views='+encodeURIComponent(window.__wilAvgViews||'')"
                   style="padding:10px 16px; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff;
                          color:#1d4ed8; font-weight:600; font-size:13px; cursor:pointer;">
             🎬 Analyser la vidéo
           </button>
-          <button onclick="document.getElementById('script-card').scrollIntoView({{behavior:'auto', block:'start'}})"
+          <button onclick="location.href='/tools/generate-script?niche='+encodeURIComponent(window.__wilNiche||'')+'&bio='+encodeURIComponent(window.__wilBio||'')"
                   style="padding:10px 16px; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff;
                          color:#1d4ed8; font-weight:600; font-size:13px; cursor:pointer;">
             📝 Analyser le script
           </button>
-          <button onclick="document.getElementById('trending-card').scrollIntoView({{behavior:'auto', block:'start'}})"
+          <button onclick="location.href='/tools/trending-ideas?niche_category='+encodeURIComponent(window.__wilNicheCategory||'')+'&lang='+encodeURIComponent(window.__wilLang||'fr')"
                   style="padding:10px 16px; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff;
                          color:#1d4ed8; font-weight:600; font-size:13px; cursor:pointer;">
             💡 Idées de vidéo
@@ -860,37 +860,62 @@ async def tiktok_callback(request: Request):
                 btn.textContent = 'Analyser la vidéo';
               }});
           }}
+        </script>
+      </body>
+    </html>
+    """
 
-          // --- Idées de vidéos et hooks tendance ---
-          function loadTrendingIdeas() {{
-            const btn = document.getElementById('trending-btn');
-            const result = document.getElementById('trending-result');
-            btn.disabled = true;
-            btn.textContent = 'Recherche en cours...';
-            result.innerHTML = '';
 
-            fetch(`/api/trending-ideas?niche_category=${{encodeURIComponent(window.__wilNicheCategory || '')}}&lang=${{encodeURIComponent(window.__wilLang || 'fr')}}`)
-              .then(r => r.json())
-              .then(data => {{
-                const ideas = (data.video_ideas || []).map(i => `<li>${{i}}</li>`).join('');
-                const hooks = (data.trending_hooks || []).map(h => `<li>${{h}}</li>`).join('');
-                result.innerHTML = `
-                  <p><strong>💡 Idées de vidéos tendance</strong></p>
-                  <ul class="bullets">${{ideas}}</ul>
-                  <p><strong>🎬 Hooks tendance</strong></p>
-                  <ul class="bullets">${{hooks}}</ul>`;
-              }})
-              .catch(() => {{
-                result.innerHTML = '<p class="loading">Indisponible pour le moment, réessaie plus tard.</p>';
-              }})
-              .finally(() => {{
-                btn.disabled = false;
-                btn.textContent = 'Idées tendance de ma niche';
-              }});
-          }}
+# Style partagé par les pages outils (chacune a désormais sa propre URL,
+# séparée du tableau de bord — voir /tools/analyze-video, /tools/generate-script,
+# /tools/trending-ideas).
+_TOOL_PAGE_STYLE = """
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Arial, sans-serif; margin: 0; padding: 40px 20px; color: #1a1a1a; }
+  .wrap { max-width: 460px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .subtitle { color: #666; font-size: 13px; margin: 0 0 24px; line-height: 1.5; }
+  .card { border: 1px solid #eee; border-radius: 14px; padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+  input, textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; font-family: inherit; }
+  button.primary { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #2563EB; color: white; cursor: pointer; font-weight: 600; font-size: 15px; }
+  a.back { display: inline-block; margin-bottom: 20px; color: #1d4ed8; text-decoration: none; font-size: 14px; }
+  .bullets { padding-left: 18px; }
+  .loading { color: #777; font-size: 14px; }
+"""
 
-          // --- Générateur de script personnalisé ---
-          // --- Analyse approfondie d'une vidéo importée (transcription réelle) ---
+
+@app.get("/tools/analyze-video", response_class=HTMLResponse)
+def tool_analyze_video_page(niche_category: str = "", account_avg_views: str = ""):
+    """
+    Page dédiée pour l'analyse approfondie d'une vidéo importée (upload +
+    transcription réelle). Reçoit le contexte du compte (niche, moyenne de
+    vues) en paramètres d'URL, transmis par le tableau de bord au clic sur
+    le bouton "Analyser la vidéo" — cette page n'a plus besoin de session.
+    """
+    return f"""
+    <html>
+      <head>
+        <title>Analyse approfondie d'une vidéo — Wil App</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>{_TOOL_PAGE_STYLE}</style>
+      </head>
+      <body>
+        <div class="wrap">
+          <a href="/" class="back">← Retour à l'accueil</a>
+          <h1>Analyse approfondie d'une vidéo</h1>
+          <p class="subtitle">Importe le fichier vidéo (déjà postée ou pas encore) depuis ton téléphone ou ta machine — on transcrit le vrai contenu parlé pour analyser ton accroche précisément.</p>
+          <div class="card">
+            <input id="upload-video-input" type="file" accept="video/*" />
+            <button id="upload-analyze-btn" class="primary" onclick="analyzeUploadedVideo()">Analyser cette vidéo</button>
+            <div id="upload-analyze-result" style="margin-top:14px; text-align:left;"></div>
+          </div>
+        </div>
+        <script>
+          const nicheCategory = "{niche_category}";
+          const accountAvgViews = "{account_avg_views}";
+
           function analyzeUploadedVideo() {{
             const fileInput = document.getElementById('upload-video-input');
             const btn = document.getElementById('upload-analyze-btn');
@@ -903,19 +928,21 @@ async def tiktok_callback(request: Request):
 
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
-            formData.append('account_avg_views', window.__wilAvgViews || '');
-            formData.append('niche_category', window.__wilNicheCategory || '');
+            formData.append('account_avg_views', accountAvgViews);
+            formData.append('niche_category', nicheCategory);
 
             btn.disabled = true;
             btn.textContent = 'Transcription et analyse en cours (peut prendre 1-2 min)...';
             result.innerHTML = '';
 
             fetch('/api/analyze-video-upload', {{ method: 'POST', body: formData }})
-              .then(r => {{
-                if (!r.ok) throw new Error('failed');
-                return r.json();
-              }})
-              .then(data => {{
+              .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
+              .then(({{ok, status, data}}) => {{
+                if (!ok) {{
+                  const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
+                  result.innerHTML = `<p style="color:#c0392b;">${{reason}}</p>`;
+                  return;
+                }}
                 const strengths = (data.strengths || []).map(s => `<li>${{s}}</li>`).join('');
                 const weaknesses = (data.weaknesses || []).map(s => `<li>${{s}}</li>`).join('');
                 const actions = (data.action_plan || []).map(s => `<li>${{s}}</li>`).join('');
@@ -930,14 +957,52 @@ async def tiktok_callback(request: Request):
                   <p><strong>🎯 Pour percer</strong></p>
                   <ul class="bullets">${{actions}}</ul>`;
               }})
-              .catch(() => {{
-                result.innerHTML = '<p style="color:#c0392b;">Analyse indisponible pour le moment. Réessaie.</p>';
+              .catch((e) => {{
+                result.innerHTML = `<p style="color:#c0392b;">Erreur réseau : ${{e && e.message ? e.message : e}}</p>`;
               }})
               .finally(() => {{
                 btn.disabled = false;
                 btn.textContent = 'Analyser cette vidéo';
               }});
           }}
+        </script>
+      </body>
+    </html>
+    """
+
+
+@app.get("/tools/generate-script", response_class=HTMLResponse)
+def tool_generate_script_page(niche: str = "", bio: str = ""):
+    """
+    Page dédiée pour la génération de script personnalisé. Reçoit la
+    niche/bio du compte en paramètres d'URL (contexte optionnel, le sujet
+    reste à la charge de l'utilisateur).
+    """
+    return f"""
+    <html>
+      <head>
+        <title>Générer un script — Wil App</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>{_TOOL_PAGE_STYLE}</style>
+      </head>
+      <body>
+        <div class="wrap">
+          <a href="/" class="back">← Retour à l'accueil</a>
+          <h1>Générer un script personnalisé</h1>
+          <p class="subtitle">Décris ta vidéo, ton style et tes limites — le script généré respectera strictement ce que tu précises.</p>
+          <div class="card">
+            <textarea id="script-topic" placeholder="Sujet de la vidéo *" rows="2"></textarea>
+            <input id="script-tone" placeholder="Ton habituel (optionnel)" />
+            <textarea id="script-limits" placeholder="Limites à respecter (optionnel)" rows="2"></textarea>
+            <button id="script-btn" class="primary" onclick="generateScript()">Générer le script</button>
+            <div id="script-result" style="margin-top:14px; text-align:left;"></div>
+          </div>
+        </div>
+        <script>
+          const niche = "{niche}";
+          const bio = "{bio}";
 
           function generateScript() {{
             const topic = document.getElementById('script-topic').value.trim();
@@ -955,23 +1020,24 @@ async def tiktok_callback(request: Request):
             btn.textContent = 'Génération...';
             result.innerHTML = '';
 
-            const params = new URLSearchParams({{
-              topic, tone, limits,
-              niche: window.__wilNiche || '',
-              bio: window.__wilBio || '',
-            }});
+            const params = new URLSearchParams({{ topic, tone, limits, niche, bio }});
 
             fetch(`/api/generate-script?${{params.toString()}}`)
-              .then(r => r.json())
-              .then(data => {{
+              .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
+              .then(({{ok, status, data}}) => {{
+                if (!ok) {{
+                  const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
+                  result.innerHTML = `<p style="color:#c0392b;">${{reason}}</p>`;
+                  return;
+                }}
                 result.innerHTML = `
                   <p><strong>🎬 Accroche (0-3s)</strong></p><p>${{data.hook || ''}}</p>
                   <p><strong>📝 Corps du script</strong></p><p>${{data.body || ''}}</p>
                   <p><strong>👉 Appel à l'action</strong></p><p>${{data.call_to_action || ''}}</p>
                   <p><strong>💡 Conseils de tournage</strong></p><p>${{data.notes || ''}}</p>`;
               }})
-              .catch(() => {{
-                result.innerHTML = '<p style="color:#c0392b;">Erreur lors de la génération. Réessaie.</p>';
+              .catch((e) => {{
+                result.innerHTML = `<p style="color:#c0392b;">Erreur réseau : ${{e && e.message ? e.message : e}}</p>`;
               }})
               .finally(() => {{
                 btn.disabled = false;
@@ -979,46 +1045,65 @@ async def tiktok_callback(request: Request):
               }});
           }}
         </script>
+      </body>
+    </html>
+    """
 
-        <div id="extra-tools" style="max-width:460px; margin:0 auto;">
-          <div class="card" id="trending-card">
-            <button id="trending-btn" onclick="loadTrendingIdeas()"
-                    style="width:100%; padding:12px; border-radius:10px; border:1px solid #ddd;
-                           background:#fff; cursor:pointer; font-weight:600;">
-              Idées tendance de ma niche
-            </button>
-            <div id="trending-result" style="margin-top:14px;"></div>
-          </div>
 
-          <div class="card" id="video-upload-card">
-            <p style="font-weight:bold; margin-bottom:4px;">Analyse approfondie d'une vidéo</p>
-            <p style="font-size:12px;color:#888;margin:0 0 10px;">Importe le fichier vidéo (déjà postée ou pas encore) depuis ton téléphone ou ta machine — on transcrit le vrai contenu parlé pour analyser ton hook précisément.</p>
-            <input id="upload-video-input" type="file" accept="video/*"
-                   style="width:100%; margin-bottom:10px;" />
-            <button id="upload-analyze-btn" onclick="analyzeUploadedVideo()"
-                    style="width:100%; padding:12px; border-radius:10px; border:none;
-                           background:#1D4ED8; color:white; cursor:pointer; font-weight:600;">
-              Analyser cette vidéo
-            </button>
-            <div id="upload-analyze-result" style="margin-top:14px; text-align:left;"></div>
-          </div>
-
-          <div class="card" id="script-card">
-            <p style="font-weight:bold; margin-bottom:10px;">Générer un script personnalisé</p>
-            <textarea id="script-topic" placeholder="Sujet de la vidéo *" rows="2"
-                      style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; margin-bottom:10px; font-family:inherit;"></textarea>
-            <input id="script-tone" placeholder="Ton habituel (optionnel)"
-                   style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; margin-bottom:10px; font-family:inherit;" />
-            <textarea id="script-limits" placeholder="Limites à respecter (optionnel)" rows="2"
-                      style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; margin-bottom:10px; font-family:inherit;"></textarea>
-            <button id="script-btn" onclick="generateScript()"
-                    style="width:100%; padding:12px; border-radius:10px; border:none;
-                           background:#2563EB; color:white; cursor:pointer; font-weight:600;">
-              Générer le script
-            </button>
-            <div id="script-result" style="margin-top:14px; text-align:left;"></div>
+@app.get("/tools/trending-ideas", response_class=HTMLResponse)
+def tool_trending_ideas_page(niche_category: str = "", lang: str = "fr"):
+    """
+    Page dédiée aux idées de vidéos et accroches tendance pour la niche du
+    compte. Lance la recherche automatiquement au chargement (le contexte
+    niche_category/lang arrive déjà dans l'URL, pas besoin d'un clic de plus).
+    """
+    return f"""
+    <html>
+      <head>
+        <title>Idées de vidéo — Wil App</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>{_TOOL_PAGE_STYLE}</style>
+      </head>
+      <body>
+        <div class="wrap">
+          <a href="/" class="back">← Retour à l'accueil</a>
+          <h1>Idées de vidéo</h1>
+          <p class="subtitle">Idées de vidéos et types d'accroches qui marchent en ce moment dans ta niche.</p>
+          <div class="card" id="trending-result">
+            <p class="loading">⏳ Recherche des tendances...</p>
           </div>
         </div>
+        <script>
+          const nicheCategory = "{niche_category}";
+          const lang = "{lang}";
+          const result = document.getElementById('trending-result');
+
+          if (!nicheCategory) {{
+            result.innerHTML = '<p class="loading">Reviens depuis le tableau de bord après la fin de ton analyse de compte pour avoir des idées adaptées à ta niche.</p>';
+          }} else {{
+            fetch(`/api/trending-ideas?niche_category=${{encodeURIComponent(nicheCategory)}}&lang=${{encodeURIComponent(lang)}}`)
+              .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
+              .then(({{ok, status, data}}) => {{
+                if (!ok) {{
+                  const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
+                  result.innerHTML = `<p style="color:#c0392b;">${{reason}}</p>`;
+                  return;
+                }}
+                const ideas = (data.video_ideas || []).map(i => `<li>${{i}}</li>`).join('');
+                const hooks = (data.trending_hooks || []).map(h => `<li>${{h}}</li>`).join('');
+                result.innerHTML = `
+                  <p><strong>💡 Idées de vidéos tendance</strong></p>
+                  <ul class="bullets">${{ideas}}</ul>
+                  <p><strong>🎬 Hooks tendance</strong></p>
+                  <ul class="bullets">${{hooks}}</ul>`;
+              }})
+              .catch((e) => {{
+                result.innerHTML = `<p style="color:#c0392b;">Erreur réseau : ${{e && e.message ? e.message : e}}</p>`;
+              }});
+          }}
+        </script>
       </body>
     </html>
     """
