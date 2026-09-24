@@ -422,7 +422,14 @@ def home():
                 <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-sky-300 flex items-center justify-center text-blue-900 font-bold text-sm">W</div>
                 <span class="font-bold text-lg text-white">Wil App</span>
               </div>
-              <p class="text-sm text-blue-200 leading-relaxed">Analytics et diagnostic IA pour créateurs TikTok — comprends pourquoi tes vidéos marchent, ou pas.</p>
+              <p class="text-sm text-blue-200 leading-relaxed mb-4">Analytics et diagnostic IA pour créateurs TikTok — comprends pourquoi tes vidéos marchent, ou pas.</p>
+              <a href="https://wa.me/447446953451" target="_blank" rel="noopener"
+                 class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-800 hover:bg-blue-700 transition text-sm font-medium text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                  <path d="M12.04 2c-5.52 0-10 4.48-10 10 0 1.77.46 3.44 1.26 4.89L2 22l5.25-1.28A9.96 9.96 0 0012.04 22c5.52 0 10-4.48 10-10s-4.48-10-10-10zm0 18.2c-1.6 0-3.14-.43-4.47-1.24l-.32-.19-3.12.76.79-3.04-.2-.31A8.18 8.18 0 013.84 12c0-4.53 3.68-8.2 8.2-8.2s8.2 3.68 8.2 8.2-3.67 8.2-8.2 8.2zm4.5-6.13c-.25-.12-1.45-.72-1.68-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.14.16-.29.18-.53.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.35-.77-1.85-.2-.48-.41-.42-.56-.43h-.48c-.16 0-.43.06-.65.31-.23.25-.86.84-.86 2.05s.88 2.38 1 2.55c.12.16 1.73 2.64 4.19 3.7.59.25 1.05.4 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.45-.59 1.66-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.47-.28z"/>
+                </svg>
+                WhatsApp
+              </a>
             </div>
             <div>
               <h4 class="font-semibold text-white mb-3 text-sm">Produit</h4>
