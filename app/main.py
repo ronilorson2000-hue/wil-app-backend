@@ -415,12 +415,36 @@ def home():
           </section>
         </div>
 
-        <footer class="text-center py-12 px-6 text-sm text-slate-400 border-t border-slate-100">
-          <a href="/terms" class="text-slate-500 hover:text-slate-700">Terms of Service</a>
-          &nbsp;|&nbsp;
-          <a href="/privacy" class="text-slate-500 hover:text-slate-700">Privacy Policy</a>
-          <br><br>
-          © 2026 Wil App. All rights reserved.
+        <footer class="bg-blue-900 text-blue-100 mt-10">
+          <div class="max-w-6xl mx-auto px-6 py-14 grid sm:grid-cols-3 gap-10">
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-sky-300 flex items-center justify-center text-blue-900 font-bold text-sm">W</div>
+                <span class="font-bold text-lg text-white">Wil App</span>
+              </div>
+              <p class="text-sm text-blue-200 leading-relaxed">Analytics et diagnostic IA pour créateurs TikTok — comprends pourquoi tes vidéos marchent, ou pas.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-white mb-3 text-sm">Produit</h4>
+              <ul class="space-y-2 text-sm text-blue-200">
+                <li><a href="/services" class="hover:text-white transition">Services</a></li>
+                <li><a href="#pricing" class="hover:text-white transition">Pricing</a></li>
+                <li><a href="#faq" class="hover:text-white transition">FAQ</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 class="font-semibold text-white mb-3 text-sm">Informations</h4>
+              <ul class="space-y-2 text-sm text-blue-200">
+                <li><a href="/about" class="hover:text-white transition">About</a></li>
+                <li><a href="/contact" class="hover:text-white transition">Contact</a></li>
+                <li><a href="/terms" class="hover:text-white transition">Terms of Service</a></li>
+                <li><a href="/privacy" class="hover:text-white transition">Privacy Policy</a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="border-t border-blue-800 text-center py-6 px-6 text-xs text-blue-300">
+            © 2026 Wil App. All rights reserved.
+          </div>
         </footer>
       </body>
     </html>
