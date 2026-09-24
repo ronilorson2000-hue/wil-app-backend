@@ -279,9 +279,12 @@ def home():
             <span class="font-bold text-lg">Wil App</span>
           </div>
           <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
+            <a href="/services" class="hover:text-slate-900">Services</a>
             <a href="#how-it-works" class="hover:text-slate-900">Comment ça marche</a>
             <a href="#pricing" class="hover:text-slate-900">Pricing</a>
             <a href="#faq" class="hover:text-slate-900">FAQ</a>
+            <a href="/about" class="hover:text-slate-900">About</a>
+            <a href="/contact" class="hover:text-slate-900">Contact</a>
           </div>
           <a href="/auth/tiktok/login" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">Se connecter</a>
         </nav>
@@ -419,6 +422,113 @@ def home():
           <br><br>
           © 2026 Wil App. All rights reserved.
         </footer>
+      </body>
+    </html>
+    """
+
+
+# En-tête partagé par les pages secondaires (Services/About/Contact) : accessibles
+# uniquement via un clic depuis le menu de la page d'accueil, plus dans le flux de
+# scroll de la landing page elle-même (contenu identique à l'ancien affichage inline).
+_SECONDARY_PAGE_HEAD = """
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } };
+  </script>
+  <style>body { font-family: 'Inter', system-ui, sans-serif; }</style>
+"""
+
+_SECONDARY_PAGE_NAV = """
+  <nav class="flex items-center justify-between max-w-6xl mx-auto px-6 py-5">
+    <a href="/" class="flex items-center gap-2">
+      <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white font-bold text-sm">W</div>
+      <span class="font-bold text-lg text-slate-900">Wil App</span>
+    </a>
+    <a href="/" class="text-sm font-medium text-slate-600 hover:text-slate-900">← Retour à l'accueil</a>
+  </nav>
+"""
+
+
+@app.get("/services", response_class=HTMLResponse)
+def services_page():
+    """
+    Page "Our Services" — accessible uniquement via le lien du menu de la
+    page d'accueil (plus affichée en ligne dans le scroll de la landing
+    page elle-même, à la demande explicite de l'utilisateur).
+    """
+    return f"""
+    <html>
+      <head><title>Services — Wil App</title>{_SECONDARY_PAGE_HEAD}</head>
+      <body class="bg-white text-slate-900 antialiased">
+        {_SECONDARY_PAGE_NAV}
+        <div class="max-w-5xl mx-auto px-6 py-16">
+          <h1 class="text-3xl font-bold text-center mb-14">Our Services</h1>
+          <div class="grid sm:grid-cols-3 gap-6">
+            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+              <div class="text-2xl mb-3">📊</div>
+              <h3 class="font-bold text-base mb-2">Account Overview</h3>
+              <p class="text-slate-500 text-sm leading-relaxed">Connect your TikTok account to see your profile information and account activity gathered in one simple dashboard.</p>
+            </div>
+            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+              <div class="text-2xl mb-3">🔒</div>
+              <h3 class="font-bold text-base mb-2">Secure Authentication</h3>
+              <p class="text-slate-500 text-sm leading-relaxed">Wil App uses TikTok's official Login Kit. We never see or store your TikTok password, and access can be revoked at any time.</p>
+            </div>
+            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+              <div class="text-2xl mb-3">🎯</div>
+              <h3 class="font-bold text-base mb-2">Built for Creators</h3>
+              <p class="text-slate-500 text-sm leading-relaxed">Designed specifically to help TikTok creators better understand their own account and presence on the platform.</p>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+
+@app.get("/about", response_class=HTMLResponse)
+def about_page():
+    """
+    Page "About Wil App" — accessible uniquement via le lien du menu de
+    la page d'accueil (plus affichée en ligne dans le scroll de la
+    landing page elle-même, à la demande explicite de l'utilisateur).
+    """
+    return f"""
+    <html>
+      <head><title>About — Wil App</title>{_SECONDARY_PAGE_HEAD}</head>
+      <body class="bg-white text-slate-900 antialiased">
+        {_SECONDARY_PAGE_NAV}
+        <div class="max-w-2xl mx-auto px-6 py-16 text-center">
+          <h1 class="text-3xl font-bold mb-6">About Wil App</h1>
+          <p class="text-slate-500 leading-relaxed">Wil App is an independent project built to give TikTok creators a simple, secure way to connect their account and view their profile information in one place. The project is under active development, with more account insight features on the way.</p>
+        </div>
+      </body>
+    </html>
+    """
+
+
+@app.get("/contact", response_class=HTMLResponse)
+def contact_page():
+    """
+    Page "Contact" — accessible uniquement via le lien du menu de la
+    page d'accueil (plus affichée en ligne dans le scroll de la landing
+    page elle-même, à la demande explicite de l'utilisateur).
+    """
+    return f"""
+    <html>
+      <head><title>Contact — Wil App</title>{_SECONDARY_PAGE_HEAD}</head>
+      <body class="bg-white text-slate-900 antialiased">
+        {_SECONDARY_PAGE_NAV}
+        <div class="max-w-2xl mx-auto px-6 py-16 text-center">
+          <h1 class="text-3xl font-bold mb-6">Contact</h1>
+          <p class="text-slate-500">Questions about Wil App? Reach us at
+             <a href="mailto:contact.wilapp@proton.me" class="text-blue-600 font-medium hover:text-blue-700">contact.wilapp@proton.me</a></p>
+        </div>
       </body>
     </html>
     """
