@@ -345,6 +345,11 @@ def home(request: Request):
         </script>
         <style>
           body {{ font-family: 'Inter', system-ui, sans-serif; }}
+          .reveal {{ opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }}
+          .reveal.is-visible {{ opacity: 1; transform: translateY(0); }}
+          @media (prefers-reduced-motion: reduce) {{
+            .reveal {{ opacity: 1; transform: none; transition: none; }}
+          }}
         </style>
       </head>
       <body class="bg-white text-slate-900 antialiased">
@@ -394,7 +399,7 @@ def home(request: Request):
           <section id="how-it-works" class="py-20">
             <h2 class="text-3xl font-bold text-center mb-14">{tt("hiw_title")}</h2>
             <div class="grid sm:grid-cols-3 gap-6">
-              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+              <div class="reveal bg-slate-50 border border-slate-100 rounded-2xl p-7" style="transition-delay:0s">
                 <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-8 h-8">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0l-3 3m3-3H3" />
@@ -403,7 +408,7 @@ def home(request: Request):
                 <h3 class="font-bold text-base mb-2">{tt("hiw_1_title")}</h3>
                 <p class="text-slate-500 text-sm leading-relaxed">{tt("hiw_1_desc")}</p>
               </div>
-              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+              <div class="reveal bg-slate-50 border border-slate-100 rounded-2xl p-7" style="transition-delay:0.12s">
                 <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-8 h-8">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -413,7 +418,7 @@ def home(request: Request):
                 <h3 class="font-bold text-base mb-2">{tt("hiw_2_title")}</h3>
                 <p class="text-slate-500 text-sm leading-relaxed">{tt("hiw_2_desc")}</p>
               </div>
-              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+              <div class="reveal bg-slate-50 border border-slate-100 rounded-2xl p-7" style="transition-delay:0.24s">
                 <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-8 h-8">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
@@ -428,7 +433,7 @@ def home(request: Request):
           <section id="pricing" class="py-20 border-t border-slate-100">
             <h2 class="text-3xl font-bold text-center mb-14">{tt("pricing_title")}</h2>
             <div class="grid sm:grid-cols-2 gap-6 max-w-xl mx-auto">
-              <div class="border border-slate-200 rounded-2xl p-8 text-center flex flex-col">
+              <div class="reveal border border-slate-200 rounded-2xl p-8 text-center flex flex-col" style="transition-delay:0s">
                 <h3 class="font-bold text-lg mb-2">{tt("pricing_free_name")}</h3>
                 <div class="text-3xl font-extrabold mb-5">$0<span class="text-sm font-normal text-slate-400">{tt("pricing_free_period")}</span></div>
                 <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
@@ -437,7 +442,7 @@ def home(request: Request):
                 </ul>
                 <a href="/auth/tiktok/login" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">{tt("pricing_free_cta")}</a>
               </div>
-              <div class="border-2 border-blue-600 rounded-2xl p-8 text-center relative flex flex-col">
+              <div class="reveal border-2 border-blue-600 rounded-2xl p-8 text-center relative flex flex-col" style="transition-delay:0.12s">
                 <h3 class="font-bold text-lg mb-2">{tt("pricing_pro_name")}</h3>
                 <div class="text-2xl font-extrabold mb-5 text-blue-600">{tt("pricing_pro_price")}</div>
                 <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
@@ -453,35 +458,35 @@ def home(request: Request):
           <section id="faq" class="py-20 border-t border-slate-100">
             <h2 class="text-3xl font-bold text-center mb-14">{tt("faq_title")}</h2>
             <div class="max-w-2xl mx-auto space-y-3">
-              <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
+              <details class="reveal group bg-slate-50 border border-slate-100 rounded-2xl p-6" style="transition-delay:0s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
                   {tt("faq_q1")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
                 <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a1")}</p>
               </details>
-              <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
+              <details class="reveal group bg-slate-50 border border-slate-100 rounded-2xl p-6" style="transition-delay:0.08s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
                   {tt("faq_q2")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
                 <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a2")}</p>
               </details>
-              <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
+              <details class="reveal group bg-slate-50 border border-slate-100 rounded-2xl p-6" style="transition-delay:0.16s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
                   {tt("faq_q3")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
                 <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a3")}</p>
               </details>
-              <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
+              <details class="reveal group bg-slate-50 border border-slate-100 rounded-2xl p-6" style="transition-delay:0.24s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
                   {tt("faq_q4")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
                 <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a4")}</p>
               </details>
-              <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
+              <details class="reveal group bg-slate-50 border border-slate-100 rounded-2xl p-6" style="transition-delay:0.32s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
                   {tt("faq_q5")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
@@ -530,6 +535,28 @@ def home(request: Request):
             © 2026 Wil App. {tt("footer_rights")}
           </div>
         </footer>
+
+        <script>
+          // Anime les cartes (How it works, Pricing, FAQ) en fondu + léger
+          // déplacement vers le haut au moment où elles entrent dans l'écran
+          // en scrollant, plutôt que de tout afficher d'un coup au chargement.
+          (function () {{
+            var revealEls = document.querySelectorAll('.reveal');
+            if (!('IntersectionObserver' in window) || revealEls.length === 0) {{
+              revealEls.forEach(function (el) {{ el.classList.add('is-visible'); }});
+              return;
+            }}
+            var observer = new IntersectionObserver(function (entries) {{
+              entries.forEach(function (entry) {{
+                if (entry.isIntersecting) {{
+                  entry.target.classList.add('is-visible');
+                  observer.unobserve(entry.target);
+                }}
+              }});
+            }}, {{ threshold: 0.15, rootMargin: '0px 0px -40px 0px' }});
+            revealEls.forEach(function (el) {{ observer.observe(el); }});
+          }})();
+        </script>
       </body>
     </html>
     """
