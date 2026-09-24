@@ -279,11 +279,9 @@ def home():
             <span class="font-bold text-lg">Wil App</span>
           </div>
           <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <a href="#services" class="hover:text-slate-900">Services</a>
             <a href="#how-it-works" class="hover:text-slate-900">Comment ça marche</a>
             <a href="#pricing" class="hover:text-slate-900">Pricing</a>
-            <a href="#about" class="hover:text-slate-900">About</a>
-            <a href="#contact" class="hover:text-slate-900">Contact</a>
+            <a href="#faq" class="hover:text-slate-900">FAQ</a>
           </div>
           <a href="/auth/tiktok/login" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">Se connecter</a>
         </nav>
@@ -313,28 +311,7 @@ def home():
 
         <div class="max-w-5xl mx-auto px-6">
 
-          <section id="services" class="py-20 border-t border-slate-100">
-            <h2 class="text-3xl font-bold text-center mb-14">Our Services</h2>
-            <div class="grid sm:grid-cols-3 gap-6">
-              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-                <div class="text-2xl mb-3">📊</div>
-                <h3 class="font-bold text-base mb-2">Account Overview</h3>
-                <p class="text-slate-500 text-sm leading-relaxed">Connect your TikTok account to see your profile information and account activity gathered in one simple dashboard.</p>
-              </div>
-              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-                <div class="text-2xl mb-3">🔒</div>
-                <h3 class="font-bold text-base mb-2">Secure Authentication</h3>
-                <p class="text-slate-500 text-sm leading-relaxed">Wil App uses TikTok's official Login Kit. We never see or store your TikTok password, and access can be revoked at any time.</p>
-              </div>
-              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-                <div class="text-2xl mb-3">🎯</div>
-                <h3 class="font-bold text-base mb-2">Built for Creators</h3>
-                <p class="text-slate-500 text-sm leading-relaxed">Designed specifically to help TikTok creators better understand their own account and presence on the platform.</p>
-              </div>
-            </div>
-          </section>
-
-          <section id="how-it-works" class="py-20 border-t border-slate-100">
+          <section id="how-it-works" class="py-20">
             <h2 class="text-3xl font-bold text-center mb-14">Comment ça marche</h2>
             <div class="grid sm:grid-cols-3 gap-6">
               <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
@@ -393,15 +370,45 @@ def home():
             </div>
           </section>
 
-          <section id="about" class="py-20 border-t border-slate-100 text-center">
-            <h2 class="text-3xl font-bold mb-6">About Wil App</h2>
-            <p class="max-w-xl mx-auto text-slate-500 leading-relaxed">Wil App is an independent project built to give TikTok creators a simple, secure way to connect their account and view their profile information in one place. The project is under active development, with more account insight features on the way.</p>
-          </section>
-
-          <section id="contact" class="py-20 border-t border-slate-100 text-center">
-            <h2 class="text-3xl font-bold mb-6">Contact</h2>
-            <p class="text-slate-500">Questions about Wil App? Reach us at
-               <a href="mailto:contact.wilapp@proton.me" class="text-blue-600 font-medium hover:text-blue-700">contact.wilapp@proton.me</a></p>
+          <section id="faq" class="py-20 border-t border-slate-100">
+            <h2 class="text-3xl font-bold text-center mb-14">Questions fréquentes</h2>
+            <div class="max-w-2xl mx-auto space-y-3">
+              <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
+                <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
+                  Est-ce que Wil App a accès à mon mot de passe TikTok ?
+                  <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
+                </summary>
+                <p class="text-slate-500 text-sm leading-relaxed mt-3">Non. La connexion utilise le Login Kit officiel de TikTok (OAuth) — Wil App ne voit et ne stocke jamais ton mot de passe, et tu peux révoquer l'accès à tout moment depuis les paramètres de ton compte TikTok.</p>
+              </details>
+              <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
+                <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
+                  Comment fonctionne l'analyse de mon compte ?
+                  <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
+                </summary>
+                <p class="text-slate-500 text-sm leading-relaxed mt-3">Dès la connexion, Wil App récupère tes vidéos et calcule ton score de viralité, ton taux d'engagement, puis génère un rapport IA (points forts, points à améliorer, hashtags suggérés) basé sur tes vraies statistiques.</p>
+              </details>
+              <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
+                <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
+                  Puis-je analyser une vidéo ou un script avant de le publier ?
+                  <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
+                </summary>
+                <p class="text-slate-500 text-sm leading-relaxed mt-3">Oui. Les outils dédiés "Analyser la vidéo" et "Analyser le script" te donnent un diagnostic (accroche, rythme, structure, points forts/faibles) sur un contenu déjà tourné ou encore à l'état de script.</p>
+              </details>
+              <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
+                <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
+                  L'offre gratuite est-elle limitée dans le temps ?
+                  <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
+                </summary>
+                <p class="text-slate-500 text-sm leading-relaxed mt-3">Non, l'offre Free reste gratuite pour connecter ton compte et voir ton aperçu de profil. L'offre Pro (bientôt disponible) ajoutera des analyses avancées et un support prioritaire.</p>
+              </details>
+              <details class="group bg-slate-50 border border-slate-100 rounded-2xl p-6">
+                <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
+                  Comment révoquer l'accès ou poser une question ?
+                  <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
+                </summary>
+                <p class="text-slate-500 text-sm leading-relaxed mt-3">Tu peux révoquer l'accès de Wil App à tout moment depuis les paramètres de connexions tierces de ton compte TikTok. Pour toute autre question, écris-nous à <a href="mailto:contact.wilapp@proton.me" class="text-blue-600 font-medium hover:text-blue-700">contact.wilapp@proton.me</a>.</p>
+              </details>
+            </div>
           </section>
         </div>
 
