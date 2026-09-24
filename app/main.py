@@ -829,13 +829,19 @@ async def tiktok_callback(request: Request):
         })
         return RedirectResponse(f"wilapp://callback?{app_params}")
 
+    # Langue d'interface ET langue de rédaction des rapports IA (voir
+    # analyze_account/analyze_video/analyze_video_upload/analyze_transcript
+    # : chacune reçoit ce même code de langue en paramètre `ui_lang`).
+    lang = _detect_ui_lang(request)
+    tt = lambda key: t(lang, key)  # noqa: E731
+
     verified_badge = (
-        '<span style="color:#0EA5E9; font-weight:bold;">✔ Verified</span>'
+        f'<span style="color:#0EA5E9; font-weight:bold;">✔ {tt("dash_verified")}</span>'
         if is_verified else ""
     )
     bio_html = f'<p style="color:#475569; max-width:400px; margin:12px auto; font-size:14px;">{bio}</p>' if bio else ""
     link_html = (
-        f'<p><a href="{profile_link}" target="_blank">View TikTok profile ↗</a></p>'
+        f'<p><a href="{profile_link}" target="_blank">{tt("dash_view_profile")}</a></p>'
         if profile_link else ""
     )
 
@@ -848,6 +854,11 @@ async def tiktok_callback(request: Request):
     display_name_enc = quote(display_name)
     username_enc = quote(username)
     bio_enc = quote(bio)
+    # Pas de sélecteur de langue interactif ici : cette page n'est
+    # accessible que via le retour OAuth de TikTok (code/state à usage
+    # unique) — un rechargement casserait la page ("state déjà utilisé").
+    # La langue est déjà correcte via le cookie posé sur une autre page
+    # (accueil, Services/About/Contact) ou l'Accept-Language du visiteur.
 
     return f"""
     <html>
@@ -897,19 +908,19 @@ async def tiktok_callback(request: Request):
         <div style="max-width:480px; margin:0 auto 20px; display:flex; gap:5px; justify-content:center; flex-wrap:nowrap; overflow-x:auto;">
           <button onclick="location.href='/tools/analyze-video?niche_category='+encodeURIComponent(window.__wilNicheCategory||'')+'&account_avg_views='+encodeURIComponent(window.__wilAvgViews||'')"
                   class="btn-pill">
-            🎬 Analyser la vidéo
+            🎬 {tt("dash_btn_analyze_video")}
           </button>
           <button onclick="location.href='/tools/analyze-script'"
                   class="btn-pill">
-            📝 Analyser le script
+            📝 {tt("dash_btn_analyze_script")}
           </button>
           <button onclick="location.href='/tools/trending-ideas?niche_category='+encodeURIComponent(window.__wilNicheCategory||'')+'&lang='+encodeURIComponent(window.__wilLang||'fr')"
                   class="btn-pill">
-            💡 Idées de vidéo
+            💡 {tt("dash_btn_trending_ideas")}
           </button>
         </div>
 
-        <p style="color:#16A34A; font-weight:600; font-size:14px;">✅ Connected successfully</p>
+        <p style="color:#16A34A; font-weight:600; font-size:14px;">✅ {tt("dash_connected")}</p>
         <div class="card profile">
           <img class="avatar" src="{avatar_url}" alt="Profile picture" />
           <h2>{display_name} {verified_badge}</h2>
@@ -917,21 +928,28 @@ async def tiktok_callback(request: Request):
           {bio_html}
           {link_html}
           <div class="stats">
-            <div>🔗 Account linked</div>
-            <div>🔒 Data secured</div>
+            <div>🔗 {tt("dash_account_linked")}</div>
+            <div>🔒 {tt("dash_data_secured")}</div>
           </div>
         </div>
 
         <div id="analysis-loading" class="card">
-          <p class="loading">⏳ Analyse du compte en cours (récupération des vidéos et calcul des statistiques)...</p>
+          <p class="loading">⏳ {tt("dash_analyzing")}</p>
         </div>
         <div id="analysis-result"></div>
 
-        <a href="/" class="home">← Back to Wil App</a>
+        <a href="/" class="home">{tt("dash_back")}</a>
 
         <script>
           const sessionId = "{session_id}";
-          fetch(`/api/analyze-account?session=${{sessionId}}&display_name={display_name_enc}&username={username_enc}&bio={bio_enc}`)
+          const uiLang = "{lang}";
+          window.__wilUiLang = uiLang;
+          // Petit helper i18n : remplace {{cle}} par sa valeur dans un
+          // gabarit traduit côté serveur (ex: "{{count}} vidéos...").
+          function fmt(template, vars) {{
+            return template.replace(/\\{{(\\w+)\\}}/g, (_, k) => (k in vars) ? vars[k] : `{{${{k}}}}`);
+          }}
+          fetch(`/api/analyze-account?session=${{sessionId}}&display_name={display_name_enc}&username={username_enc}&bio={bio_enc}&ui_lang=${{uiLang}}`)
             .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
             .then(({{ok, status, data}}) => {{
               document.getElementById('analysis-loading').style.display = 'none';
@@ -940,7 +958,7 @@ async def tiktok_callback(request: Request):
               // VRAIE raison (data.detail, fournie par FastAPI) au lieu d'un
               // message générique qui masque le problème.
               if (!ok) {{
-                const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
+                const reason = (data && data.detail) ? data.detail : `{tt("common_error_prefix")} ${{status}}`;
                 document.getElementById('analysis-result').innerHTML =
                   `<div class="card"><p class="loading" style="color:#DC2626;">${{reason}}</p></div>`;
                 return;
@@ -957,16 +975,16 @@ async def tiktok_callback(request: Request):
               if (stats && stats.total_videos_analyzed > 0) {{
                 const scoreIcon = s => s <= 40 ? '🔴' : s <= 60 ? '🟡' : s <= 80 ? '🟠' : '🔵';
                 const ratioLine = (stats.likes_followers_ratio !== null && stats.likes_followers_ratio !== undefined)
-                  ? `<p style="font-size:12px;color:#94A3B8;margin:2px 0 0;">Ratio likes/abonnés : ${{stats.likes_followers_ratio}}</p>`
+                  ? `<p style="font-size:12px;color:#94A3B8;margin:2px 0 0;">${{fmt("{tt('dash_likes_ratio')}", {{ratio: stats.likes_followers_ratio}})}}</p>`
                   : '';
                 html += `
                   <div class="card">
                     <p style="font-size:30px;font-weight:800;margin:0;">${{scoreIcon(stats.account_virality_score)}} ${{stats.account_virality_score}}/100</p>
-                    <p style="font-size:12px;color:#64748B;margin:2px 0 14px;">Score de viralité du compte</p>
-                    <p style="font-size:13px;color:#475569;">${{stats.total_videos_analyzed}} vidéos analysées (seuil : ${{stats.viral_threshold_views/1000}}k vues)</p>
+                    <p style="font-size:12px;color:#64748B;margin:2px 0 14px;">{tt('dash_virality_score_label')}</p>
+                    <p style="font-size:13px;color:#475569;">${{fmt("{tt('dash_videos_analyzed')}", {{count: stats.total_videos_analyzed, threshold: stats.viral_threshold_views/1000}})}}</p>
                     <div class="bar-bg" style="margin-top:8px;"><div class="bar-fill" style="width:${{stats.viral_percentage}}%"></div></div>
-                    <p style="margin-top:14px;font-size:14px;"><strong>🚀 ${{stats.viral_percentage}}%</strong> vidéos virales &nbsp;|&nbsp; <strong>${{stats.non_viral_percentage}}%</strong> non virales</p>
-                    <p style="font-size:14px;">Taux d'engagement moyen : <strong>${{stats.average_engagement_rate}}%</strong></p>
+                    <p style="margin-top:14px;font-size:14px;"><strong>🚀 ${{fmt("{tt('dash_viral_pct')}", {{pct: stats.viral_percentage}})}}</strong> &nbsp;|&nbsp; <strong>${{fmt("{tt('dash_non_viral_pct')}", {{pct: stats.non_viral_percentage}})}}</strong></p>
+                    <p style="font-size:14px;">${{fmt("{tt('dash_avg_engagement')}", {{pct: stats.average_engagement_rate}})}}</p>
                     ${{ratioLine}}
                   </div>`;
 
@@ -980,19 +998,19 @@ async def tiktok_callback(request: Request):
                       </div>
                       <div style="flex:1;min-width:0;">
                         <p style="font-size:13px;font-weight:700;margin:0;">${{scoreIcon(v.virality_score)}} ${{v.virality_score}}/100</p>
-                        <p style="font-size:12px;color:#64748B;margin:2px 0 8px;">${{v.view_count}} vues</p>
+                        <p style="font-size:12px;color:#64748B;margin:2px 0 8px;">${{v.view_count}} {tt('dash_views_suffix')}</p>
                         <button onclick="analyzeVideo(${{idx}})" id="analyze-btn-${{idx}}"
                                 style="font-size:12px;padding:7px 14px;border-radius:999px;border:1px solid #E2E8F0;
                                        background:#fff;color:#1D4ED8;font-weight:600;cursor:pointer;">
-                          Analyser la vidéo
+                          {tt('dash_btn_analyze_video')}
                         </button>
                         <div id="video-analysis-${{idx}}" style="margin-top:8px;font-size:13px;"></div>
                       </div>
                     </div>`).join('');
                   videoListHtml = `
                     <div class="card">
-                      <p style="font-weight:700;margin-bottom:4px;">Détail par vidéo</p>
-                      <p style="font-size:12px;color:#64748B;margin:0 0 8px;">Vidéos triées par date de publication, comme sur ton profil TikTok. Score de viralité basé sur les vues (0-100), pas sur le taux d'engagement.</p>
+                      <p style="font-weight:700;margin-bottom:4px;">{tt('dash_video_detail_title')}</p>
+                      <p style="font-size:12px;color:#64748B;margin:0 0 8px;">{tt('dash_video_detail_subtitle')}</p>
                       <div>${{videoRows}}</div>
                     </div>`;
                 }}
@@ -1003,11 +1021,11 @@ async def tiktok_callback(request: Request):
                 const improvements = (report.improvements || []).map(s => `<li>${{s}}</li>`).join('');
                 const hashtags = (report.suggested_hashtags || []).map(h => `<span class="tag">#${{h}}</span>`).join('');
                 const hashtagDiag = report.hashtag_diagnosis
-                  ? `<p style="margin-top:16px;"><strong>🏷 Diagnostic hashtags</strong></p><p style="font-size:14px;">${{report.hashtag_diagnosis}}</p>`
+                  ? `<p style="margin-top:16px;"><strong>🏷 {tt('dash_hashtag_diagnosis')}</strong></p><p style="font-size:14px;">${{report.hashtag_diagnosis}}</p>`
                   : '';
                 const nicheFocus = report.niche_focus_advice
                   ? `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:16px;margin:16px 0;">
-                       <p style="font-weight:700;margin:0 0 8px;">🧭 Plusieurs sujets détectés sur ton compte</p>
+                       <p style="font-weight:700;margin:0 0 8px;">🧭 {tt('dash_multi_niche_title')}</p>
                        <div>${{(report.niches_detected || []).map(n => `<span class="tag">${{n}}</span>`).join('')}}</div>
                        <p style="font-size:14px;margin:10px 0 0;">${{report.niche_focus_advice}}</p>
                      </div>`
@@ -1017,12 +1035,12 @@ async def tiktok_callback(request: Request):
                     <span class="chip">${{report.niche || ''}}</span>
                     <p style="margin-top:14px;font-size:15px;line-height:1.5;">${{report.summary || ''}}</p>
                     ${{nicheFocus}}
-                    <p style="margin-top:16px;"><strong>✅ Points forts</strong></p>
+                    <p style="margin-top:16px;"><strong>✅ {tt('dash_strengths')}</strong></p>
                     <ul class="bullets">${{strengths}}</ul>
-                    <p><strong>📈 À améliorer</strong></p>
+                    <p><strong>📈 {tt('dash_improvements')}</strong></p>
                     <ul class="bullets">${{improvements}}</ul>
                     ${{hashtagDiag}}
-                    <p style="margin-top:16px;"><strong>Hashtags suggérés</strong></p>
+                    <p style="margin-top:16px;"><strong>{tt('dash_suggested_hashtags')}</strong></p>
                     <div style="margin-top:6px;">${{hashtags}}</div>
                   </div>`;
 
@@ -1039,7 +1057,7 @@ async def tiktok_callback(request: Request):
               window.__wilUnderperformingHashtags = (stats && stats.underperforming_hashtags || []).join(',');
 
               if (!html) {{
-                html = '<div class="card"><p class="loading">Analyse indisponible pour le moment.</p></div>';
+                html = '<div class="card"><p class="loading">{tt('dash_analysis_unavailable')}</p></div>';
               }}
               // Détail par vidéo tout en bas, après l'analyse globale du compte.
               html += videoListHtml;
@@ -1055,7 +1073,7 @@ async def tiktok_callback(request: Request):
             }})
             .catch((e) => {{
               document.getElementById('analysis-loading').innerHTML =
-                `<p class="loading" style="color:#DC2626;">Erreur réseau ou serveur injoignable : ${{e && e.message ? e.message : e}}</p>`;
+                `<p class="loading" style="color:#DC2626;">{tt('dash_network_error')} ${{e && e.message ? e.message : e}}</p>`;
             }});
 
           // --- Analyse IA d'une vidéo précise (bouton sous chaque vignette) ---
@@ -1065,7 +1083,7 @@ async def tiktok_callback(request: Request):
             const btn = document.getElementById(`analyze-btn-${{idx}}`);
             const result = document.getElementById(`video-analysis-${{idx}}`);
             btn.disabled = true;
-            btn.textContent = 'Analyse en cours...';
+            btn.textContent = '{tt('dash_analyzing_short')}';
             result.innerHTML = '';
 
             const params = new URLSearchParams({{
@@ -1082,39 +1100,40 @@ async def tiktok_callback(request: Request):
               best_posting_bucket: window.__wilBestPostingBucket || '',
               overused_hashtags: window.__wilOverusedHashtags || '',
               underperforming_hashtags: window.__wilUnderperformingHashtags || '',
+              ui_lang: window.__wilUiLang || 'fr',
             }});
 
             fetch(`/api/analyze-video?${{params.toString()}}`)
               .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
               .then(({{ok, status, data}}) => {{
                 if (!ok) {{
-                  const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
+                  const reason = (data && data.detail) ? data.detail : `{tt('common_error_prefix')} ${{status}}`;
                   result.innerHTML = `<p style="color:#DC2626;font-size:12px;">${{reason}}</p>`;
                   return;
                 }}
                 const diagnosis = data.main_diagnosis
-                  ? `<p style="margin:6px 0 2px;"><strong>🔍 Le vrai problème</strong></p><p style="margin:0 0 8px;">${{data.main_diagnosis}}</p>`
+                  ? `<p style="margin:6px 0 2px;"><strong>🔍 {tt('dash_real_problem')}</strong></p><p style="margin:0 0 8px;">${{data.main_diagnosis}}</p>`
                   : '';
                 const strengths = (data.strengths || []).map(s => `<li>${{s}}</li>`).join('');
                 const strengthsBlock = strengths
-                  ? `<p style="margin:6px 0 2px;"><strong>✅ Points forts</strong></p><ul class="bullets" style="margin:0;">${{strengths}}</ul>`
+                  ? `<p style="margin:6px 0 2px;"><strong>✅ {tt('dash_strengths')}</strong></p><ul class="bullets" style="margin:0;">${{strengths}}</ul>`
                   : '';
                 const weaknesses = (data.weaknesses || []).map(s => `<li>${{s}}</li>`).join('');
                 const actions = (data.action_plan || []).map(s => `<li>${{s}}</li>`).join('');
                 result.innerHTML = `
                   ${{diagnosis}}
                   ${{strengthsBlock}}
-                  <p style="margin:6px 0 2px;"><strong>⚠️ À éviter</strong></p>
+                  <p style="margin:6px 0 2px;"><strong>⚠️ {tt('dash_avoid')}</strong></p>
                   <ul class="bullets" style="margin:0;">${{weaknesses}}</ul>
-                  <p style="margin:6px 0 2px;"><strong>🎯 À faire</strong></p>
+                  <p style="margin:6px 0 2px;"><strong>🎯 {tt('dash_todo')}</strong></p>
                   <ul class="bullets" style="margin:0;">${{actions}}</ul>`;
               }})
               .catch((e) => {{
-                result.innerHTML = `<p style="color:#DC2626;font-size:12px;">Erreur réseau : ${{e && e.message ? e.message : e}}</p>`;
+                result.innerHTML = `<p style="color:#DC2626;font-size:12px;">{tt('common_network_error')} ${{e && e.message ? e.message : e}}</p>`;
               }})
               .finally(() => {{
                 btn.disabled = false;
-                btn.textContent = 'Analyser la vidéo';
+                btn.textContent = '{tt('dash_btn_analyze_video')}';
               }});
           }}
         </script>
@@ -1142,17 +1161,19 @@ _TOOL_PAGE_STYLE = """
 
 
 @app.get("/tools/analyze-video", response_class=HTMLResponse)
-def tool_analyze_video_page(niche_category: str = "", account_avg_views: str = ""):
+def tool_analyze_video_page(request: Request, niche_category: str = "", account_avg_views: str = ""):
     """
     Page dédiée pour l'analyse approfondie d'une vidéo importée (upload +
     transcription réelle). Reçoit le contexte du compte (niche, moyenne de
     vues) en paramètres d'URL, transmis par le tableau de bord au clic sur
     le bouton "Analyser la vidéo" — cette page n'a plus besoin de session.
     """
+    lang = _detect_ui_lang(request)
+    tt = lambda key: t(lang, key)  # noqa: E731
     return f"""
-    <html>
+    <html lang="{lang}">
       <head>
-        <title>Analyse approfondie d'une vidéo — Wil App</title>
+        <title>{tt("tool_video_title")} — Wil App</title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1160,18 +1181,19 @@ def tool_analyze_video_page(niche_category: str = "", account_avg_views: str = "
       </head>
       <body>
         <div class="wrap">
-          <a href="/" class="back">← Retour à l'accueil</a>
-          <h1>Analyse approfondie d'une vidéo</h1>
-          <p class="subtitle">Importe le fichier vidéo (déjà postée ou pas encore) depuis ton téléphone ou ta machine — on transcrit le vrai contenu parlé pour analyser ton accroche précisément.</p>
+          <a href="/" class="back">{tt("back_home")}</a>
+          <h1>{tt("tool_video_title")}</h1>
+          <p class="subtitle">{tt("tool_video_subtitle")}</p>
           <div class="card">
             <input id="upload-video-input" type="file" accept="video/*" />
-            <button id="upload-analyze-btn" class="primary" onclick="analyzeUploadedVideo()">Analyser cette vidéo</button>
+            <button id="upload-analyze-btn" class="primary" onclick="analyzeUploadedVideo()">{tt("tool_video_analyze_btn")}</button>
             <div id="upload-analyze-result" style="margin-top:14px; text-align:left;"></div>
           </div>
         </div>
         <script>
           const nicheCategory = "{niche_category}";
           const accountAvgViews = "{account_avg_views}";
+          const uiLang = "{lang}";
 
           function analyzeUploadedVideo() {{
             const fileInput = document.getElementById('upload-video-input');
@@ -1179,7 +1201,7 @@ def tool_analyze_video_page(niche_category: str = "", account_avg_views: str = "
             const result = document.getElementById('upload-analyze-result');
 
             if (!fileInput.files || fileInput.files.length === 0) {{
-              result.innerHTML = '<p style="color:#c0392b;">Choisis d\\'abord un fichier vidéo.</p>';
+              result.innerHTML = '<p style="color:#c0392b;">{tt("tool_video_choose_file_error")}</p>';
               return;
             }}
 
@@ -1187,16 +1209,17 @@ def tool_analyze_video_page(niche_category: str = "", account_avg_views: str = "
             formData.append('file', fileInput.files[0]);
             formData.append('account_avg_views', accountAvgViews);
             formData.append('niche_category', nicheCategory);
+            formData.append('ui_lang', uiLang);
 
             btn.disabled = true;
-            btn.textContent = 'Transcription et analyse en cours (peut prendre 1-2 min)...';
+            btn.textContent = '{tt("tool_video_processing")}';
             result.innerHTML = '';
 
             fetch('/api/analyze-video-upload', {{ method: 'POST', body: formData }})
               .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
               .then(({{ok, status, data}}) => {{
                 if (!ok) {{
-                  const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
+                  const reason = (data && data.detail) ? data.detail : `{tt("common_error_prefix")} ${{status}}`;
                   result.innerHTML = `<p style="color:#c0392b;">${{reason}}</p>`;
                   return;
                 }}
@@ -1204,22 +1227,22 @@ def tool_analyze_video_page(niche_category: str = "", account_avg_views: str = "
                 const weaknesses = (data.weaknesses || []).map(s => `<li>${{s}}</li>`).join('');
                 const actions = (data.action_plan || []).map(s => `<li>${{s}}</li>`).join('');
                 result.innerHTML = `
-                  <p><strong>🎬 Hook réel</strong></p>
+                  <p><strong>🎬 {tt("tool_video_hook_real")}</strong></p>
                   <p style="font-style:italic;">"${{data.hook_excerpt || ''}}"</p>
                   <p style="font-size:13px;color:#666;">${{data.hook_type || ''}}</p>
-                  <p style="margin-top:10px;"><strong>✅ Points forts</strong></p>
+                  <p style="margin-top:10px;"><strong>✅ {tt("dash_strengths")}</strong></p>
                   <ul class="bullets">${{strengths}}</ul>
-                  <p><strong>⚠️ Points faibles</strong></p>
+                  <p><strong>⚠️ {tt("tool_video_weaknesses")}</strong></p>
                   <ul class="bullets">${{weaknesses}}</ul>
-                  <p><strong>🎯 Pour percer</strong></p>
+                  <p><strong>🎯 {tt("tool_video_to_break_through")}</strong></p>
                   <ul class="bullets">${{actions}}</ul>`;
               }})
               .catch((e) => {{
-                result.innerHTML = `<p style="color:#c0392b;">Erreur réseau : ${{e && e.message ? e.message : e}}</p>`;
+                result.innerHTML = `<p style="color:#c0392b;">{tt("common_network_error")} ${{e && e.message ? e.message : e}}</p>`;
               }})
               .finally(() => {{
                 btn.disabled = false;
-                btn.textContent = 'Analyser cette vidéo';
+                btn.textContent = '{tt("tool_video_analyze_btn")}';
               }});
           }}
         </script>
@@ -1229,17 +1252,20 @@ def tool_analyze_video_page(niche_category: str = "", account_avg_views: str = "
 
 
 @app.get("/tools/analyze-script", response_class=HTMLResponse)
-def tool_analyze_script_page():
+def tool_analyze_script_page(request: Request):
     """
     Page dédiée pour l'analyse d'un script déjà écrit (avant tournage).
     Réutilise directement /api/analyze-transcript — la même route qui
     analyse le texte parlé d'une vidéo déjà tournée/postée — pour donner
     un score de viralité et un rapport cohérent avec celui des vidéos.
     """
+    lang = _detect_ui_lang(request)
+    tt = lambda key: t(lang, key)  # noqa: E731
+    words_suffix = tt("tool_script_words_suffix")
     return f"""
-    <html>
+    <html lang="{lang}">
       <head>
-        <title>Analyser le script — Wil App</title>
+        <title>{tt("tool_script_title")} — Wil App</title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1247,18 +1273,19 @@ def tool_analyze_script_page():
       </head>
       <body>
         <div class="wrap">
-          <a href="/" class="back">← Retour à l'accueil</a>
-          <h1>Analyser le script d'une vidéo</h1>
-          <p class="subtitle">Écris ou colle le script complet de ta vidéo (ce que tu comptes dire à l'oral) — on l'analyse comme si c'était déjà tourné pour estimer son potentiel de viralité.</p>
+          <a href="/" class="back">{tt("back_home")}</a>
+          <h1>{tt("tool_script_title")}</h1>
+          <p class="subtitle">{tt("tool_script_subtitle")}</p>
           <div class="card">
-            <textarea id="script-text" placeholder="Écris ou colle ici le script complet de ta vidéo *" rows="10" oninput="updateScriptWordCount()"></textarea>
-            <p id="script-word-count" style="font-size:12px;color:#777;margin:-4px 0 12px;">0 / {MAX_TRANSCRIPT_WORDS} mots</p>
-            <button id="script-analyze-btn" class="primary" onclick="analyzeScript()">Analyser le script</button>
+            <textarea id="script-text" placeholder="{tt("tool_script_placeholder")}" rows="10" oninput="updateScriptWordCount()"></textarea>
+            <p id="script-word-count" style="font-size:12px;color:#777;margin:-4px 0 12px;">0 / {MAX_TRANSCRIPT_WORDS} {words_suffix}</p>
+            <button id="script-analyze-btn" class="primary" onclick="analyzeScript()">{tt("tool_script_analyze_btn")}</button>
             <div id="script-analyze-result" style="margin-top:14px; text-align:left;"></div>
           </div>
         </div>
         <script>
           const MAX_SCRIPT_WORDS = {MAX_TRANSCRIPT_WORDS};
+          const uiLang = "{lang}";
 
           function countWords(text) {{
             const trimmed = text.trim();
@@ -1269,7 +1296,7 @@ def tool_analyze_script_page():
             const text = document.getElementById('script-text').value;
             const count = countWords(text);
             const counter = document.getElementById('script-word-count');
-            counter.textContent = `${{count}} / ${{MAX_SCRIPT_WORDS}} mots`;
+            counter.textContent = `${{count}} / ${{MAX_SCRIPT_WORDS}} {words_suffix}`;
             counter.style.color = count > MAX_SCRIPT_WORDS ? '#c0392b' : '#777';
           }}
 
@@ -1279,27 +1306,27 @@ def tool_analyze_script_page():
             const result = document.getElementById('script-analyze-result');
 
             if (!transcript) {{
-              result.innerHTML = '<p style="color:#c0392b;">Écris ou colle le script de ta vidéo pour continuer.</p>';
+              result.innerHTML = '<p style="color:#c0392b;">{tt("tool_script_empty_error")}</p>';
               return;
             }}
 
             const wordCount = countWords(transcript);
             if (wordCount > MAX_SCRIPT_WORDS) {{
-              result.innerHTML = `<p style="color:#c0392b;">Le script est trop long (${{wordCount}} mots). Limite actuelle : ${{MAX_SCRIPT_WORDS}} mots.</p>`;
+              result.innerHTML = `<p style="color:#c0392b;">${{fmt("{tt('tool_script_too_long')}", {{count: wordCount, max: MAX_SCRIPT_WORDS}})}}</p>`;
               return;
             }}
 
             btn.disabled = true;
-            btn.textContent = 'Analyse en cours...';
+            btn.textContent = '{tt("dash_analyzing_short")}';
             result.innerHTML = '';
 
-            const params = new URLSearchParams({{ transcript }});
+            const params = new URLSearchParams({{ transcript, ui_lang: uiLang }});
 
             fetch(`/api/analyze-transcript?${{params.toString()}}`)
               .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
               .then(({{ok, status, data}}) => {{
                 if (!ok) {{
-                  const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
+                  const reason = (data && data.detail) ? data.detail : `{tt("common_error_prefix")} ${{status}}`;
                   result.innerHTML = `<p style="color:#c0392b;">${{reason}}</p>`;
                   return;
                 }}
@@ -1307,25 +1334,29 @@ def tool_analyze_script_page():
                 const strengths = (data.strengths || []).map(s => `<li>${{s}}</li>`).join('');
                 const weaknesses = (data.weaknesses || []).map(s => `<li>${{s}}</li>`).join('');
                 result.innerHTML = `
-                  <p><strong>🔥 Score de viralité estimé</strong></p>
+                  <p><strong>🔥 {tt("tool_script_virality_estimated")}</strong></p>
                   <p style="font-size:28px;font-weight:700;color:#2563EB;">${{data.virality_score ?? '—'}}/100</p>
-                  <p><strong>🎬 Accroche</strong></p><p>${{data.hook_analysis || ''}}</p>
-                  <p><strong>⏱️ Rythme</strong></p><p>${{data.rhythm_analysis || ''}}</p>
-                  <p><strong>🧩 Structure</strong></p>
+                  <p><strong>🎬 {tt("tool_script_hook")}</strong></p><p>${{data.hook_analysis || ''}}</p>
+                  <p><strong>⏱️ {tt("tool_script_rhythm")}</strong></p><p>${{data.rhythm_analysis || ''}}</p>
+                  <p><strong>🧩 {tt("tool_script_structure")}</strong></p>
                   <ul class="bullets">${{structure}}</ul>
-                  <p><strong>✅ Points forts</strong></p>
+                  <p><strong>✅ {tt("dash_strengths")}</strong></p>
                   <ul class="bullets">${{strengths}}</ul>
-                  <p><strong>⚠️ À corriger</strong></p>
+                  <p><strong>⚠️ {tt("tool_script_to_fix")}</strong></p>
                   <ul class="bullets">${{weaknesses}}</ul>
-                  <p><strong>🎯 Pourquoi</strong></p><p>${{data.why_it_worked_or_not || ''}}</p>`;
+                  <p><strong>🎯 {tt("tool_script_why")}</strong></p><p>${{data.why_it_worked_or_not || ''}}</p>`;
               }})
               .catch((e) => {{
-                result.innerHTML = `<p style="color:#c0392b;">Erreur réseau : ${{e && e.message ? e.message : e}}</p>`;
+                result.innerHTML = `<p style="color:#c0392b;">{tt("common_network_error")} ${{e && e.message ? e.message : e}}</p>`;
               }})
               .finally(() => {{
                 btn.disabled = false;
-                btn.textContent = 'Analyser le script';
+                btn.textContent = '{tt("tool_script_analyze_btn")}';
               }});
+          }}
+
+          function fmt(template, vars) {{
+            return template.replace(/\\{{(\\w+)\\}}/g, (_, k) => (k in vars) ? vars[k] : `{{${{k}}}}`);
           }}
         </script>
       </body>
@@ -1334,16 +1365,18 @@ def tool_analyze_script_page():
 
 
 @app.get("/tools/trending-ideas", response_class=HTMLResponse)
-def tool_trending_ideas_page(niche_category: str = "", lang: str = "fr"):
+def tool_trending_ideas_page(request: Request, niche_category: str = "", lang: str = "fr"):
     """
     Page dédiée aux idées de vidéos et accroches tendance pour la niche du
     compte. Lance la recherche automatiquement au chargement (le contexte
     niche_category/lang arrive déjà dans l'URL, pas besoin d'un clic de plus).
     """
+    ui_lang = _detect_ui_lang(request)
+    tt = lambda key: t(ui_lang, key)  # noqa: E731
     return f"""
-    <html>
+    <html lang="{ui_lang}">
       <head>
-        <title>Idées de vidéo — Wil App</title>
+        <title>{tt("tool_trending_title")} — Wil App</title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1351,11 +1384,11 @@ def tool_trending_ideas_page(niche_category: str = "", lang: str = "fr"):
       </head>
       <body>
         <div class="wrap">
-          <a href="/" class="back">← Retour à l'accueil</a>
-          <h1>Idées de vidéo</h1>
-          <p class="subtitle">Idées de vidéos et types d'accroches qui marchent en ce moment dans ta niche.</p>
+          <a href="/" class="back">{tt("back_home")}</a>
+          <h1>{tt("tool_trending_title")}</h1>
+          <p class="subtitle">{tt("tool_trending_subtitle")}</p>
           <div class="card" id="trending-result">
-            <p class="loading">⏳ Recherche des tendances...</p>
+            <p class="loading">⏳ {tt("tool_trending_searching")}</p>
           </div>
         </div>
         <script>
@@ -1364,26 +1397,26 @@ def tool_trending_ideas_page(niche_category: str = "", lang: str = "fr"):
           const result = document.getElementById('trending-result');
 
           if (!nicheCategory) {{
-            result.innerHTML = '<p class="loading">Reviens depuis le tableau de bord après la fin de ton analyse de compte pour avoir des idées adaptées à ta niche.</p>';
+            result.innerHTML = '<p class="loading">{tt("tool_trending_no_niche")}</p>';
           }} else {{
             fetch(`/api/trending-ideas?niche_category=${{encodeURIComponent(nicheCategory)}}&lang=${{encodeURIComponent(lang)}}`)
               .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
               .then(({{ok, status, data}}) => {{
                 if (!ok) {{
-                  const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
+                  const reason = (data && data.detail) ? data.detail : `{tt("common_error_prefix")} ${{status}}`;
                   result.innerHTML = `<p style="color:#c0392b;">${{reason}}</p>`;
                   return;
                 }}
                 const ideas = (data.video_ideas || []).map(i => `<li>${{i}}</li>`).join('');
                 const hooks = (data.trending_hooks || []).map(h => `<li>${{h}}</li>`).join('');
                 result.innerHTML = `
-                  <p><strong>💡 Idées de vidéos tendance</strong></p>
+                  <p><strong>💡 {tt("tool_trending_ideas_label")}</strong></p>
                   <ul class="bullets">${{ideas}}</ul>
-                  <p><strong>🎬 Hooks tendance</strong></p>
+                  <p><strong>🎬 {tt("tool_trending_hooks_label")}</strong></p>
                   <ul class="bullets">${{hooks}}</ul>`;
               }})
               .catch((e) => {{
-                result.innerHTML = `<p style="color:#c0392b;">Erreur réseau : ${{e && e.message ? e.message : e}}</p>`;
+                result.innerHTML = `<p style="color:#c0392b;">{tt("common_network_error")} ${{e && e.message ? e.message : e}}</p>`;
               }});
           }}
         </script>
