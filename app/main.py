@@ -306,7 +306,7 @@ def home():
               Analytics and insights for TikTok creators. Connecte ton compte et reçois un diagnostic clair de ta viralité, tes hashtags et tes accroches.
             </p>
             <a href="/auth/tiktok/login"
-               class="inline-block px-8 py-4 rounded-xl text-white font-bold text-base shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
+               class="inline-block px-12 py-6 rounded-2xl text-white font-bold text-xl shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
               Se connecter avec TikTok
             </a>
           </header>
