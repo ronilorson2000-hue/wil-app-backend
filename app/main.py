@@ -2889,6 +2889,180 @@ SIMPLE (niveau CM2) :
     return JSONResponse(content=result)
 
 
+WORDS_PER_SECOND_FR = 2.5  # débit oral moyen en français, approximatif
+
+
+def _extract_hook_portion(transcript: str, hook_seconds: float = 3.0) -> str:
+    """
+    Isole la portion du transcript correspondant approximativement aux
+    premières `hook_seconds` secondes parlées, en se basant sur un débit
+    oral moyen. Approximation volontairement simple (pas de vrais
+    timestamps mot-par-mot) mais bien plus précise que de prendre les 3
+    premiers mots ou la première phrase au hasard.
+    """
+    words = transcript.strip().split()
+    n_words = max(1, int(hook_seconds * WORDS_PER_SECOND_FR))
+    return " ".join(words[:n_words])
+
+
+@app.get("/api/analyze-transcript", response_class=JSONResponse)
+async def analyze_transcript(
+    transcript: str,
+    duration_seconds: float = 0,
+    claimed_views: int = 0,
+    claimed_likes: int = 0,
+    claimed_comments: int = 0,
+    claimed_shares: int = 0,
+):
+    """
+    Analyse un transcript de vidéo TikTok déjà transcrit (audio → texte
+    fait en amont, par ex. via /api/analyze-video-upload ou un pipeline
+    externe) : hook réellement isolé par débit de parole (pas une simple
+    troncature), rythme mesuré, structure découpée en parties citées
+    littéralement, points forts/faibles ancrés dans des extraits réels du
+    texte — pour une analyse concordante avec le contenu réel de la
+    vidéo plutôt qu'un résultat vague et générique.
+
+    Sert aussi bien pour la propre vidéo de l'utilisateur que pour celle
+    d'un créateur qui l'inspire, téléchargée légalement par l'utilisateur
+    lui-même (jamais par scraping/lien direct — voir la politique du
+    projet). Les stats (claimed_*) sont déclarées manuellement par
+    l'utilisateur (visibles par lui sur TikTok) : aucune API ne permet de
+    les récupérer automatiquement pour une vidéo hors du compte connecté.
+    """
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
+    if not transcript or not transcript.strip():
+        raise HTTPException(status_code=422, detail="Le transcript ne peut pas être vide.")
+
+    hook_portion = _extract_hook_portion(transcript)
+    word_count = len(transcript.split())
+    estimated_duration = duration_seconds or round(word_count / WORDS_PER_SECOND_FR, 1)
+    words_per_second_actual = (
+        round(word_count / duration_seconds, 2) if duration_seconds > 0 else None
+    )
+
+    has_stats = claimed_views > 0
+    if has_stats:
+        engagement_rate = round(
+            (claimed_likes + claimed_comments + claimed_shares) / claimed_views * 100, 2
+        )
+        is_viral = claimed_views >= VIRAL_VIEW_THRESHOLD
+        stats_block = f"""
+Statistiques réelles déclarées par l'utilisateur (visibles par lui sur TikTok) :
+- Vues : {claimed_views}
+- Likes : {claimed_likes}, Commentaires : {claimed_comments}, Partages : {claimed_shares}
+- Taux d'engagement calculé : {engagement_rate}%
+- Statut viral (seuil {VIRAL_VIEW_THRESHOLD} vues) : {"OUI, cette vidéo EST virale" if is_viral else "NON, cette vidéo n'a PAS dépassé le seuil viral"}
+
+Base ton "score de viralité" et ton diagnostic sur CES VRAIS CHIFFRES,
+pas sur une estimation abstraite. Si la vidéo n'est pas virale malgré un
+bon transcript apparent, dis-le honnêtement et cherche pourquoi dans le
+texte (décalage entre qualité perçue du script et performance réelle)."""
+    else:
+        stats_block = """
+Aucune statistique réelle fournie. Le "score de viralité" que tu donnes
+est donc une ESTIMATION basée uniquement sur la structure du transcript
+— précise-le explicitement dans le résumé, ne fais pas comme si
+c'était un fait vérifié."""
+
+    prompt = f"""Tu es un scénariste/monteur TikTok senior, spécialisé dans le
+diagnostic de scripts vidéo à partir de leur transcript audio.
+
+{STYLE_GUIDE}
+
+DONNÉES DISPONIBLES :
+- Transcript complet ({word_count} mots, durée {"réelle" if duration_seconds else "estimée"} ~{estimated_duration}s) :
+"{transcript}"
+
+- Portion correspondant approximativement aux 3 premières secondes parlées
+  (calculée à partir du débit oral, PAS une simple troncature arbitraire) :
+"{hook_portion}"
+
+{f"- Débit réel mesuré : {words_per_second_actual} mots/seconde (moyenne naturelle en français : ~2.5)" if words_per_second_actual else ""}
+{stats_block}
+
+MÉTHODE D'ANALYSE (obligatoire, avant de répondre) :
+1. Analyse la portion "hook" isolée ci-dessus EN T'APPUYANT sur les
+   "TYPES D'ACCROCHES RÉELLES" du guide de style ci-dessus (distillées
+   d'un corpus de 84 scripts de créateurs réels) : identifie EN INTERNE
+   laquelle de ces mécaniques s'en rapproche le plus (cadrage négatif,
+   miroir, insider, contraste/retournement...), mais décris-la dans ta
+   réponse en mots simples, jamais avec un nom technique de catégorie —
+   pose-t-elle une question, une promesse, une tension immédiate ? Ou
+   démarre-t-elle par une mise en contexte lente (signe fréquent de
+   perte d'audience dans les 3 premières secondes) ?
+2. Analyse le RYTHME global : le débit mesuré (si disponible) est-il
+   rapide (>3 mots/s, signe de dynamisme) ou lent (<2 mots/s, risque de
+   décrochage) ? Y a-t-il des variations de rythme dans le texte
+   (phrases courtes qui cassent le débit = respiration/emphase probable) ?
+3. Découpe la STRUCTURE en 2-4 parties logiques du transcript (ex: hook
+   / mise en tension / résolution / appel à l'action) en citant à quel
+   endroit du texte chaque partie commence.
+4. Chaque point fort/faible doit citer un EXTRAIT LITTÉRAL du transcript
+   (entre guillemets), jamais une généralité du type "bon rythme".
+
+RAPPEL IMPORTANT : vouvoiement obligatoire ("vous", "votre", "vos" —
+jamais "tu"/"ton"/"tes", voir TON À ADOPTER du guide de style), niveau
+CM2 (phrases courtes, mots simples). Un chiffre réel déclaré peut
+apparaître (règle d'or n°2, il prouve une vraie réussite ou une vraie
+contre-performance) mais reste précis, jamais une liste de statistiques
+brutes.
+
+Réponds avec un objet JSON (pas de markdown, pas de balises de code),
+en FRANÇAIS, avec exactement ces champs :
+{{
+  "virality_score": nombre entre 0 et 100 (basé sur les vraies stats si fournies, sinon estimation clairement signalée dans le résumé),
+  "hook_analysis": "2-3 phrases analysant PRÉCISÉMENT la portion hook citée ci-dessus, avec un extrait entre guillemets, décrivant la mécanique en mots simples (jamais le nom technique de la catégorie)",
+  "rhythm_analysis": "2-3 phrases sur le rythme/débit, citant le chiffre mots/seconde si disponible",
+  "structure_breakdown": ["liste de 2-4 parties identifiées, chacune avec l'extrait qui la démarre entre guillemets"],
+  "strengths": ["2-3 points forts, CHACUN avec un extrait littéral entre guillemets"],
+  "weaknesses": ["2-3 instructions à l'impératif ('Arrêtez de...', 'Commencez par...'), CHACUNE justifiée par un extrait littéral entre guillemets ou un passage manquant identifié"],
+  "why_it_worked_or_not": "3-4 phrases d'explication causale, reliant les stats réelles (si fournies) aux éléments concrets du transcript"
+}}"""
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-sonnet-5",
+                    "max_tokens": 2000,
+                    "output_config": {"effort": "low"},
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="Erreur réseau vers l'API Anthropic.")
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Erreur API Anthropic: {response.status_code} {response.text}",
+        )
+
+    raw_text = _extract_text_block(response.json())
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+
+    try:
+        analysis = json.loads(cleaned)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=502, detail="Réponse IA invalide, impossible de l'analyser.")
+
+    return JSONResponse(content=analysis)
+
+
 @app.get("/api/generate-script", response_class=JSONResponse)
 async def generate_script(
     topic: str,
