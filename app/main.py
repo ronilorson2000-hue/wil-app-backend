@@ -603,7 +603,7 @@ async def tiktok_callback(request: Request):
         </script>
         <style>
           body {{ font-family: 'Inter', system-ui, sans-serif; text-align: center;
-                  margin: 0; padding: 56px 20px; color: #0F172A; background: #F8FAFC; }}
+                  margin: 0; padding: 56px 20px; color: #0F172A; background: #EFF6FF; }}
           .card {{ max-width: 480px; margin: 0 auto 16px; background: #FFFFFF; border: 1px solid #E2E8F0;
                    border-radius: 16px; padding: 28px; box-shadow: 0 1px 3px rgba(15,23,42,0.05);
                    text-align: left; }}
@@ -625,11 +625,11 @@ async def tiktok_callback(request: Request):
                   border-radius: 999px; font-size: 12px; margin: 3px; font-weight: 500; }}
           ul.bullets {{ padding-left: 20px; margin: 8px 0; }}
           ul.bullets li {{ margin-bottom: 6px; line-height: 1.5; font-size: 14px; }}
-          .btn-pill {{ padding: 7px 9px; border-radius: 999px; border: 1px solid #BFDBFE;
-                       background: #EFF6FF; color: #1D4ED8; font-weight: 600; font-size: 11px;
+          .btn-pill {{ padding: 7px 9px; border-radius: 999px; border: 1px solid #2563EB;
+                       background: #2563EB; color: #FFFFFF; font-weight: 600; font-size: 11px;
                        cursor: pointer; transition: background 0.15s ease; white-space: nowrap;
                        flex-shrink: 0; }}
-          .btn-pill:hover {{ background: #DBEAFE; }}
+          .btn-pill:hover {{ background: #1D4ED8; }}
         </style>
       </head>
       <body>
