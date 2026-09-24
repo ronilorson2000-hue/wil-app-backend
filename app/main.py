@@ -625,14 +625,15 @@ async def tiktok_callback(request: Request):
                   border-radius: 999px; font-size: 12px; margin: 3px; font-weight: 500; }}
           ul.bullets {{ padding-left: 20px; margin: 8px 0; }}
           ul.bullets li {{ margin-bottom: 6px; line-height: 1.5; font-size: 14px; }}
-          .btn-pill {{ padding: 10px 16px; border-radius: 999px; border: 1px solid #BFDBFE;
-                       background: #EFF6FF; color: #1D4ED8; font-weight: 600; font-size: 13px;
-                       cursor: pointer; transition: background 0.15s ease; }}
+          .btn-pill {{ padding: 7px 9px; border-radius: 999px; border: 1px solid #BFDBFE;
+                       background: #EFF6FF; color: #1D4ED8; font-weight: 600; font-size: 11px;
+                       cursor: pointer; transition: background 0.15s ease; white-space: nowrap;
+                       flex-shrink: 0; }}
           .btn-pill:hover {{ background: #DBEAFE; }}
         </style>
       </head>
       <body>
-        <div style="max-width:480px; margin:0 auto 20px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+        <div style="max-width:480px; margin:0 auto 20px; display:flex; gap:5px; justify-content:center; flex-wrap:nowrap; overflow-x:auto;">
           <button onclick="location.href='/tools/analyze-video?niche_category='+encodeURIComponent(window.__wilNicheCategory||'')+'&account_avg_views='+encodeURIComponent(window.__wilAvgViews||'')"
                   class="btn-pill">
             🎬 Analyser la vidéo
