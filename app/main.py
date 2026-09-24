@@ -273,9 +273,9 @@ def home():
       </head>
       <body class="bg-white text-slate-900 antialiased">
 
-        <nav class="flex items-center justify-between max-w-6xl mx-auto px-6 py-5">
+        <nav class="flex items-center justify-between max-w-6xl mx-auto px-6 py-5 relative z-10">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-sky-400"></div>
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white font-bold text-sm">W</div>
             <span class="font-bold text-lg">Wil App</span>
           </div>
           <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
@@ -288,21 +288,28 @@ def home():
           <a href="/auth/tiktok/login" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">Se connecter</a>
         </nav>
 
-        <header class="max-w-3xl mx-auto text-center px-6 pt-20 pb-24">
-          <div class="inline-block px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold mb-6">
-            Analyse TikTok propulsée par l'IA
+        <div class="relative overflow-hidden">
+          <div class="pointer-events-none absolute inset-0 -z-0">
+            <div class="absolute -top-24 left-1/4 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-40"></div>
+            <div class="absolute top-10 right-1/4 w-96 h-96 bg-sky-100 rounded-full blur-3xl opacity-40"></div>
+            <div class="absolute top-40 left-1/3 w-72 h-72 bg-blue-50 rounded-full blur-3xl opacity-60"></div>
           </div>
-          <h1 class="text-5xl font-extrabold tracking-tight leading-tight mb-5">
-            Comprends pourquoi tes vidéos marchent — ou pas
-          </h1>
-          <p class="text-lg text-slate-500 mb-10 leading-relaxed">
-            Analytics and insights for TikTok creators. Connecte ton compte et reçois un diagnostic clair de ta viralité, tes hashtags et tes accroches.
-          </p>
-          <a href="/auth/tiktok/login"
-             class="inline-block px-8 py-4 rounded-xl text-white font-bold text-base shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
-            Se connecter avec TikTok
-          </a>
-        </header>
+          <header class="relative max-w-3xl mx-auto text-center px-6 pt-20 pb-24">
+            <div class="inline-block px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold mb-6">
+              ✨ Analyse TikTok propulsée par l'IA
+            </div>
+            <h1 class="text-5xl font-extrabold tracking-tight leading-tight mb-5">
+              Comprends pourquoi tes vidéos marchent — <span class="text-sky-400">ou pas</span>
+            </h1>
+            <p class="text-lg text-slate-500 mb-10 leading-relaxed">
+              Analytics and insights for TikTok creators. Connecte ton compte et reçois un diagnostic clair de ta viralité, tes hashtags et tes accroches.
+            </p>
+            <a href="/auth/tiktok/login"
+               class="inline-block px-8 py-4 rounded-xl text-white font-bold text-base shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
+              Se connecter avec TikTok
+            </a>
+          </header>
+        </div>
 
         <div class="max-w-5xl mx-auto px-6">
 
@@ -329,18 +336,21 @@ def home():
 
           <section id="how-it-works" class="py-20 border-t border-slate-100">
             <h2 class="text-3xl font-bold text-center mb-14">How It Works</h2>
-            <div class="flex flex-col gap-8 max-w-lg mx-auto">
-              <div class="flex gap-5 items-start">
-                <div class="flex-shrink-0 w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">1</div>
-                <div><strong class="block mb-1">Connect your account</strong><span class="text-slate-500 text-sm">Log in securely with your TikTok account using the button above.</span></div>
+            <div class="grid sm:grid-cols-3 gap-6">
+              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+                <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mb-4">1</div>
+                <h3 class="font-bold text-base mb-2">Connect your account</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Log in securely with your TikTok account using the button above.</p>
               </div>
-              <div class="flex gap-5 items-start">
-                <div class="flex-shrink-0 w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">2</div>
-                <div><strong class="block mb-1">Authorize access</strong><span class="text-slate-500 text-sm">Review and approve the permissions Wil App requests, directly on TikTok.</span></div>
+              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+                <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mb-4">2</div>
+                <h3 class="font-bold text-base mb-2">Authorize access</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Review and approve the permissions Wil App requests, directly on TikTok.</p>
               </div>
-              <div class="flex gap-5 items-start">
-                <div class="flex-shrink-0 w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">3</div>
-                <div><strong class="block mb-1">View your overview</strong><span class="text-slate-500 text-sm">See your connected profile information right away in your Wil App dashboard.</span></div>
+              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+                <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mb-4">3</div>
+                <h3 class="font-bold text-base mb-2">View your overview</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">See your connected profile information right away in your Wil App dashboard.</p>
               </div>
             </div>
           </section>
@@ -348,22 +358,24 @@ def home():
           <section id="pricing" class="py-20 border-t border-slate-100">
             <h2 class="text-3xl font-bold text-center mb-14">Pricing</h2>
             <div class="grid sm:grid-cols-2 gap-6 max-w-xl mx-auto">
-              <div class="border border-slate-200 rounded-2xl p-8 text-center">
+              <div class="border border-slate-200 rounded-2xl p-8 text-center flex flex-col">
                 <h3 class="font-bold text-lg mb-2">Free</h3>
                 <div class="text-3xl font-extrabold mb-5">$0<span class="text-sm font-normal text-slate-400">/month</span></div>
-                <ul class="text-sm text-slate-600 space-y-2 text-left">
+                <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
                   <li>✔ Connect your TikTok account</li>
                   <li>✔ Basic profile overview</li>
                 </ul>
+                <a href="/auth/tiktok/login" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">Se connecter avec TikTok</a>
               </div>
-              <div class="border-2 border-blue-600 rounded-2xl p-8 text-center relative">
+              <div class="border-2 border-blue-600 rounded-2xl p-8 text-center relative flex flex-col">
                 <h3 class="font-bold text-lg mb-2">Pro</h3>
                 <div class="text-2xl font-extrabold mb-5 text-blue-600">Coming soon</div>
-                <ul class="text-sm text-slate-600 space-y-2 text-left">
+                <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
                   <li>✔ Everything in Free</li>
                   <li>✔ Advanced account insights</li>
                   <li>✔ Priority support</li>
                 </ul>
+                <button disabled class="mt-auto px-6 py-3 rounded-xl bg-blue-300 text-white font-semibold text-sm cursor-not-allowed">Bientôt disponible</button>
               </div>
             </div>
           </section>
