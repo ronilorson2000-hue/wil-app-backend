@@ -638,7 +638,7 @@ async def tiktok_callback(request: Request):
                   class="btn-pill">
             🎬 Analyser la vidéo
           </button>
-          <button onclick="location.href='/tools/generate-script?niche='+encodeURIComponent(window.__wilNiche||'')+'&bio='+encodeURIComponent(window.__wilBio||'')"
+          <button onclick="location.href='/tools/analyze-script'"
                   class="btn-pill">
             📝 Analyser le script
           </button>
@@ -863,7 +863,7 @@ async def tiktok_callback(request: Request):
 
 
 # Style partagé par les pages outils (chacune a désormais sa propre URL,
-# séparée du tableau de bord — voir /tools/analyze-video, /tools/generate-script,
+# séparée du tableau de bord — voir /tools/analyze-video, /tools/analyze-script,
 # /tools/trending-ideas).
 _TOOL_PAGE_STYLE = """
   * { box-sizing: border-box; }
@@ -967,17 +967,18 @@ def tool_analyze_video_page(niche_category: str = "", account_avg_views: str = "
     """
 
 
-@app.get("/tools/generate-script", response_class=HTMLResponse)
-def tool_generate_script_page(niche: str = "", bio: str = ""):
+@app.get("/tools/analyze-script", response_class=HTMLResponse)
+def tool_analyze_script_page():
     """
-    Page dédiée pour la génération de script personnalisé. Reçoit la
-    niche/bio du compte en paramètres d'URL (contexte optionnel, le sujet
-    reste à la charge de l'utilisateur).
+    Page dédiée pour l'analyse d'un script déjà écrit (avant tournage).
+    Réutilise directement /api/analyze-transcript — la même route qui
+    analyse le texte parlé d'une vidéo déjà tournée/postée — pour donner
+    un score de viralité et un rapport cohérent avec celui des vidéos.
     """
     return f"""
     <html>
       <head>
-        <title>Générer un script — Wil App</title>
+        <title>Analyser le script — Wil App</title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -986,39 +987,32 @@ def tool_generate_script_page(niche: str = "", bio: str = ""):
       <body>
         <div class="wrap">
           <a href="/" class="back">← Retour à l'accueil</a>
-          <h1>Générer un script personnalisé</h1>
-          <p class="subtitle">Décris ta vidéo, ton style et tes limites — le script généré respectera strictement ce que tu précises.</p>
+          <h1>Analyser le script d'une vidéo</h1>
+          <p class="subtitle">Écris ou colle le script complet de ta vidéo (ce que tu comptes dire à l'oral) — on l'analyse comme si c'était déjà tourné pour estimer son potentiel de viralité.</p>
           <div class="card">
-            <textarea id="script-topic" placeholder="Sujet de la vidéo *" rows="2"></textarea>
-            <input id="script-tone" placeholder="Ton habituel (optionnel)" />
-            <textarea id="script-limits" placeholder="Limites à respecter (optionnel)" rows="2"></textarea>
-            <button id="script-btn" class="primary" onclick="generateScript()">Générer le script</button>
-            <div id="script-result" style="margin-top:14px; text-align:left;"></div>
+            <textarea id="script-text" placeholder="Écris ou colle ici le script complet de ta vidéo *" rows="10"></textarea>
+            <button id="script-analyze-btn" class="primary" onclick="analyzeScript()">Analyser le script</button>
+            <div id="script-analyze-result" style="margin-top:14px; text-align:left;"></div>
           </div>
         </div>
         <script>
-          const niche = "{niche}";
-          const bio = "{bio}";
+          function analyzeScript() {{
+            const transcript = document.getElementById('script-text').value.trim();
+            const btn = document.getElementById('script-analyze-btn');
+            const result = document.getElementById('script-analyze-result');
 
-          function generateScript() {{
-            const topic = document.getElementById('script-topic').value.trim();
-            const tone = document.getElementById('script-tone').value.trim();
-            const limits = document.getElementById('script-limits').value.trim();
-            const result = document.getElementById('script-result');
-            const btn = document.getElementById('script-btn');
-
-            if (!topic) {{
-              result.innerHTML = '<p style="color:#c0392b;">Décris le sujet de ta vidéo pour continuer.</p>';
+            if (!transcript) {{
+              result.innerHTML = '<p style="color:#c0392b;">Écris ou colle le script de ta vidéo pour continuer.</p>';
               return;
             }}
 
             btn.disabled = true;
-            btn.textContent = 'Génération...';
+            btn.textContent = 'Analyse en cours...';
             result.innerHTML = '';
 
-            const params = new URLSearchParams({{ topic, tone, limits, niche, bio }});
+            const params = new URLSearchParams({{ transcript }});
 
-            fetch(`/api/generate-script?${{params.toString()}}`)
+            fetch(`/api/analyze-transcript?${{params.toString()}}`)
               .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
               .then(({{ok, status, data}}) => {{
                 if (!ok) {{
@@ -1026,18 +1020,28 @@ def tool_generate_script_page(niche: str = "", bio: str = ""):
                   result.innerHTML = `<p style="color:#c0392b;">${{reason}}</p>`;
                   return;
                 }}
+                const structure = (data.structure_breakdown || []).map(s => `<li>${{s}}</li>`).join('');
+                const strengths = (data.strengths || []).map(s => `<li>${{s}}</li>`).join('');
+                const weaknesses = (data.weaknesses || []).map(s => `<li>${{s}}</li>`).join('');
                 result.innerHTML = `
-                  <p><strong>🎬 Accroche (0-3s)</strong></p><p>${{data.hook || ''}}</p>
-                  <p><strong>📝 Corps du script</strong></p><p>${{data.body || ''}}</p>
-                  <p><strong>👉 Appel à l'action</strong></p><p>${{data.call_to_action || ''}}</p>
-                  <p><strong>💡 Conseils de tournage</strong></p><p>${{data.notes || ''}}</p>`;
+                  <p><strong>🔥 Score de viralité estimé</strong></p>
+                  <p style="font-size:28px;font-weight:700;color:#2563EB;">${{data.virality_score ?? '—'}}/100</p>
+                  <p><strong>🎬 Accroche</strong></p><p>${{data.hook_analysis || ''}}</p>
+                  <p><strong>⏱️ Rythme</strong></p><p>${{data.rhythm_analysis || ''}}</p>
+                  <p><strong>🧩 Structure</strong></p>
+                  <ul class="bullets">${{structure}}</ul>
+                  <p><strong>✅ Points forts</strong></p>
+                  <ul class="bullets">${{strengths}}</ul>
+                  <p><strong>⚠️ À corriger</strong></p>
+                  <ul class="bullets">${{weaknesses}}</ul>
+                  <p><strong>🎯 Pourquoi</strong></p><p>${{data.why_it_worked_or_not || ''}}</p>`;
               }})
               .catch((e) => {{
                 result.innerHTML = `<p style="color:#c0392b;">Erreur réseau : ${{e && e.message ? e.message : e}}</p>`;
               }})
               .finally(() => {{
                 btn.disabled = false;
-                btn.textContent = 'Générer le script';
+                btn.textContent = 'Analyser le script';
               }});
           }}
         </script>
