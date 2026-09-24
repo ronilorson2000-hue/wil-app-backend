@@ -280,7 +280,7 @@ def home():
           </div>
           <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
             <a href="#services" class="hover:text-slate-900">Services</a>
-            <a href="#how-it-works" class="hover:text-slate-900">How It Works</a>
+            <a href="#how-it-works" class="hover:text-slate-900">Comment ça marche</a>
             <a href="#pricing" class="hover:text-slate-900">Pricing</a>
             <a href="#about" class="hover:text-slate-900">About</a>
             <a href="#contact" class="hover:text-slate-900">Contact</a>
@@ -335,22 +335,22 @@ def home():
           </section>
 
           <section id="how-it-works" class="py-20 border-t border-slate-100">
-            <h2 class="text-3xl font-bold text-center mb-14">How It Works</h2>
+            <h2 class="text-3xl font-bold text-center mb-14">Comment ça marche</h2>
             <div class="grid sm:grid-cols-3 gap-6">
               <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-                <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mb-4">1</div>
-                <h3 class="font-bold text-base mb-2">Connect your account</h3>
-                <p class="text-slate-500 text-sm leading-relaxed">Log in securely with your TikTok account using the button above.</p>
+                <div class="w-10 h-10 rounded-full bg-blue-700 text-white flex items-center justify-center text-lg mb-4">🔗</div>
+                <h3 class="font-bold text-base mb-2">Connecte ton compte TikTok</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Connecte-toi en toute sécurité avec ton compte TikTok en un clic — aucune donnée sensible n'est demandée.</p>
               </div>
               <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-                <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mb-4">2</div>
-                <h3 class="font-bold text-base mb-2">Authorize access</h3>
-                <p class="text-slate-500 text-sm leading-relaxed">Review and approve the permissions Wil App requests, directly on TikTok.</p>
+                <div class="w-10 h-10 rounded-full bg-blue-700 text-white flex items-center justify-center text-lg mb-4">📊</div>
+                <h3 class="font-bold text-base mb-2">Reçois ton diagnostic automatiquement</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Dès la connexion, Wil App analyse ton compte : score de viralité, taux d'engagement, points forts, points à améliorer et hashtags suggérés — sans rien configurer.</p>
               </div>
               <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-                <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm mb-4">3</div>
-                <h3 class="font-bold text-base mb-2">View your overview</h3>
-                <p class="text-slate-500 text-sm leading-relaxed">See your connected profile information right away in your Wil App dashboard.</p>
+                <div class="w-10 h-10 rounded-full bg-blue-700 text-white flex items-center justify-center text-lg mb-4">🚀</div>
+                <h3 class="font-bold text-base mb-2">Va plus loin avec les outils dédiés</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Analyse une vidéo précise, le script d'une vidéo à venir, ou découvre des idées de vidéos tendance adaptées à ta niche.</p>
               </div>
             </div>
           </section>
