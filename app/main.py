@@ -990,12 +990,28 @@ def tool_analyze_script_page():
           <h1>Analyser le script d'une vidéo</h1>
           <p class="subtitle">Écris ou colle le script complet de ta vidéo (ce que tu comptes dire à l'oral) — on l'analyse comme si c'était déjà tourné pour estimer son potentiel de viralité.</p>
           <div class="card">
-            <textarea id="script-text" placeholder="Écris ou colle ici le script complet de ta vidéo *" rows="10"></textarea>
+            <textarea id="script-text" placeholder="Écris ou colle ici le script complet de ta vidéo *" rows="10" oninput="updateScriptWordCount()"></textarea>
+            <p id="script-word-count" style="font-size:12px;color:#777;margin:-4px 0 12px;">0 / {MAX_TRANSCRIPT_WORDS} mots</p>
             <button id="script-analyze-btn" class="primary" onclick="analyzeScript()">Analyser le script</button>
             <div id="script-analyze-result" style="margin-top:14px; text-align:left;"></div>
           </div>
         </div>
         <script>
+          const MAX_SCRIPT_WORDS = {MAX_TRANSCRIPT_WORDS};
+
+          function countWords(text) {{
+            const trimmed = text.trim();
+            return trimmed ? trimmed.split(/\\s+/).length : 0;
+          }}
+
+          function updateScriptWordCount() {{
+            const text = document.getElementById('script-text').value;
+            const count = countWords(text);
+            const counter = document.getElementById('script-word-count');
+            counter.textContent = `${{count}} / ${{MAX_SCRIPT_WORDS}} mots`;
+            counter.style.color = count > MAX_SCRIPT_WORDS ? '#c0392b' : '#777';
+          }}
+
           function analyzeScript() {{
             const transcript = document.getElementById('script-text').value.trim();
             const btn = document.getElementById('script-analyze-btn');
@@ -1003,6 +1019,12 @@ def tool_analyze_script_page():
 
             if (!transcript) {{
               result.innerHTML = '<p style="color:#c0392b;">Écris ou colle le script de ta vidéo pour continuer.</p>';
+              return;
+            }}
+
+            const wordCount = countWords(transcript);
+            if (wordCount > MAX_SCRIPT_WORDS) {{
+              result.innerHTML = `<p style="color:#c0392b;">Le script est trop long (${{wordCount}} mots). Limite actuelle : ${{MAX_SCRIPT_WORDS}} mots.</p>`;
               return;
             }}
 
@@ -2913,6 +2935,7 @@ SIMPLE (niveau CM2) :
 
 
 WORDS_PER_SECOND_FR = 2.5  # débit oral moyen en français, approximatif
+MAX_TRANSCRIPT_WORDS = 1000  # limite de longueur pour /api/analyze-transcript (GET, taille d'URL)
 
 
 def _extract_hook_portion(transcript: str, hook_seconds: float = 3.0) -> str:
@@ -2958,8 +2981,14 @@ async def analyze_transcript(
     if not transcript or not transcript.strip():
         raise HTTPException(status_code=422, detail="Le transcript ne peut pas être vide.")
 
-    hook_portion = _extract_hook_portion(transcript)
     word_count = len(transcript.split())
+    if word_count > MAX_TRANSCRIPT_WORDS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Le script est trop long ({word_count} mots). Limite actuelle : {MAX_TRANSCRIPT_WORDS} mots.",
+        )
+
+    hook_portion = _extract_hook_portion(transcript)
     estimated_duration = duration_seconds or round(word_count / WORDS_PER_SECOND_FR, 1)
     words_per_second_actual = (
         round(word_count / duration_seconds, 2) if duration_seconds > 0 else None
