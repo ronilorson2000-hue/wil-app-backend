@@ -1258,6 +1258,44 @@ def _extract_text_block(response_json: dict) -> str:
     return text_blocks[-1] if text_blocks else ""
 
 
+# Bloc partagé par TOUTES les routes IA (analyse de compte, de vidéo,
+# de transcript, upload...) : identique mot pour mot à chaque appel, donc
+# marqué "cache_control" pour le prompt caching Anthropic. Le premier
+# appel paye 1,25x le prix normal sur ce bloc (écriture du cache), tous
+# les appels suivants dans les 5 minutes (n'importe quelle route, le
+# cache est partagé) ne payent que 0,10x — 90% moins cher. Ne JAMAIS
+# rendre ce bloc dynamique (chiffres, nom du compte...) : la moindre
+# différence d'un seul caractère invalide le cache pour cet appel.
+_CACHED_SYSTEM_BLOCK = f"""Tu es un expert TikTok senior — coach de croissance, scénariste et
+monteur — connu pour des analyses extrêmement concrètes et jamais
+génériques.
+
+{STYLE_GUIDE}"""
+
+
+def _cached_messages(dynamic_prompt: str) -> list[dict]:
+    """
+    Construit le tableau "messages" pour l'API Anthropic en séparant le
+    bloc commun mis en cache (_CACHED_SYSTEM_BLOCK) du reste du prompt,
+    propre à chaque appel (données du compte/vidéo, instructions
+    spécifiques, schéma JSON attendu) et donc jamais mis en cache.
+    """
+    return [{
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": _CACHED_SYSTEM_BLOCK,
+                "cache_control": {"type": "ephemeral"},
+            },
+            {
+                "type": "text",
+                "text": dynamic_prompt,
+            },
+        ],
+    }]
+
+
 # 3 pages = 60 vidéos max. Réduit depuis 10 (200 vidéos) : chaque page est
 # un appel séquentiel à l'API TikTok (le curseur de pagination dépend de
 # la réponse précédente, impossible à paralléliser), donc c'était la
@@ -2167,12 +2205,7 @@ Données de performance : non disponibles pour cette analyse (base-toi
 uniquement sur le profil ci-dessus, ne mentionne pas l'absence de ces
 données comme un problème)."""
 
-        prompt = f"""Tu es un coach de croissance TikTok senior, connu pour des analyses
-extrêmement concrètes et jamais génériques.
-
-{STYLE_GUIDE}
-
-Profil :
+        prompt = f"""Profil :
 - Nom affiché : {display_name}
 - Nom d'utilisateur : @{username}
 - Bio : "{bio or 'Aucune bio renseignée'}"
@@ -2338,7 +2371,7 @@ contient de toute façon pas)."""
                         "model": "claude-sonnet-5",
                         "max_tokens": 3000,
                         "output_config": {"effort": "low"},
-                        "messages": [{"role": "user", "content": prompt}],
+                        "messages": _cached_messages(prompt),
                     },
                 )
         except httpx.HTTPError:
@@ -2591,12 +2624,7 @@ beaucoup plus flagrante)."""
         )
         weaknesses_count = "1-2"
 
-    prompt = f"""Tu es un coach de croissance TikTok senior, connu pour des
-analyses extrêmement concrètes et jamais génériques.
-
-{STYLE_GUIDE}
-
-Analyse CETTE vidéo précise, avec ses vraies données (pas le compte en
+    prompt = f"""Analyse CETTE vidéo précise, avec ses vraies données (pas le compte en
 général) :
 - Titre : "{title or '(sans titre)'}"
 - Vues : {view_count}
@@ -2668,7 +2696,7 @@ SIMPLE (niveau CM2) :
                     "model": "claude-sonnet-5",
                     "max_tokens": 1000,
                     "output_config": {"effort": "low"},
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": _cached_messages(prompt),
                 },
             )
     except httpx.HTTPError:
@@ -2798,12 +2826,7 @@ async def analyze_video_upload(
         else "Pas de moyenne de compte disponible pour comparaison — ne pas en inventer une."
     )
 
-    prompt = f"""Tu es un coach de croissance TikTok senior, connu pour des
-analyses extrêmement concrètes et jamais génériques.
-
-{STYLE_GUIDE}
-
-Voici la TRANSCRIPTION RÉELLE (le vrai contenu parlé) de cette vidéo,
+    prompt = f"""Voici la TRANSCRIPTION RÉELLE (le vrai contenu parlé) de cette vidéo,
 obtenue par transcription audio — pas juste un titre :
 \"\"\"{transcript_text}\"\"\"
 
@@ -2861,7 +2884,7 @@ SIMPLE (niveau CM2) :
                     "model": "claude-sonnet-5",
                     "max_tokens": 1200,
                     "output_config": {"effort": "low"},
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": _cached_messages(prompt),
                 },
             )
     except httpx.HTTPError:
@@ -2966,12 +2989,7 @@ est donc une ESTIMATION basée uniquement sur la structure du transcript
 — précise-le explicitement dans le résumé, ne fais pas comme si
 c'était un fait vérifié."""
 
-    prompt = f"""Tu es un scénariste/monteur TikTok senior, spécialisé dans le
-diagnostic de scripts vidéo à partir de leur transcript audio.
-
-{STYLE_GUIDE}
-
-DONNÉES DISPONIBLES :
+    prompt = f"""DONNÉES DISPONIBLES :
 - Transcript complet ({word_count} mots, durée {"réelle" if duration_seconds else "estimée"} ~{estimated_duration}s) :
 "{transcript}"
 
@@ -3035,7 +3053,7 @@ en FRANÇAIS, avec exactement ces champs :
                     "model": "claude-sonnet-5",
                     "max_tokens": 2000,
                     "output_config": {"effort": "low"},
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": _cached_messages(prompt),
                 },
             )
     except httpx.HTTPError:
