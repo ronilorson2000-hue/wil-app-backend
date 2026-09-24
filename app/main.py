@@ -257,122 +257,109 @@ def home():
     return """
     <html>
       <head>
+        <meta charset="utf-8">
         <title>Wil App</title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+          tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } };
+        </script>
         <style>
-          * { box-sizing: border-box; }
-          body { font-family: -apple-system, Segoe UI, Arial, sans-serif;
-                 margin: 0; color: #1a1a1a; }
-          .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
-          header { text-align: center; padding: 70px 24px 50px; }
-          header h1 { font-size: 36px; margin-bottom: 8px; }
-          header p { color: #666; font-size: 19px; margin: 0 0 32px; }
-          .cta { display: inline-block; padding: 15px 32px; background: #000;
-                 color: #fff; border-radius: 8px; text-decoration: none;
-                 font-weight: bold; font-size: 16px; }
-          section { padding: 50px 0; border-top: 1px solid #eee; }
-          section h2 { font-size: 26px; text-align: center; margin-bottom: 36px; }
-          .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-                  gap: 28px; }
-          .card { background: #fafafa; border: 1px solid #eee; border-radius: 10px;
-                  padding: 22px; }
-          .card h3 { margin: 0 0 8px; font-size: 17px; }
-          .card p { margin: 0; color: #555; font-size: 14px; }
-          .steps { display: flex; flex-direction: column; gap: 18px; max-width: 560px; margin: 0 auto; }
-          .step { display: flex; gap: 16px; align-items: flex-start; }
-          .step .num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
-                       background: #000; color: #fff; display: flex; align-items: center;
-                       justify-content: center; font-weight: bold; }
-          .pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-                     gap: 24px; max-width: 640px; margin: 0 auto; }
-          .plan { border: 1px solid #ddd; border-radius: 12px; padding: 28px; text-align: center; }
-          .plan.highlight { border: 2px solid #000; }
-          .plan .price { font-size: 32px; font-weight: bold; margin: 12px 0; }
-          .plan .price span { font-size: 15px; font-weight: normal; color: #777; }
-          .plan ul { list-style: none; padding: 0; margin: 20px 0; text-align: left; font-size: 14px; color: #444; }
-          .plan ul li { padding: 6px 0; }
-          footer { text-align: center; padding: 40px 24px; color: #777; font-size: 14px; }
-          footer a { color: #444; }
-          .contact { text-align: center; padding: 40px 0; }
-          .contact a { color: #000; }
-          nav { display: flex; justify-content: center; gap: 28px; padding: 18px 0;
-                border-bottom: 1px solid #eee; font-size: 14px; }
-          nav a { color: #444; text-decoration: none; font-weight: 500; }
-          nav a:hover { color: #000; }
-          .about p { max-width: 600px; margin: 0 auto; color: #444; text-align: center; }
+          body { font-family: 'Inter', system-ui, sans-serif; }
         </style>
       </head>
-      <body>
-        <nav>
-          <a href="#services">Services</a>
-          <a href="#how-it-works">How It Works</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#about">About</a>
-          <a href="#contact">Contact</a>
+      <body class="bg-white text-slate-900 antialiased">
+
+        <nav class="flex items-center justify-between max-w-6xl mx-auto px-6 py-5">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-sky-400"></div>
+            <span class="font-bold text-lg">Wil App</span>
+          </div>
+          <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
+            <a href="#services" class="hover:text-slate-900">Services</a>
+            <a href="#how-it-works" class="hover:text-slate-900">How It Works</a>
+            <a href="#pricing" class="hover:text-slate-900">Pricing</a>
+            <a href="#about" class="hover:text-slate-900">About</a>
+            <a href="#contact" class="hover:text-slate-900">Contact</a>
+          </div>
+          <a href="/auth/tiktok/login" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">Se connecter</a>
         </nav>
-        <header>
-          <h1>Wil App</h1>
-          <p>Analytics and insights for TikTok creators</p>
-          <a href="/auth/tiktok/login" class="cta">Se connecter avec TikTok</a>
+
+        <header class="max-w-3xl mx-auto text-center px-6 pt-20 pb-24">
+          <div class="inline-block px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold mb-6">
+            Analyse TikTok propulsée par l'IA
+          </div>
+          <h1 class="text-5xl font-extrabold tracking-tight leading-tight mb-5">
+            Comprends pourquoi tes vidéos marchent — ou pas
+          </h1>
+          <p class="text-lg text-slate-500 mb-10 leading-relaxed">
+            Analytics and insights for TikTok creators. Connecte ton compte et reçois un diagnostic clair de ta viralité, tes hashtags et tes accroches.
+          </p>
+          <a href="/auth/tiktok/login"
+             class="inline-block px-8 py-4 rounded-xl text-white font-bold text-base shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
+            Se connecter avec TikTok
+          </a>
         </header>
 
-        <div class="wrap">
-          <section id="services">
-            <h2>Our Services</h2>
-            <div class="grid">
-              <div class="card">
-                <h3>📊 Account Overview</h3>
-                <p>Connect your TikTok account to see your profile information
-                   and account activity gathered in one simple dashboard.</p>
+        <div class="max-w-5xl mx-auto px-6">
+
+          <section id="services" class="py-20 border-t border-slate-100">
+            <h2 class="text-3xl font-bold text-center mb-14">Our Services</h2>
+            <div class="grid sm:grid-cols-3 gap-6">
+              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+                <div class="text-2xl mb-3">📊</div>
+                <h3 class="font-bold text-base mb-2">Account Overview</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Connect your TikTok account to see your profile information and account activity gathered in one simple dashboard.</p>
               </div>
-              <div class="card">
-                <h3>🔒 Secure Authentication</h3>
-                <p>Wil App uses TikTok's official Login Kit. We never see or
-                   store your TikTok password, and access can be revoked at
-                   any time from your TikTok settings.</p>
+              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+                <div class="text-2xl mb-3">🔒</div>
+                <h3 class="font-bold text-base mb-2">Secure Authentication</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Wil App uses TikTok's official Login Kit. We never see or store your TikTok password, and access can be revoked at any time.</p>
               </div>
-              <div class="card">
-                <h3>🎯 Built for Creators</h3>
-                <p>Designed specifically to help TikTok creators better
-                   understand their own account and presence on the platform.</p>
+              <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+                <div class="text-2xl mb-3">🎯</div>
+                <h3 class="font-bold text-base mb-2">Built for Creators</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Designed specifically to help TikTok creators better understand their own account and presence on the platform.</p>
               </div>
             </div>
           </section>
 
-          <section id="how-it-works">
-            <h2>How It Works</h2>
-            <div class="steps">
-              <div class="step">
-                <div class="num">1</div>
-                <div><strong>Connect your account</strong><br>Log in securely with your TikTok account using the button above.</div>
+          <section id="how-it-works" class="py-20 border-t border-slate-100">
+            <h2 class="text-3xl font-bold text-center mb-14">How It Works</h2>
+            <div class="flex flex-col gap-8 max-w-lg mx-auto">
+              <div class="flex gap-5 items-start">
+                <div class="flex-shrink-0 w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">1</div>
+                <div><strong class="block mb-1">Connect your account</strong><span class="text-slate-500 text-sm">Log in securely with your TikTok account using the button above.</span></div>
               </div>
-              <div class="step">
-                <div class="num">2</div>
-                <div><strong>Authorize access</strong><br>Review and approve the permissions Wil App requests, directly on TikTok.</div>
+              <div class="flex gap-5 items-start">
+                <div class="flex-shrink-0 w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">2</div>
+                <div><strong class="block mb-1">Authorize access</strong><span class="text-slate-500 text-sm">Review and approve the permissions Wil App requests, directly on TikTok.</span></div>
               </div>
-              <div class="step">
-                <div class="num">3</div>
-                <div><strong>View your overview</strong><br>See your connected profile information right away in your Wil App dashboard.</div>
+              <div class="flex gap-5 items-start">
+                <div class="flex-shrink-0 w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">3</div>
+                <div><strong class="block mb-1">View your overview</strong><span class="text-slate-500 text-sm">See your connected profile information right away in your Wil App dashboard.</span></div>
               </div>
             </div>
           </section>
 
-          <section id="pricing">
-            <h2>Pricing</h2>
-            <div class="pricing">
-              <div class="plan">
-                <h3>Free</h3>
-                <div class="price">$0<span>/month</span></div>
-                <ul>
+          <section id="pricing" class="py-20 border-t border-slate-100">
+            <h2 class="text-3xl font-bold text-center mb-14">Pricing</h2>
+            <div class="grid sm:grid-cols-2 gap-6 max-w-xl mx-auto">
+              <div class="border border-slate-200 rounded-2xl p-8 text-center">
+                <h3 class="font-bold text-lg mb-2">Free</h3>
+                <div class="text-3xl font-extrabold mb-5">$0<span class="text-sm font-normal text-slate-400">/month</span></div>
+                <ul class="text-sm text-slate-600 space-y-2 text-left">
                   <li>✔ Connect your TikTok account</li>
                   <li>✔ Basic profile overview</li>
                 </ul>
               </div>
-              <div class="plan highlight">
-                <h3>Pro</h3>
-                <div class="price">Coming soon</div>
-                <ul>
+              <div class="border-2 border-blue-600 rounded-2xl p-8 text-center relative">
+                <h3 class="font-bold text-lg mb-2">Pro</h3>
+                <div class="text-2xl font-extrabold mb-5 text-blue-600">Coming soon</div>
+                <ul class="text-sm text-slate-600 space-y-2 text-left">
                   <li>✔ Everything in Free</li>
                   <li>✔ Advanced account insights</li>
                   <li>✔ Priority support</li>
@@ -381,25 +368,22 @@ def home():
             </div>
           </section>
 
-          <section id="about" class="about">
-            <h2>About Wil App</h2>
-            <p>Wil App is an independent project built to give TikTok creators
-               a simple, secure way to connect their account and view their
-               profile information in one place. The project is under active
-               development, with more account insight features on the way.</p>
+          <section id="about" class="py-20 border-t border-slate-100 text-center">
+            <h2 class="text-3xl font-bold mb-6">About Wil App</h2>
+            <p class="max-w-xl mx-auto text-slate-500 leading-relaxed">Wil App is an independent project built to give TikTok creators a simple, secure way to connect their account and view their profile information in one place. The project is under active development, with more account insight features on the way.</p>
           </section>
 
-          <section id="contact" class="contact">
-            <h2>Contact</h2>
-            <p>Questions about Wil App? Reach us at
-               <a href="mailto:contact.wilapp@proton.me">contact.wilapp@proton.me</a></p>
+          <section id="contact" class="py-20 border-t border-slate-100 text-center">
+            <h2 class="text-3xl font-bold mb-6">Contact</h2>
+            <p class="text-slate-500">Questions about Wil App? Reach us at
+               <a href="mailto:contact.wilapp@proton.me" class="text-blue-600 font-medium hover:text-blue-700">contact.wilapp@proton.me</a></p>
           </section>
         </div>
 
-        <footer>
-          <a href="/terms">Terms of Service</a>
+        <footer class="text-center py-12 px-6 text-sm text-slate-400 border-t border-slate-100">
+          <a href="/terms" class="text-slate-500 hover:text-slate-700">Terms of Service</a>
           &nbsp;|&nbsp;
-          <a href="/privacy">Privacy Policy</a>
+          <a href="/privacy" class="text-slate-500 hover:text-slate-700">Privacy Policy</a>
           <br><br>
           © 2026 Wil App. All rights reserved.
         </footer>
@@ -585,10 +569,10 @@ async def tiktok_callback(request: Request):
         return RedirectResponse(f"wilapp://callback?{app_params}")
 
     verified_badge = (
-        '<span style="color:#20d5ec; font-weight:bold;">✔ Verified</span>'
+        '<span style="color:#0EA5E9; font-weight:bold;">✔ Verified</span>'
         if is_verified else ""
     )
-    bio_html = f'<p style="color:#555; max-width:400px; margin:12px auto;">{bio}</p>' if bio else ""
+    bio_html = f'<p style="color:#475569; max-width:400px; margin:12px auto; font-size:14px;">{bio}</p>' if bio else ""
     link_html = (
         f'<p><a href="{profile_link}" target="_blank">View TikTok profile ↗</a></p>'
         if profile_link else ""
@@ -607,54 +591,65 @@ async def tiktok_callback(request: Request):
     return f"""
     <html>
       <head>
+        <meta charset="utf-8">
         <title>Wil App — Dashboard</title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+          tailwind.config = {{ theme: {{ extend: {{ fontFamily: {{ sans: ['Inter', 'system-ui', 'sans-serif'] }} }} }} }};
+        </script>
         <style>
-          body {{ font-family: -apple-system, Arial, sans-serif; text-align: center;
-                  margin: 0; padding: 60px 20px; color: #1a1a1a; }}
-          .card {{ max-width: 460px; margin: 0 auto 20px; border: 1px solid #eee;
-                   border-radius: 14px; padding: 32px; box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+          body {{ font-family: 'Inter', system-ui, sans-serif; text-align: center;
+                  margin: 0; padding: 56px 20px; color: #0F172A; background: #F8FAFC; }}
+          .card {{ max-width: 480px; margin: 0 auto 16px; background: #FFFFFF; border: 1px solid #E2E8F0;
+                   border-radius: 16px; padding: 28px; box-shadow: 0 1px 3px rgba(15,23,42,0.05);
                    text-align: left; }}
           .card.profile {{ text-align: center; }}
-          img {{ width: 110px; height: 110px; border-radius: 50%; object-fit: cover; }}
-          h2 {{ margin: 16px 0 4px; }}
-          .username {{ color: #777; margin: 0 0 8px; }}
-          .stats {{ display: flex; justify-content: center; gap: 24px; margin-top: 24px;
-                    padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #555; }}
-          a.home {{ display:inline-block; margin-top: 30px; color:#555; }}
-          .loading {{ color: #777; font-size: 14px; }}
-          .bar-bg {{ background: #e5e7eb; border-radius: 8px; height: 16px; overflow: hidden; }}
-          .bar-fill {{ background: #2563EB; height: 100%; }}
-          .chip {{ display: inline-block; background: #2563EB; color: white; padding: 4px 12px;
-                   border-radius: 999px; font-size: 13px; font-weight: bold; }}
-          .tag {{ display: inline-block; background: #f3f4f6; padding: 3px 10px; border-radius: 999px;
-                  font-size: 12px; margin: 3px; }}
-          ul.bullets {{ padding-left: 18px; }}
+          img.avatar {{ width: 96px; height: 96px; border-radius: 9999px; object-fit: cover; }}
+          h2 {{ margin: 16px 0 4px; font-size: 20px; font-weight: 700; }}
+          .username {{ color: #64748B; margin: 0 0 8px; font-size: 14px; }}
+          .stats {{ display: flex; justify-content: center; gap: 24px; margin-top: 20px;
+                    padding-top: 20px; border-top: 1px solid #E2E8F0; font-size: 13px; color: #64748B; }}
+          a.home {{ display: block; margin-top: 24px; color: #2563EB; text-decoration: none;
+                    font-size: 14px; font-weight: 500; }}
+          a.home:hover {{ color: #1D4ED8; }}
+          .loading {{ color: #64748B; font-size: 14px; }}
+          .bar-bg {{ background: #E2E8F0; border-radius: 999px; height: 10px; overflow: hidden; }}
+          .bar-fill {{ background: #2563EB; height: 100%; border-radius: 999px; }}
+          .chip {{ display: inline-block; background: #2563EB; color: white; padding: 6px 14px;
+                   border-radius: 999px; font-size: 13px; font-weight: 600; }}
+          .tag {{ display: inline-block; background: #EFF6FF; color: #1D4ED8; padding: 4px 12px;
+                  border-radius: 999px; font-size: 12px; margin: 3px; font-weight: 500; }}
+          ul.bullets {{ padding-left: 20px; margin: 8px 0; }}
+          ul.bullets li {{ margin-bottom: 6px; line-height: 1.5; font-size: 14px; }}
+          .btn-pill {{ padding: 10px 16px; border-radius: 999px; border: 1px solid #BFDBFE;
+                       background: #EFF6FF; color: #1D4ED8; font-weight: 600; font-size: 13px;
+                       cursor: pointer; transition: background 0.15s ease; }}
+          .btn-pill:hover {{ background: #DBEAFE; }}
         </style>
       </head>
       <body>
-        <div style="max-width:460px; margin:0 auto 16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+        <div style="max-width:480px; margin:0 auto 20px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
           <button onclick="location.href='/tools/analyze-video?niche_category='+encodeURIComponent(window.__wilNicheCategory||'')+'&account_avg_views='+encodeURIComponent(window.__wilAvgViews||'')"
-                  style="padding:10px 16px; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff;
-                         color:#1d4ed8; font-weight:600; font-size:13px; cursor:pointer;">
+                  class="btn-pill">
             🎬 Analyser la vidéo
           </button>
           <button onclick="location.href='/tools/generate-script?niche='+encodeURIComponent(window.__wilNiche||'')+'&bio='+encodeURIComponent(window.__wilBio||'')"
-                  style="padding:10px 16px; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff;
-                         color:#1d4ed8; font-weight:600; font-size:13px; cursor:pointer;">
+                  class="btn-pill">
             📝 Analyser le script
           </button>
           <button onclick="location.href='/tools/trending-ideas?niche_category='+encodeURIComponent(window.__wilNicheCategory||'')+'&lang='+encodeURIComponent(window.__wilLang||'fr')"
-                  style="padding:10px 16px; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff;
-                         color:#1d4ed8; font-weight:600; font-size:13px; cursor:pointer;">
+                  class="btn-pill">
             💡 Idées de vidéo
           </button>
         </div>
 
-        <p style="color:#22c55e; font-weight:bold;">✅ Connected successfully</p>
+        <p style="color:#16A34A; font-weight:600; font-size:14px;">✅ Connected successfully</p>
         <div class="card profile">
-          <img src="{avatar_url}" alt="Profile picture" />
+          <img class="avatar" src="{avatar_url}" alt="Profile picture" />
           <h2>{display_name} {verified_badge}</h2>
           <p class="username">@{username}</p>
           {bio_html}
@@ -685,7 +680,7 @@ async def tiktok_callback(request: Request):
               if (!ok) {{
                 const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
                 document.getElementById('analysis-result').innerHTML =
-                  `<div class="card"><p class="loading" style="color:#c0392b;">${{reason}}</p></div>`;
+                  `<div class="card"><p class="loading" style="color:#DC2626;">${{reason}}</p></div>`;
                 return;
               }}
               const stats = data.stats;
@@ -700,16 +695,16 @@ async def tiktok_callback(request: Request):
               if (stats && stats.total_videos_analyzed > 0) {{
                 const scoreIcon = s => s <= 40 ? '🔴' : s <= 60 ? '🟡' : s <= 80 ? '🟠' : '🔵';
                 const ratioLine = (stats.likes_followers_ratio !== null && stats.likes_followers_ratio !== undefined)
-                  ? `<p style="font-size:12px;color:#999;margin:2px 0 0;">Ratio likes/abonnés : ${{stats.likes_followers_ratio}}</p>`
+                  ? `<p style="font-size:12px;color:#94A3B8;margin:2px 0 0;">Ratio likes/abonnés : ${{stats.likes_followers_ratio}}</p>`
                   : '';
                 html += `
                   <div class="card">
-                    <p style="font-size:28px;font-weight:800;margin:0;">${{scoreIcon(stats.account_virality_score)}} ${{stats.account_virality_score}}/100</p>
-                    <p style="font-size:12px;color:#888;margin:2px 0 12px;">Score de viralité du compte</p>
-                    <p style="font-size:13px;color:#666;">${{stats.total_videos_analyzed}} vidéos analysées (seuil : ${{stats.viral_threshold_views/1000}}k vues)</p>
-                    <div class="bar-bg"><div class="bar-fill" style="width:${{stats.viral_percentage}}%"></div></div>
-                    <p style="margin-top:12px;"><strong>🚀 ${{stats.viral_percentage}}%</strong> vidéos virales &nbsp;|&nbsp; <strong>${{stats.non_viral_percentage}}%</strong> non virales</p>
-                    <p>Taux d'engagement moyen : <strong>${{stats.average_engagement_rate}}%</strong></p>
+                    <p style="font-size:30px;font-weight:800;margin:0;">${{scoreIcon(stats.account_virality_score)}} ${{stats.account_virality_score}}/100</p>
+                    <p style="font-size:12px;color:#64748B;margin:2px 0 14px;">Score de viralité du compte</p>
+                    <p style="font-size:13px;color:#475569;">${{stats.total_videos_analyzed}} vidéos analysées (seuil : ${{stats.viral_threshold_views/1000}}k vues)</p>
+                    <div class="bar-bg" style="margin-top:8px;"><div class="bar-fill" style="width:${{stats.viral_percentage}}%"></div></div>
+                    <p style="margin-top:14px;font-size:14px;"><strong>🚀 ${{stats.viral_percentage}}%</strong> vidéos virales &nbsp;|&nbsp; <strong>${{stats.non_viral_percentage}}%</strong> non virales</p>
+                    <p style="font-size:14px;">Taux d'engagement moyen : <strong>${{stats.average_engagement_rate}}%</strong></p>
                     ${{ratioLine}}
                   </div>`;
 
@@ -717,16 +712,16 @@ async def tiktok_callback(request: Request):
                   window.__wilVideos = stats.videos;
                   window.__wilAvgViews = stats.average_view_count || '';
                   const videoRows = stats.videos.map((v, idx) => `
-                    <div style="display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid #f0f0f0;">
-                      <div style="width:60px;height:84px;flex-shrink:0;border-radius:8px;overflow:hidden;background:#f3f4f6;">
+                    <div style="display:flex; gap:12px; align-items:flex-start; padding:14px 0; border-bottom:1px solid #F1F5F9;">
+                      <div style="width:60px;height:84px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#F1F5F9;">
                         ${{v.cover_image_url ? `<img src="${{v.cover_image_url}}" style="width:100%;height:100%;object-fit:cover;" />` : ''}}
                       </div>
                       <div style="flex:1;min-width:0;">
                         <p style="font-size:13px;font-weight:700;margin:0;">${{scoreIcon(v.virality_score)}} ${{v.virality_score}}/100</p>
-                        <p style="font-size:12px;color:#666;margin:2px 0 8px;">${{v.view_count}} vues</p>
+                        <p style="font-size:12px;color:#64748B;margin:2px 0 8px;">${{v.view_count}} vues</p>
                         <button onclick="analyzeVideo(${{idx}})" id="analyze-btn-${{idx}}"
-                                style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid #ddd;
-                                       background:#fff;cursor:pointer;">
+                                style="font-size:12px;padding:7px 14px;border-radius:999px;border:1px solid #E2E8F0;
+                                       background:#fff;color:#1D4ED8;font-weight:600;cursor:pointer;">
                           Analyser la vidéo
                         </button>
                         <div id="video-analysis-${{idx}}" style="margin-top:8px;font-size:13px;"></div>
@@ -734,8 +729,8 @@ async def tiktok_callback(request: Request):
                     </div>`).join('');
                   videoListHtml = `
                     <div class="card">
-                      <p style="font-weight:bold;margin-bottom:4px;">Détail par vidéo</p>
-                      <p style="font-size:12px;color:#888;margin:0 0 8px;">Vidéos triées par date de publication, comme sur ton profil TikTok. Score de viralité basé sur les vues (0-100), pas sur le taux d'engagement.</p>
+                      <p style="font-weight:700;margin-bottom:4px;">Détail par vidéo</p>
+                      <p style="font-size:12px;color:#64748B;margin:0 0 8px;">Vidéos triées par date de publication, comme sur ton profil TikTok. Score de viralité basé sur les vues (0-100), pas sur le taux d'engagement.</p>
                       <div>${{videoRows}}</div>
                     </div>`;
                 }}
@@ -746,27 +741,27 @@ async def tiktok_callback(request: Request):
                 const improvements = (report.improvements || []).map(s => `<li>${{s}}</li>`).join('');
                 const hashtags = (report.suggested_hashtags || []).map(h => `<span class="tag">#${{h}}</span>`).join('');
                 const hashtagDiag = report.hashtag_diagnosis
-                  ? `<p><strong>🏷 Diagnostic hashtags</strong></p><p style="font-size:14px;">${{report.hashtag_diagnosis}}</p>`
+                  ? `<p style="margin-top:16px;"><strong>🏷 Diagnostic hashtags</strong></p><p style="font-size:14px;">${{report.hashtag_diagnosis}}</p>`
                   : '';
                 const nicheFocus = report.niche_focus_advice
-                  ? `<div style="background:#f9fafb;border-radius:10px;padding:14px;margin:12px 0;">
-                       <p style="font-weight:bold;margin:0 0 8px;">🧭 Plusieurs sujets détectés sur ton compte</p>
+                  ? `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:16px;margin:16px 0;">
+                       <p style="font-weight:700;margin:0 0 8px;">🧭 Plusieurs sujets détectés sur ton compte</p>
                        <div>${{(report.niches_detected || []).map(n => `<span class="tag">${{n}}</span>`).join('')}}</div>
-                       <p style="font-size:14px;margin:8px 0 0;">${{report.niche_focus_advice}}</p>
+                       <p style="font-size:14px;margin:10px 0 0;">${{report.niche_focus_advice}}</p>
                      </div>`
                   : '';
                 html += `
                   <div class="card">
                     <span class="chip">${{report.niche || ''}}</span>
-                    <p style="margin-top:12px;">${{report.summary || ''}}</p>
+                    <p style="margin-top:14px;font-size:15px;line-height:1.5;">${{report.summary || ''}}</p>
                     ${{nicheFocus}}
-                    <p><strong>✅ Points forts</strong></p>
+                    <p style="margin-top:16px;"><strong>✅ Points forts</strong></p>
                     <ul class="bullets">${{strengths}}</ul>
                     <p><strong>📈 À améliorer</strong></p>
                     <ul class="bullets">${{improvements}}</ul>
                     ${{hashtagDiag}}
-                    <p><strong>Hashtags suggérés</strong></p>
-                    <div>${{hashtags}}</div>
+                    <p style="margin-top:16px;"><strong>Hashtags suggérés</strong></p>
+                    <div style="margin-top:6px;">${{hashtags}}</div>
                   </div>`;
 
                 window.__wilNiche = report.niche || '';
@@ -798,7 +793,7 @@ async def tiktok_callback(request: Request):
             }})
             .catch((e) => {{
               document.getElementById('analysis-loading').innerHTML =
-                `<p class="loading" style="color:#c0392b;">Erreur réseau ou serveur injoignable : ${{e && e.message ? e.message : e}}</p>`;
+                `<p class="loading" style="color:#DC2626;">Erreur réseau ou serveur injoignable : ${{e && e.message ? e.message : e}}</p>`;
             }});
 
           // --- Analyse IA d'une vidéo précise (bouton sous chaque vignette) ---
@@ -832,7 +827,7 @@ async def tiktok_callback(request: Request):
               .then(({{ok, status, data}}) => {{
                 if (!ok) {{
                   const reason = (data && data.detail) ? data.detail : `Erreur ${{status}}`;
-                  result.innerHTML = `<p style="color:#c0392b;font-size:12px;">${{reason}}</p>`;
+                  result.innerHTML = `<p style="color:#DC2626;font-size:12px;">${{reason}}</p>`;
                   return;
                 }}
                 const diagnosis = data.main_diagnosis
@@ -853,7 +848,7 @@ async def tiktok_callback(request: Request):
                   <ul class="bullets" style="margin:0;">${{actions}}</ul>`;
               }})
               .catch((e) => {{
-                result.innerHTML = `<p style="color:#c0392b;font-size:12px;">Erreur réseau : ${{e && e.message ? e.message : e}}</p>`;
+                result.innerHTML = `<p style="color:#DC2626;font-size:12px;">Erreur réseau : ${{e && e.message ? e.message : e}}</p>`;
               }})
               .finally(() => {{
                 btn.disabled = false;
