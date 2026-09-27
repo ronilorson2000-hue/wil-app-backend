@@ -363,9 +363,6 @@ def home(request: Request):
             <a href="/services" class="hover:text-slate-900">{tt("nav_services")}</a>
             <a href="#how-it-works" class="hover:text-slate-900">{tt("nav_how_it_works")}</a>
             <a href="#pricing" class="hover:text-slate-900">{tt("nav_pricing")}</a>
-            <a href="#faq" class="hover:text-slate-900">{tt("nav_faq")}</a>
-            <a href="/about" class="hover:text-slate-900">{tt("nav_about")}</a>
-            <a href="/contact" class="hover:text-slate-900">{tt("nav_contact")}</a>
             {lang_menu}
           </div>
           <div class="flex items-center gap-2">
@@ -379,9 +376,6 @@ def home(request: Request):
                 <a href="/services" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_services")}</a>
                 <a href="#how-it-works" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_how_it_works")}</a>
                 <a href="#pricing" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_pricing")}</a>
-                <a href="#faq" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_faq")}</a>
-                <a href="/about" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_about")}</a>
-                <a href="/contact" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_contact")}</a>
                 <div class="border-t border-slate-100 mt-2 pt-2">
                   {lang_menu}
                 </div>
@@ -412,13 +406,13 @@ def home(request: Request):
               {tt("hero_cta")}
             </a>
             <p class="text-xs text-slate-400 mt-4">{tt("trust_line")}</p>
-            <div class="flex flex-col sm:flex-row gap-3 justify-center mt-6">
+            <div class="flex flex-col items-center gap-5 mt-6">
               <a href="/tools/analyze-video"
-                 class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border-2 border-blue-100 text-blue-700 font-semibold text-sm hover:bg-blue-50 transition">
+                 class="inline-block px-[1.95rem] py-[1.17rem] sm:px-[4.68rem] sm:py-[2.34rem] rounded-[0.65rem] sm:rounded-[1.17rem] text-white font-bold text-[0.975rem] sm:text-[1.755rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 🎬 {tt("hero_cta_video")}
               </a>
               <a href="/tools/analyze-script"
-                 class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border-2 border-blue-100 text-blue-700 font-semibold text-sm hover:bg-blue-50 transition">
+                 class="inline-block px-[1.95rem] py-[1.17rem] sm:px-[4.68rem] sm:py-[2.34rem] rounded-[0.65rem] sm:rounded-[1.17rem] text-white font-bold text-[0.975rem] sm:text-[1.755rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 📝 {tt("hero_cta_script")}
               </a>
             </div>
