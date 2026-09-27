@@ -401,18 +401,18 @@ def home(request: Request):
             <p class="text-lg text-slate-500 mb-10 leading-relaxed">
               {tt("hero_subtitle")}
             </p>
-            <a href="/auth/tiktok/login"
-               class="inline-block px-[1.95rem] py-[1.17rem] sm:px-[4.68rem] sm:py-[2.34rem] rounded-[0.65rem] sm:rounded-[1.17rem] text-white font-bold text-[0.975rem] sm:text-[1.755rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
-              {tt("hero_cta")}
-            </a>
-            <p class="text-xs text-slate-400 mt-4">{tt("trust_line")}</p>
-            <div class="flex flex-col items-center gap-5 mt-6">
+            <div class="flex flex-col items-center gap-4">
+              <a href="/auth/tiktok/login"
+                 class="w-full max-w-sm mx-auto flex items-center justify-center gap-2 px-6 py-[0.9945rem] sm:py-[1.989rem] rounded-[0.5525rem] sm:rounded-[0.9945rem] text-white font-bold text-[0.82875rem] sm:text-[1.49175rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
+                {tt("hero_cta")}
+              </a>
+              <p class="text-xs text-slate-400 -mt-1">{tt("trust_line")}</p>
               <a href="/tools/analyze-video"
-                 class="inline-block px-[1.95rem] py-[1.17rem] sm:px-[4.68rem] sm:py-[2.34rem] rounded-[0.65rem] sm:rounded-[1.17rem] text-white font-bold text-[0.975rem] sm:text-[1.755rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
+                 class="w-full max-w-sm mx-auto flex items-center justify-center gap-2 px-6 py-[0.9945rem] sm:py-[1.989rem] rounded-[0.5525rem] sm:rounded-[0.9945rem] text-white font-bold text-[0.82875rem] sm:text-[1.49175rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 🎬 {tt("hero_cta_video")}
               </a>
               <a href="/tools/analyze-script"
-                 class="inline-block px-[1.95rem] py-[1.17rem] sm:px-[4.68rem] sm:py-[2.34rem] rounded-[0.65rem] sm:rounded-[1.17rem] text-white font-bold text-[0.975rem] sm:text-[1.755rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
+                 class="w-full max-w-sm mx-auto flex items-center justify-center gap-2 px-6 py-[0.9945rem] sm:py-[1.989rem] rounded-[0.5525rem] sm:rounded-[0.9945rem] text-white font-bold text-[0.82875rem] sm:text-[1.49175rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 📝 {tt("hero_cta_script")}
               </a>
             </div>
@@ -436,8 +436,7 @@ def home(request: Request):
               <div class="reveal bg-slate-50 border border-slate-100 rounded-2xl p-7" style="transition-delay:0.12s">
                 <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-8 h-8">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4" d="M8 13l2-2 2 1.5 3-3.5" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
                   </svg>
                 </div>
                 <h3 class="font-bold text-base mb-2">{tt("hiw_2_title")}</h3>
@@ -446,7 +445,7 @@ def home(request: Request):
               <div class="reveal bg-slate-50 border border-slate-100 rounded-2xl p-7" style="transition-delay:0.24s">
                 <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-8 h-8">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
                 </div>
                 <h3 class="font-bold text-base mb-2">{tt("hiw_3_title")}</h3>
@@ -636,21 +635,26 @@ def services_page(request: Request):
         {_secondary_page_nav_html(lang, "/services")}
         <div class="max-w-5xl mx-auto px-6 py-16">
           <h1 class="text-3xl font-bold text-center mb-14">{tt("services_title")}</h1>
-          <div class="grid sm:grid-cols-3 gap-6">
+          <div class="grid sm:grid-cols-2 gap-6">
             <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
               <div class="text-2xl mb-3">📊</div>
               <h3 class="font-bold text-base mb-2">{tt("services_1_title")}</h3>
               <p class="text-slate-500 text-sm leading-relaxed">{tt("services_1_desc")}</p>
             </div>
             <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-              <div class="text-2xl mb-3">🔒</div>
+              <div class="text-2xl mb-3">🎬</div>
               <h3 class="font-bold text-base mb-2">{tt("services_2_title")}</h3>
               <p class="text-slate-500 text-sm leading-relaxed">{tt("services_2_desc")}</p>
             </div>
             <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-              <div class="text-2xl mb-3">🎯</div>
+              <div class="text-2xl mb-3">📝</div>
               <h3 class="font-bold text-base mb-2">{tt("services_3_title")}</h3>
               <p class="text-slate-500 text-sm leading-relaxed">{tt("services_3_desc")}</p>
+            </div>
+            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
+              <div class="text-2xl mb-3">💡</div>
+              <h3 class="font-bold text-base mb-2">{tt("services_4_title")}</h3>
+              <p class="text-slate-500 text-sm leading-relaxed">{tt("services_4_desc")}</p>
             </div>
           </div>
         </div>
