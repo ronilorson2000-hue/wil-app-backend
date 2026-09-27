@@ -48,6 +48,7 @@ TRANSLATIONS = {
         "hero_title_2": "ou pas",
         "hero_subtitle": "Des analyses et des conseils pour créateurs TikTok. Connecte ton compte et reçois un diagnostic clair de ta viralité, tes hashtags et tes accroches.",
         "hero_cta": "Se connecter avec TikTok",
+        "trust_line": "🔒 Connexion sécurisée directement via TikTok — nous ne voyons ni ne stockons jamais ton mot de passe.",
 
         "hiw_title": "Comment ça marche",
         "hiw_1_title": "Connecte ton compte TikTok",
@@ -183,6 +184,7 @@ TRANSLATIONS = {
         "hero_title_2": "or don't",
         "hero_subtitle": "Analytics and insights for TikTok creators. Connect your account and get a clear diagnosis of your virality, hashtags and hooks.",
         "hero_cta": "Log in with TikTok",
+        "trust_line": "🔒 Secure login directly through TikTok — we never see or store your password.",
 
         "hiw_title": "How It Works",
         "hiw_1_title": "Connect your TikTok account",
@@ -318,6 +320,7 @@ TRANSLATIONS = {
         "hero_title_2": "oder nicht",
         "hero_subtitle": "Analysen und Erkenntnisse für TikTok-Creator. Verbinden Sie Ihr Konto und erhalten Sie eine klare Diagnose Ihrer Viralität, Hashtags und Hooks.",
         "hero_cta": "Mit TikTok anmelden",
+        "trust_line": "🔒 Sichere Anmeldung direkt über TikTok — wir sehen und speichern Ihr Passwort niemals.",
 
         "hiw_title": "So funktioniert's",
         "hiw_1_title": "Verbinden Sie Ihr TikTok-Konto",
@@ -453,6 +456,7 @@ TRANSLATIONS = {
         "hero_title_2": "o no",
         "hero_subtitle": "Analítica e información para creadores de TikTok. Conecte su cuenta y reciba un diagnóstico claro de su viralidad, hashtags y ganchos.",
         "hero_cta": "Iniciar sesión con TikTok",
+        "trust_line": "🔒 Inicio de sesión seguro directamente a través de TikTok — nunca vemos ni almacenamos tu contraseña.",
 
         "hiw_title": "Cómo funciona",
         "hiw_1_title": "Conecte su cuenta de TikTok",
@@ -588,6 +592,7 @@ TRANSLATIONS = {
         "hero_title_2": "ou não",
         "hero_subtitle": "Análises e informações para criadores de TikTok. Conecte a sua conta e receba um diagnóstico claro da sua viralidade, hashtags e ganchos.",
         "hero_cta": "Entrar com o TikTok",
+        "trust_line": "🔒 Início de sessão seguro diretamente através do TikTok — nunca vemos nem guardamos a tua palavra-passe.",
 
         "hiw_title": "Como funciona",
         "hiw_1_title": "Conecte a sua conta do TikTok",
@@ -723,6 +728,7 @@ TRANSLATIONS = {
         "hero_title_2": "o no",
         "hero_subtitle": "Analisi e approfondimenti per i creator TikTok. Collega il tuo account e ricevi una diagnosi chiara della tua viralità, degli hashtag e degli hook.",
         "hero_cta": "Accedi con TikTok",
+        "trust_line": "🔒 Accesso sicuro direttamente tramite TikTok — non vediamo né memorizziamo mai la tua password.",
 
         "hiw_title": "Come funziona",
         "hiw_1_title": "Collega il tuo account TikTok",

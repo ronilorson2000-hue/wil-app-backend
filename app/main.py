@@ -391,6 +391,7 @@ def home(request: Request):
                class="inline-block px-6 py-[0.9rem] sm:px-[3.6rem] sm:py-[1.8rem] rounded-lg sm:rounded-[0.9rem] text-white font-bold text-xs sm:text-[1.35rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
               {tt("hero_cta")}
             </a>
+            <p class="text-xs text-slate-400 mt-4">{tt("trust_line")}</p>
           </header>
         </div>
 
@@ -441,6 +442,7 @@ def home(request: Request):
                   <li>✔ {tt("pricing_free_feature2")}</li>
                 </ul>
                 <a href="/auth/tiktok/login" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">{tt("pricing_free_cta")}</a>
+                <p class="text-xs text-slate-400 mt-3">{tt("trust_line")}</p>
               </div>
               <div class="reveal border-2 border-blue-600 rounded-2xl p-8 text-center relative flex flex-col" style="transition-delay:0.12s">
                 <h3 class="font-bold text-lg mb-2">{tt("pricing_pro_name")}</h3>
