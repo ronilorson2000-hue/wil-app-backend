@@ -412,6 +412,16 @@ def home(request: Request):
               {tt("hero_cta")}
             </a>
             <p class="text-xs text-slate-400 mt-4">{tt("trust_line")}</p>
+            <div class="flex flex-col sm:flex-row gap-3 justify-center mt-6">
+              <a href="/tools/analyze-video"
+                 class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border-2 border-blue-100 text-blue-700 font-semibold text-sm hover:bg-blue-50 transition">
+                🎬 {tt("hero_cta_video")}
+              </a>
+              <a href="/tools/analyze-script"
+                 class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border-2 border-blue-100 text-blue-700 font-semibold text-sm hover:bg-blue-50 transition">
+                📝 {tt("hero_cta_script")}
+              </a>
+            </div>
           </header>
         </div>
 
