@@ -635,7 +635,7 @@ def services_page(request: Request):
         {_secondary_page_nav_html(lang, "/services")}
         <div class="max-w-5xl mx-auto px-6 py-16">
           <h1 class="text-3xl font-bold text-center mb-14">{tt("services_title")}</h1>
-          <div class="grid sm:grid-cols-2 gap-6">
+          <div class="grid sm:grid-cols-3 gap-6">
             <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
               <div class="text-2xl mb-3">📊</div>
               <h3 class="font-bold text-base mb-2">{tt("services_1_title")}</h3>
@@ -650,11 +650,6 @@ def services_page(request: Request):
               <div class="text-2xl mb-3">📝</div>
               <h3 class="font-bold text-base mb-2">{tt("services_3_title")}</h3>
               <p class="text-slate-500 text-sm leading-relaxed">{tt("services_3_desc")}</p>
-            </div>
-            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-              <div class="text-2xl mb-3">💡</div>
-              <h3 class="font-bold text-base mb-2">{tt("services_4_title")}</h3>
-              <p class="text-slate-500 text-sm leading-relaxed">{tt("services_4_desc")}</p>
             </div>
           </div>
         </div>
@@ -970,10 +965,6 @@ async def tiktok_callback(request: Request):
           <button onclick="location.href='/tools/analyze-script'"
                   class="btn-pill">
             📝 {tt("dash_btn_analyze_script")}
-          </button>
-          <button onclick="location.href='/tools/trending-ideas?niche_category='+encodeURIComponent(window.__wilNicheCategory||'')+'&lang='+encodeURIComponent(window.__wilLang||'fr')"
-                  class="btn-pill">
-            💡 {tt("dash_btn_trending_ideas")}
           </button>
         </div>
 
