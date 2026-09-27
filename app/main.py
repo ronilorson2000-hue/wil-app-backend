@@ -403,16 +403,16 @@ def home(request: Request):
             </p>
             <div class="flex flex-col items-center gap-4">
               <a href="/auth/tiktok/login"
-                 class="w-full max-w-sm mx-auto flex items-center justify-center gap-2 px-6 py-[0.9945rem] sm:py-[1.989rem] rounded-[0.5525rem] sm:rounded-[0.9945rem] text-white font-bold text-[0.82875rem] sm:text-[1.49175rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
+                 class="w-full max-w-sm sm:max-w-[19.2rem] mx-auto flex items-center justify-center gap-2 px-[1.875rem] sm:px-[1.2rem] py-[1.243125rem] sm:py-[1.5912rem] rounded-[0.690625rem] sm:rounded-[0.7956rem] text-white font-bold text-[1.0359375rem] sm:text-[1.1934rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 {tt("hero_cta")}
               </a>
               <p class="text-xs text-slate-400 -mt-1">{tt("trust_line")}</p>
               <a href="/tools/analyze-video"
-                 class="w-full max-w-sm mx-auto flex items-center justify-center gap-2 px-6 py-[0.9945rem] sm:py-[1.989rem] rounded-[0.5525rem] sm:rounded-[0.9945rem] text-white font-bold text-[0.82875rem] sm:text-[1.49175rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
+                 class="w-full max-w-sm sm:max-w-[19.2rem] mx-auto flex items-center justify-center gap-2 px-[1.875rem] sm:px-[1.2rem] py-[1.243125rem] sm:py-[1.5912rem] rounded-[0.690625rem] sm:rounded-[0.7956rem] text-white font-bold text-[1.0359375rem] sm:text-[1.1934rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 🎬 {tt("hero_cta_video")}
               </a>
               <a href="/tools/analyze-script"
-                 class="w-full max-w-sm mx-auto flex items-center justify-center gap-2 px-6 py-[0.9945rem] sm:py-[1.989rem] rounded-[0.5525rem] sm:rounded-[0.9945rem] text-white font-bold text-[0.82875rem] sm:text-[1.49175rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
+                 class="w-full max-w-sm sm:max-w-[19.2rem] mx-auto flex items-center justify-center gap-2 px-[1.875rem] sm:px-[1.2rem] py-[1.243125rem] sm:py-[1.5912rem] rounded-[0.690625rem] sm:rounded-[0.7956rem] text-white font-bold text-[1.0359375rem] sm:text-[1.1934rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 📝 {tt("hero_cta_script")}
               </a>
             </div>
