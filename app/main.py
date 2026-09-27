@@ -1484,43 +1484,90 @@ _LEGAL_STYLE = """
 
 @app.get("/terms", response_class=HTMLResponse)
 def terms_of_service():
-    """Page des Conditions d'utilisation, hébergée directement sur ce domaine."""
+    """
+    Page des Conditions Générales d'Utilisation (CGU), hébergée
+    directement sur ce domaine. Rédigée en français, sur mesure pour le
+    fonctionnement réel de Wil App (connexion TikTok OAuth, analyses IA
+    de compte/vidéo/script, upload volontaire jamais scraping — voir la
+    politique déjà établie pour /api/analyze-transcript). Volontairement
+    non traduite pour l'instant (contrairement au reste de l'app) : une
+    traduction juridique demande une rigueur et une relecture
+    différentes d'une traduction d'interface.
+    """
     return f"""
-    <html>
+    <html lang="fr">
     <head>
-      <title>Wil App Terms of Service</title>
+      <title>CGU — Wil App</title>
       <link rel="icon" type="image/x-icon" href="/favicon.ico">
+      <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <style>{_LEGAL_STYLE}</style>
     </head>
     <body>
-    <h1>Wil App Terms of Service</h1>
-    <p><em>Last updated: July 2026</em></p>
+    <p><a href="/">← Retour à l'accueil</a></p>
+    <h1>Conditions Générales d'Utilisation</h1>
+    <p><em>Dernière mise à jour : septembre 2026</em></p>
 
-    <p>Welcome to Wil App. These Terms of Service ("Terms") govern your use of the Wil App application and website (the "Service"). By using the Service, you agree to these Terms.</p>
+    <p>Les présentes Conditions Générales d'Utilisation (« CGU ») régissent l'accès et l'utilisation de l'application Wil App (le « Service »), accessible à l'adresse wilapp.tech. En utilisant le Service, vous acceptez sans réserve les présentes CGU.</p>
 
-    <h2>1. Description of the Service</h2>
-    <p>Wil App allows users to connect their TikTok account in order to receive analytics and insights about their own content and account performance. The Service uses TikTok's official APIs to retrieve information that the user has explicitly authorized.</p>
+    <h2>1. Objet et description du service</h2>
+    <p>Wil App est un outil d'analyse propulsé par l'intelligence artificielle destiné aux créateurs de contenu TikTok. Le Service permet notamment de :</p>
+    <ul>
+      <li>connecter son compte TikTok pour obtenir un diagnostic automatique (score de viralité, taux d'engagement, points forts, points à améliorer, hashtags suggérés) ;</li>
+      <li>analyser une vidéo (déjà publiée ou non) importée manuellement par l'utilisateur, avec transcription du contenu parlé ;</li>
+      <li>analyser le script d'une vidéo pas encore tournée.</li>
+    </ul>
+    <p>Les rapports sont générés par un modèle d'intelligence artificielle (Claude, développé par Anthropic) à partir des données que vous fournissez ou des données réellement récupérées via l'API officielle de TikTok.</p>
 
-    <h2>2. Account Connection</h2>
-    <p>To use core features of the Service, you must authorize Wil App to access your TikTok account through TikTok's official Login Kit. You may revoke this authorization at any time from your TikTok account settings.</p>
+    <h2>2. Connexion et accès au compte</h2>
+    <p>L'accès aux fonctionnalités liées à l'analyse de compte nécessite une connexion via le Login Kit officiel de TikTok (protocole OAuth). Wil App n'a et ne demande jamais accès à votre mot de passe TikTok. Vous pouvez révoquer l'autorisation donnée à Wil App à tout moment depuis les paramètres de connexions tierces de votre compte TikTok.</p>
 
-    <h2>3. User Responsibilities</h2>
-    <p>You agree to use the Service only for lawful purposes and in accordance with TikTok's own Terms of Service and Developer Policies.</p>
+    <h2>3. Contenu importé par l'utilisateur</h2>
+    <p>Lorsque vous importez un fichier vidéo ou un texte de script pour analyse, vous garantissez :</p>
+    <ul>
+      <li>être titulaire des droits sur ce contenu, ou disposer des autorisations nécessaires pour l'utiliser (y compris pour le contenu d'un autre créateur, à condition de l'avoir obtenu légalement — jamais par extraction automatisée depuis un simple lien) ;</li>
+      <li>que ce contenu ne viole aucune loi, aucun droit de tiers, ni les règles de la communauté TikTok.</li>
+    </ul>
+    <p>Wil App ne collecte, ne télécharge et ne scrape aucune vidéo directement depuis TikTok à l'insu de l'utilisateur : chaque fichier ou texte analysé est fourni volontairement par vous.</p>
 
-    <h2>4. Data Usage</h2>
-    <p>Data retrieved from your TikTok account is used solely to provide you with analytics and insights within the Service. See our <a href="/privacy">Privacy Policy</a> for full details.</p>
+    <h2>4. Usage autorisé</h2>
+    <p>Vous vous engagez à utiliser le Service à des fins strictement personnelles et légales, et à ne pas :</p>
+    <ul>
+      <li>tenter de contourner les limites techniques du Service (par exemple la limite de mots pour l'analyse de script) ;</li>
+      <li>utiliser le Service à des fins d'ingénierie inverse, de revente, ou d'extraction automatisée massive des rapports générés ;</li>
+      <li>utiliser le Service pour analyser du contenu que vous n'avez pas le droit d'utiliser.</li>
+    </ul>
 
-    <h2>5. Disclaimer</h2>
-    <p>The Service is provided "as is" without warranties of any kind. Wil App is not affiliated with, endorsed by, or sponsored by TikTok or ByteDance Ltd.</p>
+    <h2>5. Offres et tarifs</h2>
+    <p>Le Service propose actuellement une offre gratuite (« Free ») donnant accès à la connexion du compte et à un aperçu de profil de base. Une offre payante (« Pro »), avec des analyses avancées et un support prioritaire, sera proposée ultérieurement ; ses conditions tarifaires seront communiquées avant sa mise en disponibilité.</p>
 
-    <h2>6. Changes to These Terms</h2>
-    <p>We may update these Terms from time to time. Continued use of the Service after changes constitutes acceptance of the new Terms.</p>
+    <h2>6. Nature des analyses fournies</h2>
+    <p>Les scores, diagnostics et conseils fournis par Wil App sont générés automatiquement par une intelligence artificielle à partir des données disponibles. Ils constituent une aide à la décision et ne garantissent en aucun cas un résultat (augmentation de vues, d'abonnés ou de revenus). Wil App ne peut être tenu responsable des décisions prises sur la base de ces analyses.</p>
 
-    <h2>7. Contact</h2>
-    <p>Questions? Contact us at <a href="mailto:contact.wilapp@proton.me">contact.wilapp@proton.me</a>.</p>
+    <h2>7. Propriété intellectuelle</h2>
+    <p>L'application, sa marque, son design et son code restent la propriété exclusive de Wil App. Les rapports générés pour votre compte vous sont fournis pour votre usage personnel ; vous en conservez le contenu, sans que cela ne vous transfère de droit sur la plateforme elle-même.</p>
 
-    <footer>Wil App — Terms of Service</footer>
+    <h2>8. Disponibilité et évolution du service</h2>
+    <p>Wil App est un projet en développement actif. Certaines fonctionnalités peuvent être ajoutées, modifiées ou temporairement retirées sans préavis. Nous nous efforçons d'assurer la continuité du Service mais ne garantissons pas une disponibilité ininterrompue.</p>
+
+    <h2>9. Limitation de responsabilité</h2>
+    <p>Le Service est fourni « en l'état ». Wil App n'est ni affilié, ni sponsorisé, ni approuvé par TikTok ou ByteDance Ltd. Dans les limites permises par la loi, Wil App décline toute responsabilité pour les dommages indirects résultant de l'utilisation du Service.</p>
+
+    <h2>10. Résiliation</h2>
+    <p>Vous pouvez cesser d'utiliser le Service à tout moment en révoquant l'accès depuis les paramètres de votre compte TikTok. Wil App se réserve le droit de suspendre l'accès d'un utilisateur en cas d'usage abusif ou de non-respect des présentes CGU.</p>
+
+    <h2>11. Modification des CGU</h2>
+    <p>Les présentes CGU peuvent être mises à jour à tout moment. La poursuite de l'utilisation du Service après une modification vaut acceptation des nouvelles conditions.</p>
+
+    <h2>12. Droit applicable</h2>
+    <p>Les présentes CGU sont soumises au droit applicable au lieu d'établissement de l'éditeur du Service.</p>
+
+    <h2>13. Contact</h2>
+    <p>Pour toute question relative aux présentes CGU, contactez-nous à <a href="mailto:contact.wilapp@proton.me">contact.wilapp@proton.me</a> ou via <a href="https://wa.me/447446953451" target="_blank" rel="noopener">WhatsApp</a>.</p>
+
+    <p><a href="/privacy">Consulter aussi notre Politique de confidentialité →</a></p>
+
+    <footer>Wil App — Conditions Générales d'Utilisation</footer>
     </body>
     </html>
     """
