@@ -89,7 +89,7 @@ TRANSLATIONS = {
         "footer_whatsapp": "WhatsApp",
         "footer_col_product": "Produit",
         "footer_col_info": "Informations",
-        "footer_terms": "CGU",
+        "footer_terms": "Terms of Service",
         "footer_privacy": "Privacy Policy",
         "footer_rights": "Tous droits réservés.",
 

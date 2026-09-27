@@ -1485,7 +1485,9 @@ _LEGAL_STYLE = """
 @app.get("/terms", response_class=HTMLResponse)
 def terms_of_service():
     """
-    Page des Conditions Générales d'Utilisation (CGU), hébergée
+    Page des Terms of Service (tout regroupé dans un seul document, y
+    compris les futures conditions de vente du plan Pro, plutôt que des
+    CGU/CGV séparées — choix explicite de l'utilisateur), hébergée
     directement sur ce domaine. Rédigée en français, sur mesure pour le
     fonctionnement réel de Wil App (connexion TikTok OAuth, analyses IA
     de compte/vidéo/script, upload volontaire jamais scraping — voir la
@@ -1497,7 +1499,7 @@ def terms_of_service():
     return f"""
     <html lang="fr">
     <head>
-      <title>CGU — Wil App</title>
+      <title>Terms of Service — Wil App</title>
       <link rel="icon" type="image/x-icon" href="/favicon.ico">
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1505,10 +1507,10 @@ def terms_of_service():
     </head>
     <body>
     <p><a href="/">← Retour à l'accueil</a></p>
-    <h1>Conditions Générales d'Utilisation</h1>
+    <h1>Terms of Service</h1>
     <p><em>Dernière mise à jour : septembre 2026</em></p>
 
-    <p>Les présentes Conditions Générales d'Utilisation (« CGU ») régissent l'accès et l'utilisation de l'application Wil App (le « Service »), accessible à l'adresse wilapp.tech. En utilisant le Service, vous acceptez sans réserve les présentes CGU.</p>
+    <p>Les présentes Terms of Service (« Conditions ») régissent l'accès et l'utilisation de l'application Wil App (le « Service »), accessible à l'adresse wilapp.tech. En utilisant le Service, vous acceptez sans réserve les présentes Conditions. Elles couvrent aussi bien les règles d'usage du Service que, le cas échéant, les conditions applicables à l'offre payante Pro.</p>
 
     <h2>1. Objet et description du service</h2>
     <p>Wil App est un outil d'analyse propulsé par l'intelligence artificielle destiné aux créateurs de contenu TikTok. Le Service permet notamment de :</p>
@@ -1554,20 +1556,20 @@ def terms_of_service():
     <p>Le Service est fourni « en l'état ». Wil App n'est ni affilié, ni sponsorisé, ni approuvé par TikTok ou ByteDance Ltd. Dans les limites permises par la loi, Wil App décline toute responsabilité pour les dommages indirects résultant de l'utilisation du Service.</p>
 
     <h2>10. Résiliation</h2>
-    <p>Vous pouvez cesser d'utiliser le Service à tout moment en révoquant l'accès depuis les paramètres de votre compte TikTok. Wil App se réserve le droit de suspendre l'accès d'un utilisateur en cas d'usage abusif ou de non-respect des présentes CGU.</p>
+    <p>Vous pouvez cesser d'utiliser le Service à tout moment en révoquant l'accès depuis les paramètres de votre compte TikTok. Wil App se réserve le droit de suspendre l'accès d'un utilisateur en cas d'usage abusif ou de non-respect des présentes Conditions.</p>
 
-    <h2>11. Modification des CGU</h2>
-    <p>Les présentes CGU peuvent être mises à jour à tout moment. La poursuite de l'utilisation du Service après une modification vaut acceptation des nouvelles conditions.</p>
+    <h2>11. Modification des présentes Conditions</h2>
+    <p>Les présentes Terms of Service peuvent être mises à jour à tout moment. La poursuite de l'utilisation du Service après une modification vaut acceptation des nouvelles conditions.</p>
 
     <h2>12. Droit applicable</h2>
-    <p>Les présentes CGU sont soumises au droit applicable au lieu d'établissement de l'éditeur du Service.</p>
+    <p>Les présentes Conditions sont soumises au droit applicable au lieu d'établissement de l'éditeur du Service.</p>
 
     <h2>13. Contact</h2>
-    <p>Pour toute question relative aux présentes CGU, contactez-nous à <a href="mailto:contact.wilapp@proton.me">contact.wilapp@proton.me</a> ou via <a href="https://wa.me/447446953451" target="_blank" rel="noopener">WhatsApp</a>.</p>
+    <p>Pour toute question relative aux présentes Terms of Service, contactez-nous à <a href="mailto:contact.wilapp@proton.me">contact.wilapp@proton.me</a> ou via <a href="https://wa.me/447446953451" target="_blank" rel="noopener">WhatsApp</a>.</p>
 
     <p><a href="/privacy">Consulter aussi notre Politique de confidentialité →</a></p>
 
-    <footer>Wil App — Conditions Générales d'Utilisation</footer>
+    <footer>Wil App — Terms of Service</footer>
     </body>
     </html>
     """
