@@ -395,8 +395,8 @@ def home(request: Request):
             <div class="inline-block px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold mb-6">
               {tt("hero_badge")}
             </div>
-            <h1 class="text-5xl font-extrabold tracking-tight leading-tight mb-5">
-              {tt("hero_title_1")}<span class="text-sky-400">{tt("hero_title_2")}</span>
+            <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight mb-5">
+              {tt("hero_title_1")}<span class="italic bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{tt("hero_title_2")}</span>
             </h1>
             <p class="text-lg text-slate-500 mb-10 leading-relaxed">
               {tt("hero_subtitle")}
