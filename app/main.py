@@ -192,6 +192,29 @@ NICHE_CATEGORIES = [
     "Autre",
 ]
 
+# Un emoji par catégorie, purement décoratif (choix visuel des boutons du
+# mini-questionnaire sur /tools/analyze-video) — n'affecte jamais le
+# contenu envoyé à l'IA, seulement l'affichage du bouton.
+NICHE_EMOJIS = {
+    "Beauté & Skincare": "💄",
+    "Mode & Style": "👗",
+    "Fitness & Sport": "🏋️",
+    "Cuisine & Nutrition": "🍳",
+    "Voyage": "✈️",
+    "Humour & Divertissement": "😂",
+    "Musique & Danse": "🎵",
+    "Gaming & Tech": "🎮",
+    "Business & Finance": "💼",
+    "Développement personnel": "🌱",
+    "Éducation & Culture générale": "📚",
+    "Lifestyle & Vlog quotidien": "📱",
+    "Parentalité & Famille": "👨‍👩‍👧",
+    "Art & Créativité": "🎨",
+    "Animaux": "🐾",
+    "Santé & Bien-être": "🧘",
+    "Autre": "✨",
+}
+
 
 def _detect_language(bio: str, titles: list[str]) -> str:
     """
@@ -1215,9 +1238,27 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
     transcription réelle). Reçoit le contexte du compte (niche, moyenne de
     vues) en paramètres d'URL, transmis par le tableau de bord au clic sur
     le bouton "Analyser la vidéo" — cette page n'a plus besoin de session.
+
+    Parcours en plusieurs écrans façon "onboarding" (mini-questionnaire
+    niche/défi -> upload -> chargement par étapes -> résultat en onglets),
+    inspiré de la structure d'une app concurrente ("Go Viral") — mais SANS
+    ses statistiques de vues/likes prédites ni son graphique de simulation,
+    qui sont fabriqués (vérifié en analysant plusieurs vidéos dans leur
+    app : même animation générique à chaque fois, aucun vrai calcul
+    derrière). Wil App affiche à la place un vrai score de viralité basé
+    sur l'analyse réelle du hook/rythme (RÈGLE D'OR N°1 : jamais inventé).
     """
     lang = _detect_ui_lang(request)
     tt = lambda key: t(lang, key)  # noqa: E731
+
+    niche_buttons = "".join(
+        f'''<button type="button" class="niche-btn" onclick="selectNiche('{n}', this)">
+              <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
+              <span>{n}</span>
+            </button>'''
+        for n in NICHE_CATEGORIES
+    )
+
     return f"""
     <html lang="{lang}">
       <head>
@@ -1225,73 +1266,377 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>{_TOOL_PAGE_STYLE}</style>
-      </head>
-      <body>
-        <div class="wrap">
-          <a href="/" class="back">{tt("back_home")}</a>
-          <h1>{tt("tool_video_title")}</h1>
-          <p class="subtitle">{tt("tool_video_subtitle")}</p>
-          <div class="card">
-            <input id="upload-video-input" type="file" accept="video/*" />
-            <button id="upload-analyze-btn" class="primary" onclick="analyzeUploadedVideo()">{tt("tool_video_analyze_btn")}</button>
-            <div id="upload-analyze-result" style="margin-top:14px; text-align:left;"></div>
-          </div>
-        </div>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+        <script src="https://cdn.tailwindcss.com"></script>
         <script>
-          const nicheCategory = "{niche_category}";
+          tailwind.config = {{ theme: {{ extend: {{ fontFamily: {{ sans: ['Inter', 'system-ui', 'sans-serif'] }} }} }} }};
+        </script>
+        <style>
+          body {{ font-family: 'Inter', system-ui, sans-serif; background: #F8FAFC; }}
+          .step {{ display: none; }}
+          .step.active {{ display: block; }}
+          .progress-track {{ background: #E2E8F0; border-radius: 999px; height: 6px; overflow: hidden; }}
+          .progress-fill {{ background: linear-gradient(90deg, #2563EB, #38BDF8); height: 100%; border-radius: 999px; transition: width 0.3s ease; }}
+          .niche-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }}
+          .niche-btn {{ display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: #F1F5F9; border: 2px solid transparent; font-size: 13px; font-weight: 600; color: #334155; text-align: left; cursor: pointer; transition: all 0.15s ease; }}
+          .niche-btn.selected {{ background: #0F172A; color: #fff; border-color: #0F172A; }}
+          .challenge-btn {{ display: block; width: 100%; padding: 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; transition: all 0.15s ease; margin-bottom: 12px; }}
+          .challenge-btn.selected {{ background: #0F172A; border-color: #0F172A; }}
+          .challenge-btn.selected .challenge-title {{ color: #fff; }}
+          .challenge-btn.selected .challenge-desc {{ color: #CBD5E1; }}
+          .challenge-title {{ font-weight: 700; font-size: 15px; color: #0F172A; }}
+          .challenge-desc {{ font-size: 13px; color: #64748B; margin-top: 2px; }}
+          .glow-thumb {{ position: relative; width: 160px; margin: 0 auto; }}
+          .glow-thumb::before {{ content: ''; position: absolute; inset: -20px; background: radial-gradient(circle, rgba(37,99,235,0.25), transparent 70%); border-radius: 24px; z-index: 0; }}
+          .glow-thumb img {{ position: relative; z-index: 1; width: 100%; border-radius: 16px; box-shadow: 0 8px 24px rgba(15,23,42,0.15); object-fit: cover; aspect-ratio: 9/16; background: #E2E8F0; }}
+          .tab-btn {{ flex: 1; text-align: center; padding: 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #64748B; cursor: pointer; }}
+          .tab-btn.active {{ background: #0F172A; color: #fff; }}
+          .insight-card {{ background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 18px; margin-bottom: 12px; }}
+          .copy-btn {{ cursor: pointer; color: #94A3B8; }}
+          .copy-btn:hover {{ color: #2563EB; }}
+          .improve-icon {{ width: 40px; height: 40px; border-radius: 10px; background: #EFF6FF; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }}
+        </style>
+      </head>
+      <body class="text-slate-900">
+        <div class="max-w-md mx-auto px-5 py-6">
+
+          <!-- ÉTAPE 1 : niche -->
+          <div id="step-niche" class="step active">
+            <div class="flex items-center gap-3 mb-6">
+              <a href="/" class="text-slate-400 hover:text-slate-700">←</a>
+              <div class="progress-track flex-1"><div class="progress-fill" style="width:33%"></div></div>
+            </div>
+            <h1 class="text-xl font-extrabold mb-1">{tt("onboarding_niche_title")}</h1>
+            <p class="text-sm text-slate-500 mb-6">{tt("onboarding_niche_subtitle")}</p>
+            <div class="niche-grid">{niche_buttons}</div>
+            <button id="niche-next-btn" disabled onclick="goToStep('step-challenge', 66)"
+                    class="w-full mt-6 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
+              {tt("onboarding_next")}
+            </button>
+          </div>
+
+          <!-- ÉTAPE 2 : plus gros défi -->
+          <div id="step-challenge" class="step">
+            <div class="flex items-center gap-3 mb-6">
+              <a href="#" onclick="goToStep('step-niche', 33); return false;" class="text-slate-400 hover:text-slate-700">←</a>
+              <div class="progress-track flex-1"><div class="progress-fill" style="width:66%"></div></div>
+            </div>
+            <h1 class="text-xl font-extrabold mb-6">{tt("onboarding_challenge_title")}</h1>
+            <button type="button" class="challenge-btn" onclick="selectChallenge('followers', this)">
+              <div class="challenge-title">👤 {tt("onboarding_challenge_followers_title")}</div>
+              <div class="challenge-desc">{tt("onboarding_challenge_followers_desc")}</div>
+            </button>
+            <button type="button" class="challenge-btn" onclick="selectChallenge('engagement', this)">
+              <div class="challenge-title">💬 {tt("onboarding_challenge_engagement_title")}</div>
+              <div class="challenge-desc">{tt("onboarding_challenge_engagement_desc")}</div>
+            </button>
+            <button type="button" class="challenge-btn" onclick="selectChallenge('reach', this)">
+              <div class="challenge-title">▶️ {tt("onboarding_challenge_reach_title")}</div>
+              <div class="challenge-desc">{tt("onboarding_challenge_reach_desc")}</div>
+            </button>
+            <button id="challenge-next-btn" disabled onclick="goToStep('step-upload', 100)"
+                    class="w-full mt-2 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
+              {tt("onboarding_next")}
+            </button>
+          </div>
+
+          <!-- ÉTAPE 3 : upload -->
+          <div id="step-upload" class="step">
+            <div class="flex items-center gap-3 mb-6">
+              <a href="#" onclick="goToStep('step-challenge', 66); return false;" class="text-slate-400 hover:text-slate-700">←</a>
+              <div class="progress-track flex-1"><div class="progress-fill" style="width:100%"></div></div>
+            </div>
+            <h1 class="text-xl font-extrabold mb-1">{tt("tool_video_title")}</h1>
+            <p class="text-sm text-slate-500 mb-6">{tt("tool_video_subtitle")}</p>
+            <label for="upload-video-input" class="glow-thumb block cursor-pointer">
+              <img id="upload-thumb-preview" alt="" onerror="this.style.opacity=0" />
+            </label>
+            <input id="upload-video-input" type="file" accept="video/*" class="hidden" onchange="onVideoSelected(event)" />
+            <p id="upload-file-hint" class="text-center text-xs text-slate-400 mt-3">{tt("tool_video_choose_file_error")}</p>
+            <button id="upload-launch-btn" disabled onclick="launchAnalysis()"
+                    class="w-full mt-4 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
+              {tt("tool_video_analyze_btn")}
+            </button>
+            <div id="upload-error" class="text-center text-sm text-red-600 mt-3"></div>
+          </div>
+
+          <!-- ÉTAPE 4 : chargement -->
+          <div id="step-loading" class="step text-center">
+            <div class="glow-thumb mt-10">
+              <img id="loading-thumb-preview" alt="" />
+            </div>
+            <p id="loading-status-text" class="mt-8 font-semibold text-slate-700">{tt("loading_upload")}</p>
+          </div>
+
+          <!-- ÉTAPE 5 : résultat -->
+          <div id="step-results" class="step">
+            <div class="flex items-center justify-between mb-4">
+              <span class="font-extrabold text-lg">Wil App</span>
+              <button onclick="resetFlow()" class="text-xs font-semibold text-blue-600 hover:text-blue-700">{tt("tool_video_analyze_btn")}</button>
+            </div>
+
+            <div class="glow-thumb mb-5" style="width:110px;">
+              <img id="result-thumb-preview" alt="" />
+            </div>
+
+            <h2 class="text-lg font-bold mb-4">{tt("results_smart_insights")}</h2>
+
+            <div class="insight-card">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold text-sm">{tt("results_viral_potential")}</span>
+                <span id="viral-score-value" class="font-extrabold text-blue-600">—/100</span>
+              </div>
+              <div class="progress-track"><div id="viral-score-bar" class="progress-fill" style="width:0%"></div></div>
+              <p id="score-basis-text" class="text-xs text-slate-400 mt-2"></p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="insight-card">
+                <p class="font-semibold text-sm mb-1">{tt("results_niche_label")}</p>
+                <p id="result-niche-value" class="text-sm text-slate-600"></p>
+              </div>
+              <div class="insight-card">
+                <div class="flex items-center justify-between mb-1">
+                  <p class="font-semibold text-sm">Hashtags</p>
+                  <span class="copy-btn text-xs" onclick="copyText(document.getElementById('result-hashtags-value').textContent)">📋</span>
+                </div>
+                <p id="result-hashtags-value" class="text-sm text-blue-600"></p>
+              </div>
+            </div>
+
+            <div class="insight-card">
+              <div class="flex items-center justify-between mb-1">
+                <p class="font-semibold text-sm">{tt("results_caption_label")}</p>
+                <span class="copy-btn text-xs" onclick="copyText(document.getElementById('result-caption-value').textContent)">📋</span>
+              </div>
+              <p id="result-caption-value" class="text-sm text-slate-600"></p>
+            </div>
+
+            <div class="flex gap-2 bg-slate-100 rounded-full p-1 my-5">
+              <div id="tabbtn-improvements" class="tab-btn active" onclick="switchTab('improvements')">{tt("results_tab_improvements")}</div>
+              <div id="tabbtn-stats" class="tab-btn" onclick="switchTab('stats')">{tt("results_tab_stats")}</div>
+            </div>
+
+            <div id="tab-improvements">
+              <div class="insight-card">
+                <div class="flex items-start gap-3">
+                  <div class="improve-icon">🎬</div>
+                  <div class="flex-1">
+                    <p class="font-bold text-sm mb-1">{tt("tool_video_hook_real")}</p>
+                    <p id="result-hook-value" class="text-sm text-slate-600 italic"></p>
+                  </div>
+                </div>
+              </div>
+              <div class="insight-card">
+                <div class="flex items-start gap-3">
+                  <div class="improve-icon">✅</div>
+                  <div class="flex-1">
+                    <p class="font-bold text-sm mb-1">{tt("dash_strengths")}</p>
+                    <ul id="result-strengths-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
+                  </div>
+                </div>
+              </div>
+              <div class="insight-card">
+                <div class="flex items-start gap-3">
+                  <div class="improve-icon">⚠️</div>
+                  <div class="flex-1">
+                    <p class="font-bold text-sm mb-1">{tt("tool_video_weaknesses")}</p>
+                    <ul id="result-weaknesses-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
+                  </div>
+                </div>
+              </div>
+              <div class="insight-card">
+                <div class="flex items-start gap-3">
+                  <div class="improve-icon">🎯</div>
+                  <div class="flex-1">
+                    <p class="font-bold text-sm mb-1">{tt("tool_video_to_break_through")}</p>
+                    <ul id="result-actions-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="tab-stats" class="hidden">
+              <div class="insight-card">
+                <p class="font-semibold text-sm mb-2">{tt("results_viral_potential")}</p>
+                <p id="stats-score-value" class="text-3xl font-extrabold text-blue-600 mb-1">—/100</p>
+                <p id="stats-score-basis" class="text-xs text-slate-400"></p>
+              </div>
+              <div class="insight-card">
+                <p class="font-semibold text-sm mb-1">{tt("results_niche_label")}</p>
+                <p id="stats-niche-value" class="text-sm text-slate-600"></p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <script>
+          const nicheCategoryFromUrl = "{niche_category}";
           const accountAvgViews = "{account_avg_views}";
           const uiLang = "{lang}";
+          let selectedNiche = nicheCategoryFromUrl || '';
+          let selectedChallenge = '';
+          let selectedFile = null;
+          let thumbDataUrl = '';
 
-          function analyzeUploadedVideo() {{
-            const fileInput = document.getElementById('upload-video-input');
-            const btn = document.getElementById('upload-analyze-btn');
-            const result = document.getElementById('upload-analyze-result');
+          const LOADING_STAGES = ["{tt("loading_upload")}", "{tt("loading_subtitles")}", "{tt("loading_analyzing")}", "{tt("loading_insights")}"];
 
-            if (!fileInput.files || fileInput.files.length === 0) {{
-              result.innerHTML = '<p style="color:#c0392b;">{tt("tool_video_choose_file_error")}</p>';
-              return;
-            }}
+          if (selectedNiche) {{
+            document.querySelectorAll('.niche-btn').forEach(function (b) {{
+              if (b.textContent.trim().endsWith(selectedNiche)) {{
+                b.classList.add('selected');
+                document.getElementById('niche-next-btn').disabled = false;
+                document.getElementById('niche-next-btn').className = 'w-full mt-6 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+              }}
+            }});
+          }}
+
+          function goToStep(stepId, progressPct) {{
+            document.querySelectorAll('.step').forEach(function (s) {{ s.classList.remove('active'); }});
+            document.getElementById(stepId).classList.add('active');
+            window.scrollTo(0, 0);
+          }}
+
+          function selectNiche(niche, btnEl) {{
+            selectedNiche = niche;
+            document.querySelectorAll('.niche-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('niche-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-6 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function selectChallenge(challenge, btnEl) {{
+            selectedChallenge = challenge;
+            document.querySelectorAll('.challenge-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('challenge-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function onVideoSelected(event) {{
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            selectedFile = file;
+            document.getElementById('upload-file-hint').textContent = file.name;
+
+            const videoEl = document.createElement('video');
+            videoEl.src = URL.createObjectURL(file);
+            videoEl.muted = true;
+            videoEl.addEventListener('loadeddata', function () {{
+              videoEl.currentTime = Math.min(0.5, (videoEl.duration || 1) / 2);
+            }});
+            videoEl.addEventListener('seeked', function () {{
+              const canvas = document.createElement('canvas');
+              canvas.width = videoEl.videoWidth || 360;
+              canvas.height = videoEl.videoHeight || 640;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+              thumbDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+              document.getElementById('upload-thumb-preview').src = thumbDataUrl;
+              document.getElementById('upload-thumb-preview').style.opacity = 1;
+            }});
+
+            const btn = document.getElementById('upload-launch-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function copyText(text) {{
+            if (navigator.clipboard) {{ navigator.clipboard.writeText(text).catch(function () {{}}); }}
+          }}
+
+          function switchTab(tab) {{
+            document.getElementById('tab-stats').classList.toggle('hidden', tab !== 'stats');
+            document.getElementById('tab-improvements').classList.toggle('hidden', tab !== 'improvements');
+            document.getElementById('tabbtn-stats').classList.toggle('active', tab === 'stats');
+            document.getElementById('tabbtn-improvements').classList.toggle('active', tab === 'improvements');
+          }}
+
+          function scoreColor(score) {{
+            if (score <= 40) return '#DC2626';
+            if (score <= 60) return '#F59E0B';
+            if (score <= 80) return '#F97316';
+            return '#2563EB';
+          }}
+
+          function resetFlow() {{
+            document.getElementById('upload-video-input').value = '';
+            selectedFile = null;
+            document.getElementById('upload-thumb-preview').removeAttribute('src');
+            document.getElementById('upload-thumb-preview').style.opacity = 1;
+            document.getElementById('upload-file-hint').textContent = "{tt("tool_video_choose_file_error")}";
+            const btn = document.getElementById('upload-launch-btn');
+            btn.disabled = true;
+            btn.className = 'w-full mt-4 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition';
+            document.getElementById('upload-error').textContent = '';
+            goToStep('step-upload', 100);
+          }}
+
+          function launchAnalysis() {{
+            if (!selectedFile) return;
+            document.getElementById('loading-thumb-preview').src = thumbDataUrl;
+            document.getElementById('result-thumb-preview').src = thumbDataUrl;
+            let stageIdx = 0;
+            document.getElementById('loading-status-text').textContent = LOADING_STAGES[0];
+            goToStep('step-loading', 100);
+            const stageInterval = setInterval(function () {{
+              stageIdx = Math.min(stageIdx + 1, LOADING_STAGES.length - 1);
+              document.getElementById('loading-status-text').textContent = LOADING_STAGES[stageIdx];
+            }}, 4000);
 
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            formData.append('file', selectedFile);
             formData.append('account_avg_views', accountAvgViews);
-            formData.append('niche_category', nicheCategory);
+            formData.append('niche_category', selectedNiche);
+            formData.append('main_challenge', selectedChallenge);
             formData.append('ui_lang', uiLang);
 
-            btn.disabled = true;
-            btn.textContent = '{tt("tool_video_processing")}';
-            result.innerHTML = '';
-
             fetch('/api/analyze-video-upload', {{ method: 'POST', body: formData }})
-              .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
-              .then(({{ok, status, data}}) => {{
-                if (!ok) {{
-                  const reason = (data && data.detail) ? data.detail : `{tt("common_error_prefix")} ${{status}}`;
-                  result.innerHTML = `<p style="color:#c0392b;">${{reason}}</p>`;
+              .then(function (r) {{ return r.json().then(function (data) {{ return {{ok: r.ok, status: r.status, data: data}}; }}); }})
+              .then(function (res) {{
+                clearInterval(stageInterval);
+                if (!res.ok) {{
+                  const reason = (res.data && res.data.detail) ? res.data.detail : ('{tt("common_error_prefix")} ' + res.status);
+                  document.getElementById('upload-error').textContent = reason;
+                  goToStep('step-upload', 100);
                   return;
                 }}
-                const strengths = (data.strengths || []).map(s => `<li>${{s}}</li>`).join('');
-                const weaknesses = (data.weaknesses || []).map(s => `<li>${{s}}</li>`).join('');
-                const actions = (data.action_plan || []).map(s => `<li>${{s}}</li>`).join('');
-                result.innerHTML = `
-                  <p><strong>🎬 {tt("tool_video_hook_real")}</strong></p>
-                  <p style="font-style:italic;">"${{data.hook_excerpt || ''}}"</p>
-                  <p style="font-size:13px;color:#666;">${{data.hook_type || ''}}</p>
-                  <p style="margin-top:10px;"><strong>✅ {tt("dash_strengths")}</strong></p>
-                  <ul class="bullets">${{strengths}}</ul>
-                  <p><strong>⚠️ {tt("tool_video_weaknesses")}</strong></p>
-                  <ul class="bullets">${{weaknesses}}</ul>
-                  <p><strong>🎯 {tt("tool_video_to_break_through")}</strong></p>
-                  <ul class="bullets">${{actions}}</ul>`;
+                document.getElementById('loading-status-text').textContent = '{tt("loading_done")}';
+                renderResults(res.data);
+                setTimeout(function () {{ goToStep('step-results', 100); }}, 500);
               }})
-              .catch((e) => {{
-                result.innerHTML = `<p style="color:#c0392b;">{tt("common_network_error")} ${{e && e.message ? e.message : e}}</p>`;
-              }})
-              .finally(() => {{
-                btn.disabled = false;
-                btn.textContent = '{tt("tool_video_analyze_btn")}';
+              .catch(function (e) {{
+                clearInterval(stageInterval);
+                document.getElementById('upload-error').textContent = '{tt("common_network_error")} ' + (e && e.message ? e.message : e);
+                goToStep('step-upload', 100);
               }});
+          }}
+
+          function renderResults(data) {{
+            const score = data.virality_score != null ? data.virality_score : 0;
+            const color = scoreColor(score);
+            document.getElementById('viral-score-value').textContent = score + '/100';
+            document.getElementById('viral-score-value').style.color = color;
+            document.getElementById('viral-score-bar').style.width = score + '%';
+            document.getElementById('viral-score-bar').style.background = color;
+            document.getElementById('score-basis-text').textContent = data.score_basis || '';
+            document.getElementById('stats-score-value').textContent = score + '/100';
+            document.getElementById('stats-score-value').style.color = color;
+            document.getElementById('stats-score-basis').textContent = data.score_basis || '';
+
+            document.getElementById('result-niche-value').textContent = data.niche || selectedNiche || '—';
+            document.getElementById('stats-niche-value').textContent = data.niche || selectedNiche || '—';
+            document.getElementById('result-hashtags-value').textContent = (data.suggested_hashtags || []).map(function (h) {{ return '#' + h; }}).join(' ');
+            document.getElementById('result-caption-value').textContent = data.suggested_caption || '';
+
+            document.getElementById('result-hook-value').textContent = (data.hook_excerpt ? ('"' + data.hook_excerpt + '" — ') : '') + (data.hook_type || '');
+            document.getElementById('result-strengths-value').innerHTML = (data.strengths || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
+            document.getElementById('result-weaknesses-value').innerHTML = (data.weaknesses || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
+            document.getElementById('result-actions-value').innerHTML = (data.action_plan || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
           }}
         </script>
       </body>
@@ -2752,8 +3097,8 @@ doit pouvoir le lire en 15 secondes. Pas de phrase d'intro/conclusion
 inutile, pas de reformulation, une idée par phrase. Précis > exhaustif.
 
 Réponds avec un objet JSON (pas de markdown, pas de balises de code, juste
-du JSON brut) contenant exactement ces champs, avec du texte en FRANÇAIS
-TRÈS SIMPLE (niveau CM2) :
+du JSON brut) contenant exactement ces champs, avec un texte très simple
+(niveau CM2), dans la langue précisée au tout début de tes instructions :
 {{
   "niche": "une courte phrase décrivant la niche de contenu probable",
   "niche_category": "choisis EXACTEMENT une valeur parmi cette liste fermée, recopiée telle quelle (aucune autre valeur autorisée) : {json.dumps(NICHE_CATEGORIES, ensure_ascii=False)}",
@@ -3100,8 +3445,9 @@ par...").
 BRIÈVETÉ (important) : réponse courte et directe, lisible en 15 secondes.
 
 Réponds avec un objet JSON (pas de markdown, pas de balises de code,
-juste du JSON brut) contenant exactement ces champs, en FRANÇAIS TRÈS
-SIMPLE (niveau CM2) :
+juste du JSON brut) contenant exactement ces champs, avec un texte très
+simple (niveau CM2), dans la langue précisée au tout début de tes
+instructions :
 {{
   "main_diagnosis": "{main_diagnosis_desc}",
   "strengths": ["{strengths_desc}"],
@@ -3150,13 +3496,19 @@ SIMPLE (niveau CM2) :
     return JSONResponse(content=result)
 
 
-async def _transcribe_video(client: httpx.AsyncClient, video_bytes: bytes) -> str:
+async def _transcribe_video(client: httpx.AsyncClient, video_bytes: bytes) -> dict:
     """
     Transcrit un fichier vidéo/audio via AssemblyAI : upload du fichier
     brut, lancement de la transcription, puis attente (polling) jusqu'à
     complétion. AssemblyAI extrait l'audio automatiquement des conteneurs
     vidéo courants (mp4, mov...), pas besoin de le faire nous-mêmes.
     Lève une HTTPException explicite à chaque étape qui peut échouer.
+
+    Renvoie {"text": str, "words": list[dict]} — "words" contient les
+    horodatages réels mot par mot (start/end en ms, fournis nativement
+    par AssemblyAI) utilisés ensuite pour ancrer les conseils à un
+    moment précis de la vidéo (ex: "à 0:02, dites...") plutôt que de
+    deviner un timing (RÈGLE D'OR N°1 : jamais inventé).
     """
     upload_response = await client.post(
         "https://api.assemblyai.com/v2/upload",
@@ -3192,7 +3544,7 @@ async def _transcribe_video(client: httpx.AsyncClient, video_bytes: bytes) -> st
         poll_data = poll_response.json()
         status = poll_data.get("status")
         if status == "completed":
-            return poll_data.get("text") or ""
+            return {"text": poll_data.get("text") or "", "words": poll_data.get("words") or []}
         if status == "error":
             raise HTTPException(
                 status_code=502,
@@ -3206,20 +3558,58 @@ async def _transcribe_video(client: httpx.AsyncClient, video_bytes: bytes) -> st
     )
 
 
+def _format_timestamped_transcript(words: list[dict], bucket_seconds: float = 3.0) -> str:
+    """
+    Regroupe les mots horodatés (fournis par AssemblyAI) en tranches de
+    quelques secondes, format "[0:02] texte du groupe", pour que Claude
+    puisse ancrer un conseil sur un instant réel de la vidéo au lieu
+    d'inventer un timing. Repli sur une chaîne vide si "words" est
+    absent (transcription sans horodatage) — le prompt gère ce cas en
+    ne demandant aucune citation de timestamp.
+    """
+    if not words:
+        return ""
+    lines = []
+    bucket_start_ms = None
+    bucket_words: list[str] = []
+    bucket_ms = bucket_seconds * 1000
+    for w in words:
+        start = w.get("start", 0)
+        text = w.get("text", "")
+        if bucket_start_ms is None:
+            bucket_start_ms = start
+        if start - bucket_start_ms >= bucket_ms and bucket_words:
+            m, s = divmod(int(bucket_start_ms / 1000), 60)
+            lines.append(f"[{m}:{s:02d}] {' '.join(bucket_words)}")
+            bucket_start_ms = start
+            bucket_words = []
+        bucket_words.append(text)
+    if bucket_words:
+        m, s = divmod(int(bucket_start_ms / 1000), 60)
+        lines.append(f"[{m}:{s:02d}] {' '.join(bucket_words)}")
+    return "\n".join(lines)
+
+
 @app.post("/api/analyze-video-upload", response_class=JSONResponse)
 async def analyze_video_upload(
     file: UploadFile = File(...),
     account_avg_views: int = 0,
     niche_category: str = "",
+    main_challenge: str = "",
     ui_lang: str = DEFAULT_LANG,
 ):
     """
     Analyse approfondie d'UNE vidéo à partir d'un fichier importé
     directement par l'utilisateur (téléphone ou machine — jamais récupéré
     depuis TikTok, l'API ne fournit aucun fichier vidéo). Transcrit le
-    contenu parlé réel via AssemblyAI, puis l'envoie à Claude pour une
-    analyse du hook/de la structure basée sur ce qui est VRAIMENT dit,
-    pas seulement le titre — contrairement à /api/analyze-video.
+    contenu parlé réel via AssemblyAI (texte ET horodatage mot par mot),
+    puis l'envoie à Claude pour une analyse du hook/de la structure basée
+    sur ce qui est VRAIMENT dit, pas seulement le titre — contrairement à
+    /api/analyze-video. `niche_category` est la niche choisie par
+    l'utilisateur pour CETTE vidéo (mini-questionnaire sur la page outil,
+    pas forcément la niche de tout le compte). `main_challenge` (abonnés/
+    engagement/vues) oriente l'angle du conseil, sans jamais inventer de
+    statistique.
 
     Fonctionne aussi bien sur une vidéo déjà postée que sur une vidéo pas
     encore publiée (analyse "avant de poster").
@@ -3237,15 +3627,17 @@ async def analyze_video_upload(
 
     try:
         async with httpx.AsyncClient(timeout=150) as client:
-            transcript_text = await _transcribe_video(client, video_bytes)
+            transcription = await _transcribe_video(client, video_bytes)
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="Erreur réseau vers le service de transcription.")
 
+    transcript_text = transcription["text"]
     if not transcript_text.strip():
         raise HTTPException(
             status_code=502,
             detail="Transcription vide — vérifie que la vidéo contient bien de la voix.",
         )
+    timestamped_transcript = _format_timestamped_transcript(transcription["words"])
 
     comparison_text = (
         f"Pour comparaison, la moyenne du compte est de {account_avg_views} vues par vidéo."
@@ -3253,12 +3645,34 @@ async def analyze_video_upload(
         else "Pas de moyenne de compte disponible pour comparaison — ne pas en inventer une."
     )
 
+    challenge_text = {
+        "followers": "L'utilisateur dit que son plus gros défi est de gagner des ABONNÉS : privilégie dans \"action_plan\" ce qui donne envie de suivre le compte (personnalité, régularité, promesse de contenu à venir).",
+        "engagement": "L'utilisateur dit que son plus gros défi est l'ENGAGEMENT (likes/commentaires) : privilégie dans \"action_plan\" ce qui pousse à réagir ou commenter (question ouverte, avis tranché, appel à réagir).",
+        "reach": "L'utilisateur dit que son plus gros défi est la PORTÉE/les VUES : privilégie dans \"action_plan\" ce qui retient dès la première seconde et jusqu'au bout (accroche, rythme).",
+    }.get(main_challenge, "Défi principal non précisé — reste équilibré entre accroche, rétention et appel à l'action.")
+
+    timestamp_instruction = (
+        f"""
+Voici aussi la transcription DÉCOUPÉE PAR HORODATAGE RÉEL (minute:seconde
+mesurées par la transcription, pas devinées) :
+\"\"\"{timestamped_transcript}\"\"\"
+Quand c'est pertinent, ancre UNE instruction de "weaknesses" ou
+"action_plan" sur un instant précis en citant le timestamp entre
+crochets exactement comme fourni ci-dessus (ex: "À [0:02], ..."). Ne
+cite un timestamp QUE s'il vient de cette liste — jamais un instant
+inventé (RÈGLE D'OR N°1)."""
+        if timestamped_transcript
+        else ""
+    )
+
     prompt = f"""Voici la TRANSCRIPTION RÉELLE (le vrai contenu parlé) de cette vidéo,
 obtenue par transcription audio — pas juste un titre :
 \"\"\"{transcript_text}\"\"\"
 
-Niche du compte : {niche_category or "non précisée"}
+Niche choisie pour cette vidéo : {niche_category or "non précisée"}
 {comparison_text}
+{challenge_text}
+{timestamp_instruction}
 
 Analyse le HOOK réel (les toutes premières phrases prononcées, pas un
 titre) en t'appuyant EN INTERNE sur les "TYPES D'ACCROCHES RÉELLES" du
@@ -3271,15 +3685,23 @@ Analyse aussi comment la vidéo est construite du début à la fin (est-ce
 que le propos reste clair, y a-t-il un vrai fil, la fin donne-t-elle
 envie d'agir) à partir du texte réel, pas d'une supposition.
 
+Calcule aussi un "virality_score" (0-100) basé UNIQUEMENT sur la qualité
+réelle du hook, du rythme et de la structure observés dans le texte —
+précise dans "score_basis" que c'est une estimation basée sur le script,
+PAS une prédiction de vues garantie (aucune vraie vue n'existe encore
+pour cette vidéo, donc aucun chiffre de vues/likes/commentaires ne doit
+être inventé nulle part dans la réponse).
+
 RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2 du guide de
 style) : "strengths" PEUT citer LE chiffre le plus marquant SI une vraie
 donnée chiffrée est disponible ci-dessus (ex: comparaison à la moyenne
 du compte) et qu'elle prouve une réussite — sinon reste en mots simples,
 n'invente jamais un chiffre. "hook_type", "weaknesses" et "action_plan"
-restent SANS AUCUN CHIFFRE. VOUVOIEMENT OBLIGATOIRE ("vous", "votre",
-"vos" — jamais "tu"/"ton"/"tes") et mots simples, niveau CM2 : phrases
-courtes, une idée par phrase, aucun nom technique de catégorie
-d'accroche. "weaknesses" et "action_plan" doivent être des
+restent SANS AUCUN CHIFFRE (un timestamp réel cité entre crochets n'est
+pas un chiffre de statistique, c'est autorisé). VOUVOIEMENT OBLIGATOIRE
+("vous", "votre", "vos" — jamais "tu"/"ton"/"tes") et mots simples,
+niveau CM2 : phrases courtes, une idée par phrase, aucun nom technique
+de catégorie d'accroche. "weaknesses" et "action_plan" doivent être des
 INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de style), pas des
 observations : "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrêtez
 de..."), "action_plan" = ce qu'il FAUT faire à la place ("Faites...",
@@ -3288,14 +3710,20 @@ de..."), "action_plan" = ce qu'il FAUT faire à la place ("Faites...",
 BRIÈVETÉ (important) : réponse courte et directe, lisible en 15 secondes.
 
 Réponds avec un objet JSON (pas de markdown, pas de balises de code,
-juste du JSON brut) contenant exactement ces champs, en FRANÇAIS TRÈS
-SIMPLE (niveau CM2) :
+juste du JSON brut) contenant exactement ces champs, avec un texte très
+simple (niveau CM2), dans la langue précisée au tout début de tes
+instructions :
 {{
+  "virality_score": nombre entre 0 et 100,
+  "score_basis": "1 phrase rappelant que ce score est une estimation basée sur le script, pas une vue garantie",
+  "niche": "1-3 mots identifiant précisément le sujet de CETTE vidéo",
   "hook_excerpt": "les 1-2 premières phrases réellement prononcées, citées telles quelles",
   "hook_type": "1 phrase simple décrivant CE QUE FAIT ce hook (sans nom technique de catégorie), ou dis qu'il n'y a pas vraiment d'accroche",
   "strengths": ["1-2 points forts concrets MAXIMUM, en phrases simples, basés sur le texte réel — ce que le créateur fait déjà bien et doit continuer ; UN chiffre marquant autorisé si une vraie donnée le permet"],
-  "weaknesses": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Arrêtez de...' ou 'Évitez de...', en phrases simples et sans chiffre, nommant une technique manquante"],
-  "action_plan": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Faites...' ou 'Commencez par...', en phrases simples et sans chiffre, pour la prochaine vidéo"]
+  "weaknesses": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Arrêtez de...' ou 'Évitez de...', en phrases simples et sans chiffre, nommant une technique manquante, avec un timestamp réel entre crochets si pertinent"],
+  "action_plan": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Faites...' ou 'Commencez par...', en phrases simples et sans chiffre, pour la prochaine vidéo, avec un timestamp réel entre crochets si pertinent"],
+  "suggested_hashtags": ["3-5 hashtags pertinents pour cette vidéo, sans le #"],
+  "suggested_caption": "une légende TikTok courte et accrocheuse pour cette vidéo, cohérente avec son vrai contenu"
 }}"""
 
     try:
@@ -3463,7 +3891,8 @@ contre-performance) mais reste précis, jamais une liste de statistiques
 brutes.
 
 Réponds avec un objet JSON (pas de markdown, pas de balises de code),
-en FRANÇAIS, avec exactement ces champs :
+dans la langue précisée au tout début de tes instructions, avec
+exactement ces champs :
 {{
   "virality_score": nombre entre 0 et 100 (basé sur les vraies stats si fournies, sinon estimation clairement signalée dans le résumé),
   "hook_analysis": "2-3 phrases analysant PRÉCISÉMENT la portion hook citée ci-dessus, avec un extrait entre guillemets, décrivant la mécanique en mots simples (jamais le nom technique de la catégorie)",
