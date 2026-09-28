@@ -1280,27 +1280,41 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           body {{ font-family: 'Inter', system-ui, sans-serif; background: #F8FAFC; }}
           .step {{ display: none; }}
           .step.active {{ display: block; }}
+          .step.active.dir-forward {{ animation: slideInRight 0.35s ease; }}
+          .step.active.dir-back {{ animation: slideInLeft 0.35s ease; }}
+          @keyframes slideInRight {{ from {{ transform: translateX(24px); opacity: 0; }} to {{ transform: translateX(0); opacity: 1; }} }}
+          @keyframes slideInLeft {{ from {{ transform: translateX(-24px); opacity: 0; }} to {{ transform: translateX(0); opacity: 1; }} }}
           .progress-track {{ background: #E2E8F0; border-radius: 999px; height: 6px; overflow: hidden; }}
-          .progress-fill {{ background: linear-gradient(90deg, #2563EB, #38BDF8); height: 100%; border-radius: 999px; transition: width 0.3s ease; }}
+          .progress-fill {{ background: linear-gradient(90deg, #2563EB, #38BDF8); height: 100%; border-radius: 999px; transition: width 0.35s ease; }}
+          .score-track {{ background: #E2E8F0; border-radius: 999px; height: 8px; overflow: hidden; }}
+          .score-fill {{ height: 100%; border-radius: 999px; transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1); }}
           .niche-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }}
-          .niche-btn {{ display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: #F1F5F9; border: 2px solid transparent; font-size: 13px; font-weight: 600; color: #334155; text-align: left; cursor: pointer; transition: all 0.15s ease; }}
+          .niche-btn {{ position: relative; display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: #F1F5F9; border: 2px solid transparent; font-size: 13px; font-weight: 600; color: #334155; text-align: left; cursor: pointer; transition: all 0.15s ease; }}
           .niche-btn.selected {{ background: #0F172A; color: #fff; border-color: #0F172A; }}
-          .challenge-btn {{ display: block; width: 100%; padding: 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; transition: all 0.15s ease; margin-bottom: 12px; }}
+          .niche-btn.selected::after {{ content: '✓'; position: absolute; top: 6px; right: 8px; width: 16px; height: 16px; border-radius: 50%; background: #38BDF8; color: #fff; font-size: 10px; line-height: 16px; text-align: center; animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }}
+          .challenge-btn, .simple-btn, .niche-btn {{ transition: all 0.15s ease, transform 0.1s ease; }}
+          .challenge-btn:active, .simple-btn:active, .niche-btn:active {{ transform: scale(0.97); }}
+          .challenge-btn {{ display: block; width: 100%; padding: 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; margin-bottom: 12px; }}
           .challenge-btn.selected {{ background: #0F172A; border-color: #0F172A; }}
           .challenge-btn.selected .challenge-title {{ color: #fff; }}
           .challenge-btn.selected .challenge-desc {{ color: #CBD5E1; }}
           .challenge-title {{ font-weight: 700; font-size: 15px; color: #0F172A; }}
           .challenge-desc {{ font-size: 13px; color: #64748B; margin-top: 2px; }}
-          .simple-btn {{ display: block; width: 100%; padding: 14px 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; transition: all 0.15s ease; margin-bottom: 10px; font-weight: 600; font-size: 14px; color: #0F172A; }}
+          .simple-btn {{ display: block; width: 100%; padding: 14px 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; margin-bottom: 10px; font-weight: 600; font-size: 14px; color: #0F172A; }}
           .simple-btn.selected {{ background: #0F172A; color: #fff; border-color: #0F172A; }}
           .glow-thumb {{ position: relative; width: 160px; margin: 0 auto; }}
           .glow-thumb::before {{ content: ''; position: absolute; inset: -20px; background: radial-gradient(circle, rgba(37,99,235,0.25), transparent 70%); border-radius: 24px; z-index: 0; }}
           .glow-thumb img {{ position: relative; z-index: 1; width: 100%; border-radius: 16px; box-shadow: 0 8px 24px rgba(15,23,42,0.15); object-fit: cover; aspect-ratio: 9/16; background: #E2E8F0; }}
-          .tab-btn {{ flex: 1; text-align: center; padding: 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #64748B; cursor: pointer; }}
+          #step-loading .glow-thumb::before {{ animation: glowPulse 1.8s ease-in-out infinite; }}
+          @keyframes glowPulse {{ 0%, 100% {{ opacity: 0.6; transform: scale(1); }} 50% {{ opacity: 1; transform: scale(1.06); }} }}
+          #loading-status-text {{ transition: opacity 0.25s ease; }}
+          .tab-btn {{ flex: 1; text-align: center; padding: 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #64748B; cursor: pointer; transition: all 0.15s ease; }}
           .tab-btn.active {{ background: #0F172A; color: #fff; }}
-          .insight-card {{ background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 18px; margin-bottom: 12px; }}
-          .copy-btn {{ cursor: pointer; color: #94A3B8; }}
+          .insight-card {{ background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 18px; margin-bottom: 12px; animation: cardIn 0.4s ease both; }}
+          @keyframes cardIn {{ from {{ transform: translateY(8px); opacity: 0; }} to {{ transform: translateY(0); opacity: 1; }} }}
+          .copy-btn {{ cursor: pointer; color: #94A3B8; transition: color 0.15s ease, transform 0.1s ease; }}
           .copy-btn:hover {{ color: #2563EB; }}
+          .copy-btn:active {{ transform: scale(0.85); }}
           .improve-icon {{ width: 40px; height: 40px; border-radius: 10px; background: #EFF6FF; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }}
           .dot-bounce {{ display: flex; gap: 8px; justify-content: center; margin-top: 28px; }}
           .dot-bounce span {{ width: 12px; height: 12px; border-radius: 50%; background: #2563EB; display: inline-block; animation: dotBounce 1.4s infinite ease-in-out both; }}
@@ -1308,10 +1322,21 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           .dot-bounce span:nth-child(2) {{ animation-delay: -0.16s; }}
           @keyframes dotBounce {{ 0%, 80%, 100% {{ transform: scale(0); }} 40% {{ transform: scale(1); }} }}
           @keyframes popIn {{ 0% {{ transform: scale(0.6); opacity: 0; }} 100% {{ transform: scale(1); opacity: 1; }} }}
-          .complete-emoji {{ font-size: 56px; animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }}
+          .complete-emoji-wrap {{ position: relative; display: inline-block; }}
+          .complete-emoji {{ font-size: 56px; animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); display: inline-block; }}
+          .sparkle {{ position: absolute; font-size: 18px; opacity: 0; animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }}
+          .sparkle-1 {{ top: -6px; left: -18px; animation-delay: 0.25s; }}
+          .sparkle-2 {{ top: -10px; right: -14px; animation-delay: 0.4s; }}
+          .sparkle-3 {{ bottom: 2px; right: -22px; animation-delay: 0.55s; }}
+          #mute-toggle-btn {{ transition: transform 0.15s ease; }}
+          #mute-toggle-btn:active {{ transform: scale(0.9); }}
         </style>
       </head>
       <body class="text-slate-900">
+        <button id="mute-toggle-btn" onclick="toggleMute()" type="button" title="Son"
+                class="fixed top-4 right-4 z-50 w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center text-base">
+          <span id="mute-toggle-icon">🔊</span>
+        </button>
         <div class="max-w-md mx-auto px-5 py-6">
 
           <div id="onboarding-header" class="flex items-center gap-3 mb-6">
@@ -1456,7 +1481,14 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
           <!-- ÉTAPE 9 : complétion de l'onboarding -->
           <div id="step-complete" class="step text-center">
-            <div class="mt-16 mb-4 complete-emoji">📣✨</div>
+            <div class="mt-16 mb-4">
+              <div class="complete-emoji-wrap">
+                <span class="complete-emoji">📣</span>
+                <span class="sparkle sparkle-1">✨</span>
+                <span class="sparkle sparkle-2">⭐</span>
+                <span class="sparkle sparkle-3">✨</span>
+              </div>
+            </div>
             <p class="inline-block bg-green-50 text-green-700 text-xs font-bold px-3 py-1 rounded-full mb-4">✅ {tt("onboarding_complete_badge")}</p>
             <h1 class="text-2xl font-extrabold mb-3">{tt("onboarding_complete_title")}</h1>
             <p class="text-sm text-slate-500 mb-8">{tt("onboarding_complete_subtitle")}</p>
@@ -1508,7 +1540,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 <span class="font-semibold text-sm">{tt("results_viral_potential")}</span>
                 <span id="viral-score-value" class="font-extrabold text-blue-600">—/100</span>
               </div>
-              <div class="progress-track"><div id="viral-score-bar" class="progress-fill" style="width:0%"></div></div>
+              <div class="score-track"><div id="viral-score-bar" class="score-fill" style="width:0%"></div></div>
               <p id="score-basis-text" class="text-xs text-slate-400 mt-2"></p>
             </div>
 
@@ -1611,6 +1643,99 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
           const LOADING_STAGES = ["{tt("loading_upload")}", "{tt("loading_subtitles")}", "{tt("loading_analyzing")}", "{tt("loading_insights")}"];
 
+          let audioCtx = null;
+          let masterGain = null;
+          let ambientStarted = false;
+          let audioMuted = false;
+
+          function ensureAudioContext() {{
+            if (!audioCtx) {{
+              const Ctx = window.AudioContext || window.webkitAudioContext;
+              if (!Ctx) return;
+              audioCtx = new Ctx();
+              masterGain = audioCtx.createGain();
+              masterGain.gain.value = audioMuted ? 0 : 0.15;
+              masterGain.connect(audioCtx.destination);
+            }}
+            if (audioCtx.state === 'suspended') {{ audioCtx.resume(); }}
+          }}
+
+          function startAmbient() {{
+            ensureAudioContext();
+            if (!audioCtx || ambientStarted) return;
+            ambientStarted = true;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 900;
+            filter.connect(masterGain);
+            filter.frequency.linearRampToValueAtTime(1400, audioCtx.currentTime + 12);
+
+            const freqs = [130.81, 164.81, 196.00];
+            freqs.forEach(function (f, i) {{
+              const osc = audioCtx.createOscillator();
+              osc.type = 'sine';
+              osc.frequency.value = f;
+              const oscGain = audioCtx.createGain();
+              oscGain.gain.value = 0;
+              osc.connect(oscGain);
+              oscGain.connect(filter);
+              osc.start();
+              oscGain.gain.linearRampToValueAtTime(0.32 / freqs.length, audioCtx.currentTime + 2 + i * 0.3);
+
+              const lfo = audioCtx.createOscillator();
+              lfo.frequency.value = 0.08 + i * 0.02;
+              const lfoGain = audioCtx.createGain();
+              lfoGain.gain.value = 3;
+              lfo.connect(lfoGain);
+              lfoGain.connect(osc.frequency);
+              lfo.start();
+            }});
+          }}
+
+          function playTapSound() {{
+            if (audioMuted || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            const g = audioCtx.createGain();
+            g.gain.value = 0.08;
+            osc.connect(g);
+            g.connect(masterGain);
+            osc.start();
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            osc.stop(audioCtx.currentTime + 0.16);
+          }}
+
+          function toggleMute() {{
+            audioMuted = !audioMuted;
+            ensureAudioContext();
+            startAmbient();
+            if (masterGain) {{ masterGain.gain.linearRampToValueAtTime(audioMuted ? 0 : 0.15, audioCtx.currentTime + 0.2); }}
+            document.getElementById('mute-toggle-icon').textContent = audioMuted ? '🔇' : '🔊';
+          }}
+
+          document.addEventListener('click', function initAudioOnce() {{
+            startAmbient();
+            document.removeEventListener('click', initAudioOnce);
+          }}, {{ once: true }});
+
+          function animateNumber(el, to, duration) {{
+            const startTime = performance.now();
+            function step(ts) {{
+              const progress = Math.min((ts - startTime) / duration, 1);
+              el.textContent = Math.round(progress * to) + '/100';
+              if (progress < 1) {{ requestAnimationFrame(step); }}
+            }}
+            requestAnimationFrame(step);
+          }}
+
+          function setLoadingText(text) {{
+            const el = document.getElementById('loading-status-text');
+            el.style.opacity = 0;
+            setTimeout(function () {{ el.textContent = text; el.style.opacity = 1; }}, 250);
+          }}
+
           const BACK_TARGETS = {{
             'step-challenge': ['step-goal', 11],
             'step-niche': ['step-challenge', 22],
@@ -1627,9 +1752,11 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             }} catch (e) {{}}
           }}
 
-          function goToStep(stepId, progressPct, showHeader) {{
-            document.querySelectorAll('.step').forEach(function (s) {{ s.classList.remove('active'); }});
-            document.getElementById(stepId).classList.add('active');
+          function goToStep(stepId, progressPct, showHeader, direction) {{
+            document.querySelectorAll('.step').forEach(function (s) {{ s.classList.remove('active', 'dir-forward', 'dir-back'); }});
+            const el = document.getElementById(stepId);
+            el.classList.add('active');
+            el.classList.add(direction === 'back' ? 'dir-back' : 'dir-forward');
             currentStepId = stepId;
             document.getElementById('onboarding-header').style.display = showHeader ? 'flex' : 'none';
             document.getElementById('progress-fill').style.width = progressPct + '%';
@@ -1639,11 +1766,11 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           function goBackStep() {{
             if (currentStepId === 'step-goal') {{ window.location.href = '/'; return; }}
             if (currentStepId === 'step-experience') {{
-              if (accountAvgViewsFromUrl) {{ goToStep('step-source', 55, true); }} else {{ goToStep('step-views', 66, true); }}
+              if (accountAvgViewsFromUrl) {{ goToStep('step-source', 55, true, 'back'); }} else {{ goToStep('step-views', 66, true, 'back'); }}
               return;
             }}
             const target = BACK_TARGETS[currentStepId];
-            if (target) {{ goToStep(target[0], target[1], true); }}
+            if (target) {{ goToStep(target[0], target[1], true, 'back'); }}
           }}
 
           function advanceFromSource() {{
@@ -1656,6 +1783,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }}
 
           function toggleNiche(niche, btnEl) {{
+            playTapSound();
             const idx = selectedNiches.indexOf(niche);
             if (idx !== -1) {{
               selectedNiches.splice(idx, 1);
@@ -1676,6 +1804,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }}
 
           function selectGoal(value, btnEl) {{
+            playTapSound();
             selectedGoal = value;
             document.querySelectorAll('.goal-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
             btnEl.classList.add('selected');
@@ -1685,6 +1814,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }}
 
           function selectChallenge(challenge, btnEl) {{
+            playTapSound();
             selectedChallenge = challenge;
             document.querySelectorAll('#step-challenge .challenge-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
             btnEl.classList.add('selected');
@@ -1694,6 +1824,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }}
 
           function selectAudience(value, btnEl) {{
+            playTapSound();
             selectedAudience = value;
             document.querySelectorAll('.audience-opt').forEach(function (b) {{ b.classList.remove('selected'); }});
             btnEl.classList.add('selected');
@@ -1703,6 +1834,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }}
 
           function selectSource(value, btnEl) {{
+            playTapSound();
             selectedSource = value;
             document.querySelectorAll('.source-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
             btnEl.classList.add('selected');
@@ -1712,6 +1844,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }}
 
           function selectViews(value, btnEl) {{
+            playTapSound();
             accountAvgViewsFinal = String(value);
             document.querySelectorAll('.views-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
             btnEl.classList.add('selected');
@@ -1721,6 +1854,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }}
 
           function selectExperience(value, btnEl) {{
+            playTapSound();
             selectedExperience = value;
             document.querySelectorAll('.experience-opt').forEach(function (b) {{ b.classList.remove('selected'); }});
             btnEl.classList.add('selected');
@@ -1797,7 +1931,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             goToStep('step-loading', 100, false);
             const stageInterval = setInterval(function () {{
               stageIdx = Math.min(stageIdx + 1, LOADING_STAGES.length - 1);
-              document.getElementById('loading-status-text').textContent = LOADING_STAGES[stageIdx];
+              setLoadingText(LOADING_STAGES[stageIdx]);
             }}, 4000);
 
             const formData = new FormData();
@@ -1817,7 +1951,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                   goToStep('step-upload', 100, true);
                   return;
                 }}
-                document.getElementById('loading-status-text').textContent = '{tt("loading_done")}';
+                setLoadingText('{tt("loading_done")}');
                 renderResults(res.data);
                 setTimeout(function () {{ goToStep('step-results', 100, false); }}, 500);
               }})
@@ -1831,12 +1965,12 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           function renderResults(data) {{
             const score = data.virality_score != null ? data.virality_score : 0;
             const color = scoreColor(score);
-            document.getElementById('viral-score-value').textContent = score + '/100';
+            animateNumber(document.getElementById('viral-score-value'), score, 900);
             document.getElementById('viral-score-value').style.color = color;
             document.getElementById('viral-score-bar').style.width = score + '%';
             document.getElementById('viral-score-bar').style.background = color;
             document.getElementById('score-basis-text').textContent = data.score_basis || '';
-            document.getElementById('stats-score-value').textContent = score + '/100';
+            animateNumber(document.getElementById('stats-score-value'), score, 900);
             document.getElementById('stats-score-value').style.color = color;
             document.getElementById('stats-score-basis').textContent = data.score_basis || '';
 
