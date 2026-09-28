@@ -353,6 +353,31 @@ def home(request: Request):
     tt = lambda key: t(lang, key)  # noqa: E731
     lang_menu = _language_menu_html(lang, "/")
 
+    # Témoignages : faux avis pour le lancement (aucun vrai utilisateur
+    # cité), à remplacer par de vrais témoignages dès qu'ils existent —
+    # inspirés dans leur présentation (défilement horizontal en continu)
+    # d'une page d'accueil concurrente vue par l'utilisateur, mais avec
+    # un contenu qui reflète les vraies fonctionnalités de Wil App.
+    _TESTIMONIAL_GRADIENTS = [
+        "from-blue-600 to-sky-400",
+        "from-purple-500 to-pink-400",
+        "from-emerald-500 to-teal-400",
+        "from-orange-500 to-amber-400",
+        "from-rose-500 to-red-400",
+        "from-indigo-500 to-blue-400",
+    ]
+    testimonial_card = lambda i: f'''<div class="testimonial-card bg-blue-50 border border-blue-100 rounded-2xl p-6">
+              <p class="text-sm text-slate-600 leading-relaxed mb-4">"{tt(f"testimonial_{i}_quote")}"</p>
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br {_TESTIMONIAL_GRADIENTS[i - 1]} flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{tt(f"testimonial_{i}_name")[0]}</div>
+                <div>
+                  <p class="font-semibold text-sm text-slate-900">{tt(f"testimonial_{i}_name")}</p>
+                  <p class="text-xs text-slate-500">{tt(f"testimonial_{i}_role")}</p>
+                </div>
+              </div>
+            </div>'''
+    testimonial_cards_html = "".join(testimonial_card(i) for i in list(range(1, 7)) * 2)
+
     return f"""
     <html lang="{lang}">
       <head>
@@ -367,15 +392,23 @@ def home(request: Request):
           tailwind.config = {{ theme: {{ extend: {{ fontFamily: {{ sans: ['Inter', 'system-ui', 'sans-serif'] }} }} }} }};
         </script>
         <style>
+          html {{ overflow-x: hidden; }}
           body {{ font-family: 'Inter', system-ui, sans-serif; }}
           .reveal {{ opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }}
           .reveal.is-visible {{ opacity: 1; transform: translateY(0); }}
           @media (prefers-reduced-motion: reduce) {{
             .reveal {{ opacity: 1; transform: none; transition: none; }}
           }}
+          @keyframes marqueeScroll {{ from {{ transform: translateX(0); }} to {{ transform: translateX(-50%); }} }}
+          .testimonial-track {{ display: flex; gap: 1rem; width: max-content; animation: marqueeScroll 40s linear infinite; }}
+          .testimonial-track:hover {{ animation-play-state: paused; }}
+          .testimonial-card {{ flex-shrink: 0; width: 260px; }}
+          @media (prefers-reduced-motion: reduce) {{
+            .testimonial-track {{ animation: none; }}
+          }}
         </style>
       </head>
-      <body class="bg-white text-slate-900 antialiased">
+      <body class="bg-white text-slate-900 antialiased overflow-x-hidden">
 
         <nav class="flex items-center justify-between max-w-6xl mx-auto px-6 py-5 relative z-10">
           <div class="flex items-center gap-2">
@@ -385,7 +418,7 @@ def home(request: Request):
           <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
             <a href="/services" class="hover:text-slate-900">{tt("nav_services")}</a>
             <a href="#how-it-works" class="hover:text-slate-900">{tt("nav_how_it_works")}</a>
-            <a href="#pricing" class="hover:text-slate-900">{tt("nav_pricing")}</a>
+            <a href="/pricing" class="hover:text-slate-900">{tt("nav_pricing")}</a>
             {lang_menu}
           </div>
           <div class="flex items-center gap-2">
@@ -398,7 +431,7 @@ def home(request: Request):
               <div class="fixed right-4 top-20 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-30 text-sm font-medium text-slate-600">
                 <a href="/services" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_services")}</a>
                 <a href="#how-it-works" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_how_it_works")}</a>
-                <a href="#pricing" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_pricing")}</a>
+                <a href="/pricing" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_pricing")}</a>
                 <div class="border-t border-slate-100 mt-2 pt-2">
                   {lang_menu}
                 </div>
@@ -477,31 +510,15 @@ def home(request: Request):
             </div>
           </section>
 
-          <section id="pricing" class="py-20 border-t border-slate-100">
-            <h2 class="text-2xl sm:text-3xl font-bold text-center mb-14">{tt("pricing_title")}</h2>
-            <div class="grid sm:grid-cols-2 gap-6 max-w-xl mx-auto">
-              <div class="reveal border border-slate-200 rounded-2xl p-8 text-center flex flex-col" style="transition-delay:0s">
-                <h3 class="font-bold text-lg mb-2">{tt("pricing_free_name")}</h3>
-                <div class="text-3xl font-extrabold mb-5">$0<span class="text-sm font-normal text-slate-400">{tt("pricing_free_period")}</span></div>
-                <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-                  <li>✔ {tt("pricing_free_feature1")}</li>
-                  <li>✔ {tt("pricing_free_feature2")}</li>
-                </ul>
-                <a href="/tools/analyze-account" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">{tt("pricing_free_cta")}</a>
-                <p class="text-xs text-slate-400 mt-3">{tt("trust_line")}</p>
-              </div>
-              <div class="reveal border-2 border-blue-600 rounded-2xl p-8 text-center relative flex flex-col" style="transition-delay:0.12s">
-                <h3 class="font-bold text-lg mb-2">{tt("pricing_pro_name")}</h3>
-                <div class="text-2xl font-extrabold mb-5 text-blue-600">{tt("pricing_pro_price")}</div>
-                <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-                  <li>✔ {tt("pricing_pro_feature1")}</li>
-                  <li>✔ {tt("pricing_pro_feature2")}</li>
-                  <li>✔ {tt("pricing_pro_feature3")}</li>
-                </ul>
-                <button disabled class="mt-auto px-6 py-3 rounded-xl bg-blue-300 text-white font-semibold text-sm cursor-not-allowed">{tt("pricing_pro_cta")}</button>
-              </div>
-            </div>
+          <section id="results" class="py-10 sm:py-20 border-t border-slate-100">
+            <h2 class="text-2xl sm:text-3xl font-bold text-center mb-2">{tt("results_title")}</h2>
+            <p class="text-sm sm:text-base text-slate-500 text-center mb-10 sm:mb-14">{tt("results_subtitle")}</p>
           </section>
+          <div class="relative w-screen left-1/2 -translate-x-1/2 overflow-hidden py-2 -mt-10 sm:-mt-14 mb-10 sm:mb-20">
+            <div class="testimonial-track">
+              {testimonial_cards_html}
+            </div>
+          </div>
 
           <section id="faq" class="py-20 border-t border-slate-100">
             <h2 class="text-2xl sm:text-3xl font-bold text-center mb-14">{tt("faq_title")}</h2>
@@ -565,7 +582,7 @@ def home(request: Request):
               <h4 class="font-semibold text-white mb-3 text-sm">{tt("footer_col_product")}</h4>
               <ul class="space-y-2 text-sm text-blue-200">
                 <li><a href="/services" class="hover:text-white transition">{tt("nav_services")}</a></li>
-                <li><a href="#pricing" class="hover:text-white transition">{tt("nav_pricing")}</a></li>
+                <li><a href="/pricing" class="hover:text-white transition">{tt("nav_pricing")}</a></li>
                 <li><a href="#faq" class="hover:text-white transition">{tt("nav_faq")}</a></li>
               </ul>
             </div>
@@ -673,6 +690,52 @@ def services_page(request: Request):
               <div class="text-2xl mb-3">📝</div>
               <h3 class="font-bold text-base mb-2">{tt("services_3_title")}</h3>
               <p class="text-slate-500 text-sm leading-relaxed">{tt("services_3_desc")}</p>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+
+@app.get("/pricing", response_class=HTMLResponse)
+def pricing_page(request: Request):
+    """
+    Page "Pricing" — accessible uniquement via le lien du menu de la page
+    d'accueil (plus affichée en ligne dans le scroll de la landing page
+    elle-même, remplacée par la section "Résultats & Témoignages" à la
+    demande explicite de l'utilisateur, même logique déjà appliquée à
+    "Our Services").
+    """
+    lang = _detect_ui_lang(request)
+    tt = lambda key: t(lang, key)  # noqa: E731
+    return f"""
+    <html lang="{lang}">
+      <head><title>{tt("pricing_title")} — Wil App</title>{_SECONDARY_PAGE_HEAD}</head>
+      <body class="bg-white text-slate-900 antialiased">
+        {_secondary_page_nav_html(lang, "/pricing")}
+        <div class="max-w-5xl mx-auto px-6 py-16">
+          <h1 class="text-3xl font-bold text-center mb-14">{tt("pricing_title")}</h1>
+          <div class="grid sm:grid-cols-2 gap-6 max-w-xl mx-auto">
+            <div class="border border-slate-200 rounded-2xl p-8 text-center flex flex-col">
+              <h3 class="font-bold text-lg mb-2">{tt("pricing_free_name")}</h3>
+              <div class="text-3xl font-extrabold mb-5">$0<span class="text-sm font-normal text-slate-400">{tt("pricing_free_period")}</span></div>
+              <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
+                <li>✔ {tt("pricing_free_feature1")}</li>
+                <li>✔ {tt("pricing_free_feature2")}</li>
+              </ul>
+              <a href="/tools/analyze-account" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">{tt("pricing_free_cta")}</a>
+              <p class="text-xs text-slate-400 mt-3">{tt("trust_line")}</p>
+            </div>
+            <div class="border-2 border-blue-600 rounded-2xl p-8 text-center relative flex flex-col">
+              <h3 class="font-bold text-lg mb-2">{tt("pricing_pro_name")}</h3>
+              <div class="text-2xl font-extrabold mb-5 text-blue-600">{tt("pricing_pro_price")}</div>
+              <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
+                <li>✔ {tt("pricing_pro_feature1")}</li>
+                <li>✔ {tt("pricing_pro_feature2")}</li>
+                <li>✔ {tt("pricing_pro_feature3")}</li>
+              </ul>
+              <button disabled class="mt-auto px-6 py-3 rounded-xl bg-blue-300 text-white font-semibold text-sm cursor-not-allowed">{tt("pricing_pro_cta")}</button>
             </div>
           </div>
         </div>
