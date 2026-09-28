@@ -49,6 +49,9 @@ TRANSLATIONS = {
         "hero_subtitle": "Connecte ton compte, une vidéo ou un script : ton IA coach TikTok te dit ce qui marche, et ce qu'il faut changer. Sans blabla.",
         "hero_cta": "Analyser mon compte TikTok",
         "trust_line": "🔒 Connexion sécurisée directement via TikTok — nous ne voyons ni ne stockons jamais ton mot de passe.",
+        "tool_account_title": "Connecte ton compte TikTok",
+        "tool_account_subtitle": "On analyse tes vraies vidéos pour un diagnostic complet : viralité, hashtags, accroches et régularité.",
+        "tool_account_connect_btn": "Se connecter avec TikTok",
         "hero_cta_video": "Analyser ma vidéo",
         "hero_cta_script": "Analyser mon script",
 
@@ -257,6 +260,9 @@ TRANSLATIONS = {
         "hero_subtitle": "Connect your account, a video or a script — your AI TikTok coach tells you what works and what to fix. No fluff.",
         "hero_cta": "Analyze my TikTok account",
         "trust_line": "🔒 Secure login directly through TikTok — we never see or store your password.",
+        "tool_account_title": "Connect your TikTok account",
+        "tool_account_subtitle": "We analyze your real videos for a full diagnosis: virality, hashtags, hooks and consistency.",
+        "tool_account_connect_btn": "Log in with TikTok",
         "hero_cta_video": "Analyze my video",
         "hero_cta_script": "Analyze my script",
 
@@ -465,6 +471,9 @@ TRANSLATIONS = {
         "hero_subtitle": "Konto, Video oder Skript: dein KI-TikTok-Coach sagt dir, was funktioniert — und was nicht. Ohne Umschweife.",
         "hero_cta": "Mein TikTok-Konto analysieren",
         "trust_line": "🔒 Sichere Anmeldung direkt über TikTok — wir sehen und speichern Ihr Passwort niemals.",
+        "tool_account_title": "Verbinde dein TikTok-Konto",
+        "tool_account_subtitle": "Wir analysieren deine echten Videos für eine vollständige Diagnose: Viralität, Hashtags, Hooks und Regelmäßigkeit.",
+        "tool_account_connect_btn": "Mit TikTok anmelden",
         "hero_cta_video": "Mein Video analysieren",
         "hero_cta_script": "Mein Skript analysieren",
 
@@ -673,6 +682,9 @@ TRANSLATIONS = {
         "hero_subtitle": "Cuenta, vídeo o guion: tu coach de IA para TikTok te dice qué funciona y qué cambiar. Sin rodeos.",
         "hero_cta": "Analizar mi cuenta de TikTok",
         "trust_line": "🔒 Inicio de sesión seguro directamente a través de TikTok — nunca vemos ni almacenamos tu contraseña.",
+        "tool_account_title": "Conecta tu cuenta de TikTok",
+        "tool_account_subtitle": "Analizamos tus vídeos reales para un diagnóstico completo: viralidad, hashtags, ganchos y constancia.",
+        "tool_account_connect_btn": "Iniciar sesión con TikTok",
         "hero_cta_video": "Analizar mi vídeo",
         "hero_cta_script": "Analizar mi guion",
 
@@ -881,6 +893,9 @@ TRANSLATIONS = {
         "hero_subtitle": "Conta, vídeo ou roteiro: o teu coach de IA do TikTok diz-te o que funciona e o que mudar. Sem rodeios.",
         "hero_cta": "Analisar a minha conta do TikTok",
         "trust_line": "🔒 Início de sessão seguro diretamente através do TikTok — nunca vemos nem guardamos a tua palavra-passe.",
+        "tool_account_title": "Liga a tua conta TikTok",
+        "tool_account_subtitle": "Analisamos os teus vídeos reais para um diagnóstico completo: viralidade, hashtags, ganchos e regularidade.",
+        "tool_account_connect_btn": "Iniciar sessão com o TikTok",
         "hero_cta_video": "Analisar o meu vídeo",
         "hero_cta_script": "Analisar o meu roteiro",
 
@@ -1089,6 +1104,9 @@ TRANSLATIONS = {
         "hero_subtitle": "Account, video o script: il tuo coach IA per TikTok ti dice cosa funziona e cosa cambiare. Senza giri di parole.",
         "hero_cta": "Analizza il mio account TikTok",
         "trust_line": "🔒 Accesso sicuro direttamente tramite TikTok — non vediamo né memorizziamo mai la tua password.",
+        "tool_account_title": "Collega il tuo account TikTok",
+        "tool_account_subtitle": "Analizziamo i tuoi video reali per una diagnosi completa: viralità, hashtag, hook e costanza.",
+        "tool_account_connect_btn": "Accedi con TikTok",
         "hero_cta_video": "Analizza il mio video",
         "hero_cta_script": "Analizza il mio script",
 

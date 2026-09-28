@@ -404,7 +404,7 @@ def home(request: Request):
                 </div>
               </div>
             </details>
-            <a href="/auth/tiktok/login" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">{tt("nav_login")}</a>
+            <a href="/tools/analyze-account" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">{tt("nav_login")}</a>
           </div>
         </nav>
 
@@ -425,7 +425,7 @@ def home(request: Request):
               {tt("hero_subtitle")}
             </p>
             <div class="flex flex-col items-center gap-4">
-              <a href="/auth/tiktok/login"
+              <a href="/tools/analyze-account"
                  class="w-full max-w-sm sm:max-w-[19.2rem] mx-auto flex items-center justify-center gap-2 px-[1.875rem] sm:px-[1.2rem] py-[1.243125rem] sm:py-[1.5912rem] rounded-[0.690625rem] sm:rounded-[0.7956rem] text-white font-bold text-[1.0359375rem] sm:text-[1.1934rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 {tt("hero_cta")}
               </a>
@@ -487,7 +487,7 @@ def home(request: Request):
                   <li>✔ {tt("pricing_free_feature1")}</li>
                   <li>✔ {tt("pricing_free_feature2")}</li>
                 </ul>
-                <a href="/auth/tiktok/login" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">{tt("pricing_free_cta")}</a>
+                <a href="/tools/analyze-account" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">{tt("pricing_free_cta")}</a>
                 <p class="text-xs text-slate-400 mt-3">{tt("trust_line")}</p>
               </div>
               <div class="reveal border-2 border-blue-600 rounded-2xl p-8 text-center relative flex flex-col" style="transition-delay:0.12s">
@@ -746,8 +746,12 @@ def tiktok_site_verification_wilapp_tech():
     return "tiktok-developers-site-verification=yTrx2kzthutNNU4nYzj6QLfKq33zYvJe"
 
 
+CHALLENGE_STATE_CODES = {"followers": "fo", "engagement": "en", "reach": "re"}
+CHALLENGE_STATE_CODES_REVERSE = {v: k for k, v in CHALLENGE_STATE_CODES.items()}
+
+
 @app.get("/auth/tiktok/login")
-def tiktok_login(source: str = "web"):
+def tiktok_login(source: str = "web", main_challenge: str = ""):
     """
     Étape 1 du flow OAuth : on redirige l'utilisateur vers la page
     d'autorisation de TikTok.
@@ -756,6 +760,13 @@ def tiktok_login(source: str = "web"):
     - "web"  (par défaut) : affichera la page HTML classique à la fin
     - "app"  : redirigera vers l'app mobile (wilapp://callback) à la fin
     L'app Flutter appelle cette route avec ?source=app.
+
+    `main_challenge` vient du mini-questionnaire d'onboarding de
+    /tools/analyze-account (même structure que vidéo/script) : encodé
+    dans le "state" lui-même (2 caractères fixes juste après le préfixe
+    source) plutôt que stocké à part, pour ne pas avoir à faire évoluer
+    le schéma pending_states — récupéré tel quel par tiktok_callback et
+    transmis à /api/analyze-account pour orienter l'angle des conseils.
     """
     if not TIKTOK_CLIENT_KEY or not TIKTOK_REDIRECT_URI:
         raise HTTPException(
@@ -764,9 +775,13 @@ def tiktok_login(source: str = "web"):
         )
 
     # Le "state" sert à la fois de protection anti-CSRF ET à retenir la
-    # source de la demande (web ou app), en préfixant la valeur aléatoire.
+    # source de la demande (web ou app) ainsi que le défi choisi, en
+    # préfixant la valeur aléatoire. Code à largeur fixe (2 caractères)
+    # pour pouvoir le relire sans ambiguïté même si le token aléatoire
+    # lui-même contient un "_" (alphabet de token_urlsafe).
     prefix = "app_" if source == "app" else "web_"
-    state = prefix + secrets.token_urlsafe(24)
+    challenge_code = CHALLENGE_STATE_CODES.get(main_challenge, "no")
+    state = prefix + challenge_code + secrets.token_urlsafe(24)
     _store_pending_state(state)
 
     base_scope = "user.info.basic,user.info.profile"
@@ -823,6 +838,11 @@ async def tiktok_callback(request: Request):
             status_code=400,
             detail=f"State '{state[:12]}...' introuvable, déjà utilisé, ou expiré (>10 min) — reconnecte-toi depuis le début.",
         )
+
+    # Défi choisi dans l'onboarding de /tools/analyze-account, relu
+    # depuis le "state" (voir tiktok_login) — chaîne vide si non fourni
+    # (connexion directe sans passer par l'onboarding, ex. lien existant).
+    main_challenge = CHALLENGE_STATE_CODES_REVERSE.get(state[4:6], "")
 
     # Échange du code contre un access_token (appel serveur-à-serveur,
     # jamais fait depuis le navigateur pour ne pas exposer le client_secret).
@@ -901,6 +921,7 @@ async def tiktok_callback(request: Request):
             "profile_link": profile_link,
             "is_verified": "true" if is_verified else "false",
             "session": session_id,
+            "main_challenge": main_challenge,
         })
         return RedirectResponse(f"wilapp://callback?{app_params}")
 
@@ -929,6 +950,7 @@ async def tiktok_callback(request: Request):
     display_name_enc = quote(display_name)
     username_enc = quote(username)
     bio_enc = quote(bio)
+    main_challenge_enc = quote(main_challenge)
     # Pas de sélecteur de langue interactif ici : cette page n'est
     # accessible que via le retour OAuth de TikTok (code/state à usage
     # unique) — un rechargement casserait la page ("state déjà utilisé").
@@ -1020,7 +1042,7 @@ async def tiktok_callback(request: Request):
           function fmt(template, vars) {{
             return template.replace(/\\{{(\\w+)\\}}/g, (_, k) => (k in vars) ? vars[k] : `{{${{k}}}}`);
           }}
-          fetch(`/api/analyze-account?session=${{sessionId}}&display_name={display_name_enc}&username={username_enc}&bio={bio_enc}&ui_lang=${{uiLang}}`)
+          fetch(`/api/analyze-account?session=${{sessionId}}&display_name={display_name_enc}&username={username_enc}&bio={bio_enc}&main_challenge={main_challenge_enc}&ui_lang=${{uiLang}}`)
             .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
             .then(({{ok, status, data}}) => {{
               document.getElementById('analysis-loading').style.display = 'none';
@@ -1735,6 +1757,74 @@ def _onboarding_js_core(niche_category: str, account_avg_views: str, lang: str, 
             if (score <= 80) return '#F97316';
             return '#2563EB';
           }}"""
+
+
+@app.get("/tools/analyze-account", response_class=HTMLResponse)
+def tool_analyze_account_page(request: Request):
+    """
+    Page d'onboarding avant la connexion TikTok — même structure que
+    "Analyser la vidéo"/"Analyser le script" (objectif -> défi -> niche
+    -> audience -> provenance -> vues moyennes -> expérience ->
+    configuration -> complétion), suivie d'un écran "Connecte ton compte
+    TikTok" au lieu d'un upload/d'une zone de texte : il n'y a rien
+    d'autre à fournir ici, la vraie analyse se fait automatiquement sur
+    le tableau de bord une fois connecté (voir tiktok_callback).
+
+    Contrairement à la vidéo/au script, la niche n'est jamais envoyée
+    au backend depuis cette page : /api/analyze-account la détecte déjà
+    depuis les vraies vidéos du compte, la redemander à l'utilisateur
+    serait à la fois redondant et trompeur. Seul `main_challenge` est
+    transmis, encodé dans le "state" OAuth (voir tiktok_login), pour
+    orienter l'angle des conseils sans jamais inventer de statistique.
+    """
+    lang = _detect_ui_lang(request)
+    tt = lambda key: t(lang, key)  # noqa: E731
+
+    niche_buttons = "".join(
+        f'''<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
+              <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
+              <span>{n}</span>
+            </button>'''
+        for n in NICHE_CATEGORIES
+    )
+
+    return f"""
+    <html lang="{lang}">
+      <head>
+        <title>{tt("tool_account_title")} — Wil App</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
+        <style>{_ONBOARDING_STYLE}</style>
+      </head>
+      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}
+        <div class="max-w-md mx-auto px-5 py-6">
+{_onboarding_steps_html(tt, niche_buttons, "step-account")}
+
+          <!-- ÉTAPE 10 : connexion TikTok -->
+          <div id="step-account" class="step text-center">
+            <div class="text-6xl mt-10 mb-6">🔗</div>
+            <h1 class="text-xl font-extrabold mb-1">{tt("tool_account_title")}</h1>
+            <p class="text-sm text-slate-500 mb-8">{tt("tool_account_subtitle")}</p>
+            <button onclick="connectTikTok()"
+                    class="w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700">
+              {tt("tool_account_connect_btn")}
+            </button>
+            <p class="text-xs text-slate-400 mt-3">{tt("trust_line")}</p>
+          </div>
+
+        </div>
+
+        <script>
+{_onboarding_js_core("", "", lang, "step-account")}
+
+          function connectTikTok() {{
+            window.location.href = '/auth/tiktok/login?main_challenge=' + encodeURIComponent(selectedChallenge);
+          }}
+        </script>
+      </body>
+    </html>
+    """
 
 
 @app.get("/tools/analyze-video", response_class=HTMLResponse)
@@ -3134,6 +3224,7 @@ async def analyze_account(
     display_name: str = "",
     username: str = "",
     bio: str = "",
+    main_challenge: str = "",
     ui_lang: str = DEFAULT_LANG,
 ):
     """
@@ -3144,7 +3235,11 @@ async def analyze_account(
     Nécessite le scope "video.list" (voir TIKTOK_EXTRA_SCOPES) en plus des
     scopes de base déjà approuvés. Le paramètre "session" est l'identifiant
     reçu par l'app après la connexion (le vrai access_token reste côté
-    serveur, jamais transmis au client).
+    serveur, jamais transmis au client). `main_challenge` vient du
+    mini-questionnaire d'onboarding de /tools/analyze-account (même
+    structure que vidéo/script) : oriente l'angle de "improvements",
+    sans jamais inventer de statistique. La niche, elle, reste toujours
+    détectée depuis les vraies données du compte (jamais demandée).
     """
     session_data = _get_session(session)
     if not session_data:
@@ -3478,10 +3573,17 @@ Données de performance : non disponibles pour cette analyse (base-toi
 uniquement sur le profil ci-dessus, ne mentionne pas l'absence de ces
 données comme un problème)."""
 
+        challenge_text = {
+            "followers": "L'utilisateur dit que son plus gros défi est de gagner des ABONNÉS : oriente \"improvements\" vers ce qui donne envie de suivre le compte (personnalité, régularité, promesse de contenu à venir).",
+            "engagement": "L'utilisateur dit que son plus gros défi est l'ENGAGEMENT (likes/commentaires) : oriente \"improvements\" vers ce qui pousse à réagir ou commenter (question ouverte, avis tranché, appel à réagir).",
+            "reach": "L'utilisateur dit que son plus gros défi est la PORTÉE/les VUES : oriente \"improvements\" vers ce qui retient dès la première seconde et jusqu'au bout (accroche, rythme).",
+        }.get(main_challenge, "Défi principal non précisé — reste équilibré entre accroche, rétention et appel à l'action.")
+
         prompt = f"""Profil :
 - Nom affiché : {display_name}
 - Nom d'utilisateur : @{username}
 - Bio : "{bio or 'Aucune bio renseignée'}"
+{challenge_text}
 {performance_block}
 
 MÉTHODE DE TRAVAIL (fais ça avant de répondre, mentalement) :
