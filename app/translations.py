@@ -55,7 +55,7 @@ TRANSLATIONS = {
         "hero_cta_video": "Analyser ma vidéo",
         "hero_cta_script": "Analyser mon script",
 
-        "hiw_title": "Comment ça marche",
+        "hiw_title": "Comment ça marche ?",
         "hiw_1_title": "Connecte ton compte TikTok",
         "hiw_1_desc": "Connecte-toi en toute sécurité en un clic pour un diagnostic complet et automatique : score de viralité, engagement, rapport IA et hashtags suggérés.",
         "hiw_2_title": "Analyse une vidéo précise",
@@ -266,7 +266,7 @@ TRANSLATIONS = {
         "hero_cta_video": "Analyze my video",
         "hero_cta_script": "Analyze my script",
 
-        "hiw_title": "How It Works",
+        "hiw_title": "How Does It Work?",
         "hiw_1_title": "Connect your TikTok account",
         "hiw_1_desc": "Log in securely in one click for a complete, automatic diagnosis: virality score, engagement, AI report and suggested hashtags.",
         "hiw_2_title": "Analyze a specific video",
@@ -477,7 +477,7 @@ TRANSLATIONS = {
         "hero_cta_video": "Mein Video analysieren",
         "hero_cta_script": "Mein Skript analysieren",
 
-        "hiw_title": "So funktioniert's",
+        "hiw_title": "Wie funktioniert's?",
         "hiw_1_title": "Verbinden Sie Ihr TikTok-Konto",
         "hiw_1_desc": "Melden Sie sich mit einem Klick sicher an für eine vollständige, automatische Diagnose: Viralitäts-Score, Engagement, KI-Bericht und vorgeschlagene Hashtags.",
         "hiw_2_title": "Analysieren Sie ein bestimmtes Video",
@@ -688,7 +688,7 @@ TRANSLATIONS = {
         "hero_cta_video": "Analizar mi vídeo",
         "hero_cta_script": "Analizar mi guion",
 
-        "hiw_title": "Cómo funciona",
+        "hiw_title": "¿Cómo funciona?",
         "hiw_1_title": "Conecte su cuenta de TikTok",
         "hiw_1_desc": "Inicia sesión de forma segura en un clic para un diagnóstico completo y automático: puntuación de viralidad, interacción, informe con IA y hashtags sugeridos.",
         "hiw_2_title": "Analiza un vídeo concreto",
@@ -899,7 +899,7 @@ TRANSLATIONS = {
         "hero_cta_video": "Analisar o meu vídeo",
         "hero_cta_script": "Analisar o meu roteiro",
 
-        "hiw_title": "Como funciona",
+        "hiw_title": "Como funciona?",
         "hiw_1_title": "Conecte a sua conta do TikTok",
         "hiw_1_desc": "Inicia sessão com segurança num clique para um diagnóstico completo e automático: pontuação de viralidade, engajamento, relatório com IA e hashtags sugeridas.",
         "hiw_2_title": "Analisa um vídeo específico",
@@ -1110,7 +1110,7 @@ TRANSLATIONS = {
         "hero_cta_video": "Analizza il mio video",
         "hero_cta_script": "Analizza il mio script",
 
-        "hiw_title": "Come funziona",
+        "hiw_title": "Come funziona?",
         "hiw_1_title": "Collega il tuo account TikTok",
         "hiw_1_desc": "Accedi in modo sicuro in un clic per una diagnosi completa e automatica: punteggio di viralità, coinvolgimento, report IA e hashtag suggeriti.",
         "hiw_2_title": "Analizza un video specifico",

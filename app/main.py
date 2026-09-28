@@ -414,7 +414,7 @@ def home(request: Request):
             <div class="absolute top-10 right-1/4 w-96 h-96 bg-sky-100 rounded-full blur-3xl opacity-40"></div>
             <div class="absolute top-40 left-1/3 w-72 h-72 bg-blue-50 rounded-full blur-3xl opacity-60"></div>
           </div>
-          <header class="relative max-w-3xl mx-auto text-center px-6 pt-20 pb-24">
+          <header class="relative max-w-3xl mx-auto text-center px-6 pt-20 pb-10 sm:pb-24">
             <div class="inline-block px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold mb-6">
               {tt("hero_badge")}
             </div>
@@ -444,7 +444,7 @@ def home(request: Request):
 
         <div class="max-w-5xl mx-auto px-6">
 
-          <section id="how-it-works" class="py-20">
+          <section id="how-it-works" class="py-10 sm:py-20">
             <h2 class="text-3xl font-bold text-center mb-14">{tt("hiw_title")}</h2>
             <div class="grid sm:grid-cols-3 gap-3 sm:gap-6">
               <div class="reveal bg-blue-50 border border-blue-100 rounded-2xl p-4 sm:p-7" style="transition-delay:0s">
@@ -506,35 +506,35 @@ def home(request: Request):
           <section id="faq" class="py-20 border-t border-slate-100">
             <h2 class="text-3xl font-bold text-center mb-14">{tt("faq_title")}</h2>
             <div class="max-w-2xl mx-auto space-y-3">
-              <details class="reveal group bg-slate-50 border border-slate-100 rounded-2xl p-6" style="transition-delay:0s">
+              <details class="reveal group bg-blue-50 border border-blue-100 rounded-2xl p-6" style="transition-delay:0s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
                   {tt("faq_q1")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
                 <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a1")}</p>
               </details>
-              <details class="reveal group bg-slate-50 border border-slate-100 rounded-2xl p-6" style="transition-delay:0.08s">
+              <details class="reveal group bg-blue-50 border border-blue-100 rounded-2xl p-6" style="transition-delay:0.08s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
                   {tt("faq_q2")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
                 <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a2")}</p>
               </details>
-              <details class="reveal group bg-slate-50 border border-slate-100 rounded-2xl p-6" style="transition-delay:0.16s">
+              <details class="reveal group bg-blue-50 border border-blue-100 rounded-2xl p-6" style="transition-delay:0.16s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
                   {tt("faq_q3")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
                 <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a3")}</p>
               </details>
-              <details class="reveal group bg-slate-50 border border-slate-100 rounded-2xl p-6" style="transition-delay:0.24s">
+              <details class="reveal group bg-blue-50 border border-blue-100 rounded-2xl p-6" style="transition-delay:0.24s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
                   {tt("faq_q4")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
                 </summary>
                 <p class="text-slate-500 text-sm leading-relaxed mt-3">{tt("faq_a4")}</p>
               </details>
-              <details class="reveal group bg-slate-50 border border-slate-100 rounded-2xl p-6" style="transition-delay:0.32s">
+              <details class="reveal group bg-blue-50 border border-blue-100 rounded-2xl p-6" style="transition-delay:0.32s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
                   {tt("faq_q5")}
                   <span class="flex-shrink-0 text-blue-600 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
