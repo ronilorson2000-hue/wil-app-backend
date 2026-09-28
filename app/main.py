@@ -1231,114 +1231,91 @@ _TOOL_PAGE_STYLE = """
 """
 
 
-@app.get("/tools/analyze-video", response_class=HTMLResponse)
-def tool_analyze_video_page(request: Request, niche_category: str = "", account_avg_views: str = ""):
-    """
-    Page dédiée pour l'analyse approfondie d'une vidéo importée (upload +
-    transcription réelle). Reçoit le contexte du compte (niche, moyenne de
-    vues) en paramètres d'URL, transmis par le tableau de bord au clic sur
-    le bouton "Analyser la vidéo" — cette page n'a plus besoin de session.
+# Onboarding partagé entre "Analyser la vidéo" et "Analyser le script" :
+# même structure en 9 écrans (objectif -> défi -> niche -> audience ->
+# provenance -> vues moyennes -> expérience -> configuration ->
+# complétion) avant que chaque outil ne prenne le relais avec son propre
+# contenu (upload de fichier vidéo vs. zone de texte). Extrait ici pour
+# éviter de dupliquer ~400 lignes identiques entre les deux pages.
+_ONBOARDING_STYLE = """
+  body { font-family: 'Inter', system-ui, sans-serif; background: #F8FAFC; }
+  .step { display: none; }
+  .step.active { display: block; }
+  .step.active.dir-forward { animation: slideInRight 0.35s ease; }
+  .step.active.dir-back { animation: slideInLeft 0.35s ease; }
+  @keyframes slideInRight { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes slideInLeft { from { transform: translateX(-24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .progress-track { background: #E2E8F0; border-radius: 999px; height: 6px; overflow: hidden; }
+  .progress-fill { background: linear-gradient(90deg, #2563EB, #38BDF8); height: 100%; border-radius: 999px; transition: width 0.35s ease; }
+  .score-track { background: #E2E8F0; border-radius: 999px; height: 8px; overflow: hidden; }
+  .score-fill { height: 100%; border-radius: 999px; transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
+  .niche-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .niche-btn { position: relative; display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: #F1F5F9; border: 2px solid transparent; font-size: 13px; font-weight: 600; color: #334155; text-align: left; cursor: pointer; transition: all 0.15s ease; }
+  .niche-btn.selected { background: #0F172A; color: #fff; border-color: #0F172A; }
+  .niche-btn.selected::after { content: '✓'; position: absolute; top: 6px; right: 8px; width: 16px; height: 16px; border-radius: 50%; background: #38BDF8; color: #fff; font-size: 10px; line-height: 16px; text-align: center; animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .challenge-btn, .simple-btn, .niche-btn { transition: all 0.15s ease, transform 0.1s ease; }
+  .challenge-btn:active, .simple-btn:active, .niche-btn:active { transform: scale(0.97); }
+  .challenge-btn { display: block; width: 100%; padding: 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; margin-bottom: 12px; }
+  .challenge-btn.selected { background: #0F172A; border-color: #0F172A; }
+  .challenge-btn.selected .challenge-title { color: #fff; }
+  .challenge-btn.selected .challenge-desc { color: #CBD5E1; }
+  .challenge-title { font-weight: 700; font-size: 15px; color: #0F172A; }
+  .challenge-desc { font-size: 13px; color: #64748B; margin-top: 2px; }
+  .simple-btn { display: block; width: 100%; padding: 14px 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; margin-bottom: 10px; font-weight: 600; font-size: 14px; color: #0F172A; }
+  .simple-btn.selected { background: #0F172A; color: #fff; border-color: #0F172A; }
+  .glow-thumb { position: relative; width: 160px; margin: 0 auto; }
+  .glow-thumb::before { content: ''; position: absolute; inset: -20px; background: radial-gradient(circle, rgba(37,99,235,0.25), transparent 70%); border-radius: 24px; z-index: 0; }
+  .glow-thumb img { position: relative; z-index: 1; width: 100%; border-radius: 16px; box-shadow: 0 8px 24px rgba(15,23,42,0.15); object-fit: cover; aspect-ratio: 9/16; background: #E2E8F0; }
+  #step-loading .glow-thumb::before { animation: glowPulse 1.8s ease-in-out infinite; }
+  @keyframes glowPulse { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
+  #loading-status-text { transition: opacity 0.25s ease; }
+  .tab-btn { flex: 1; text-align: center; padding: 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #64748B; cursor: pointer; transition: all 0.15s ease; }
+  .tab-btn.active { background: #0F172A; color: #fff; }
+  .insight-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 18px; margin-bottom: 12px; animation: cardIn 0.4s ease both; }
+  @keyframes cardIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .copy-btn { cursor: pointer; color: #94A3B8; transition: color 0.15s ease, transform 0.1s ease; }
+  .copy-btn:hover { color: #2563EB; }
+  .copy-btn:active { transform: scale(0.85); }
+  .improve-icon { width: 40px; height: 40px; border-radius: 10px; background: #EFF6FF; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .dot-bounce { display: flex; gap: 8px; justify-content: center; margin-top: 28px; }
+  .dot-bounce span { width: 12px; height: 12px; border-radius: 50%; background: #2563EB; display: inline-block; animation: dotBounce 1.4s infinite ease-in-out both; }
+  .dot-bounce span:nth-child(1) { animation-delay: -0.32s; }
+  .dot-bounce span:nth-child(2) { animation-delay: -0.16s; }
+  @keyframes dotBounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+  @keyframes popIn { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .complete-emoji-wrap { position: relative; display: inline-block; }
+  .complete-emoji { font-size: 56px; animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); display: inline-block; }
+  .sparkle { position: absolute; font-size: 18px; opacity: 0; animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .sparkle-1 { top: -6px; left: -18px; animation-delay: 0.25s; }
+  .sparkle-2 { top: -10px; right: -14px; animation-delay: 0.4s; }
+  .sparkle-3 { bottom: 2px; right: -22px; animation-delay: 0.55s; }
+  #mute-toggle-btn { transition: transform 0.15s ease; }
+  #mute-toggle-btn:active { transform: scale(0.9); }
+"""
 
-    Parcours en onboarding complet à plusieurs écrans (objectif, défi,
-    niche, audience, provenance, vues moyennes, expérience, écran de
-    configuration, écran de complétion) -> upload -> chargement par
-    étapes -> résultat en onglets, inspiré de la structure d'une app
-    concurrente ("Go Viral"). Les écrans purement déclaratifs (choix de
-    l'utilisateur sur lui-même) sont repris fidèlement. En revanche, ses
-    statistiques de vues/likes prédites, son graphique de simulation et
-    ses témoignages sont fabriqués (vérifié en comparant plusieurs vidéos
-    dans leur app : même animation générique à chaque fois, aucun vrai
-    calcul derrière, avis clients inventés) — Wil App ne les reprend pas.
-    À la place : un vrai score de viralité basé sur l'analyse réelle du
-    hook/rythme (RÈGLE D'OR N°1 : jamais inventé).
-    """
-    lang = _detect_ui_lang(request)
-    tt = lambda key: t(lang, key)  # noqa: E731
+_ONBOARDING_HEAD_ASSETS = """
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } };
+    </script>"""
 
-    niche_buttons = "".join(
-        f'''<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
-              <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
-              <span>{n}</span>
-            </button>'''
-        for n in NICHE_CATEGORIES
-    )
-
-    return f"""
-    <html lang="{lang}">
-      <head>
-        <title>{tt("tool_video_title")} — Wil App</title>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script>
-          tailwind.config = {{ theme: {{ extend: {{ fontFamily: {{ sans: ['Inter', 'system-ui', 'sans-serif'] }} }} }} }};
-        </script>
-        <style>
-          body {{ font-family: 'Inter', system-ui, sans-serif; background: #F8FAFC; }}
-          .step {{ display: none; }}
-          .step.active {{ display: block; }}
-          .step.active.dir-forward {{ animation: slideInRight 0.35s ease; }}
-          .step.active.dir-back {{ animation: slideInLeft 0.35s ease; }}
-          @keyframes slideInRight {{ from {{ transform: translateX(24px); opacity: 0; }} to {{ transform: translateX(0); opacity: 1; }} }}
-          @keyframes slideInLeft {{ from {{ transform: translateX(-24px); opacity: 0; }} to {{ transform: translateX(0); opacity: 1; }} }}
-          .progress-track {{ background: #E2E8F0; border-radius: 999px; height: 6px; overflow: hidden; }}
-          .progress-fill {{ background: linear-gradient(90deg, #2563EB, #38BDF8); height: 100%; border-radius: 999px; transition: width 0.35s ease; }}
-          .score-track {{ background: #E2E8F0; border-radius: 999px; height: 8px; overflow: hidden; }}
-          .score-fill {{ height: 100%; border-radius: 999px; transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1); }}
-          .niche-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }}
-          .niche-btn {{ position: relative; display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: #F1F5F9; border: 2px solid transparent; font-size: 13px; font-weight: 600; color: #334155; text-align: left; cursor: pointer; transition: all 0.15s ease; }}
-          .niche-btn.selected {{ background: #0F172A; color: #fff; border-color: #0F172A; }}
-          .niche-btn.selected::after {{ content: '✓'; position: absolute; top: 6px; right: 8px; width: 16px; height: 16px; border-radius: 50%; background: #38BDF8; color: #fff; font-size: 10px; line-height: 16px; text-align: center; animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }}
-          .challenge-btn, .simple-btn, .niche-btn {{ transition: all 0.15s ease, transform 0.1s ease; }}
-          .challenge-btn:active, .simple-btn:active, .niche-btn:active {{ transform: scale(0.97); }}
-          .challenge-btn {{ display: block; width: 100%; padding: 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; margin-bottom: 12px; }}
-          .challenge-btn.selected {{ background: #0F172A; border-color: #0F172A; }}
-          .challenge-btn.selected .challenge-title {{ color: #fff; }}
-          .challenge-btn.selected .challenge-desc {{ color: #CBD5E1; }}
-          .challenge-title {{ font-weight: 700; font-size: 15px; color: #0F172A; }}
-          .challenge-desc {{ font-size: 13px; color: #64748B; margin-top: 2px; }}
-          .simple-btn {{ display: block; width: 100%; padding: 14px 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; margin-bottom: 10px; font-weight: 600; font-size: 14px; color: #0F172A; }}
-          .simple-btn.selected {{ background: #0F172A; color: #fff; border-color: #0F172A; }}
-          .glow-thumb {{ position: relative; width: 160px; margin: 0 auto; }}
-          .glow-thumb::before {{ content: ''; position: absolute; inset: -20px; background: radial-gradient(circle, rgba(37,99,235,0.25), transparent 70%); border-radius: 24px; z-index: 0; }}
-          .glow-thumb img {{ position: relative; z-index: 1; width: 100%; border-radius: 16px; box-shadow: 0 8px 24px rgba(15,23,42,0.15); object-fit: cover; aspect-ratio: 9/16; background: #E2E8F0; }}
-          #step-loading .glow-thumb::before {{ animation: glowPulse 1.8s ease-in-out infinite; }}
-          @keyframes glowPulse {{ 0%, 100% {{ opacity: 0.6; transform: scale(1); }} 50% {{ opacity: 1; transform: scale(1.06); }} }}
-          #loading-status-text {{ transition: opacity 0.25s ease; }}
-          .tab-btn {{ flex: 1; text-align: center; padding: 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #64748B; cursor: pointer; transition: all 0.15s ease; }}
-          .tab-btn.active {{ background: #0F172A; color: #fff; }}
-          .insight-card {{ background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 18px; margin-bottom: 12px; animation: cardIn 0.4s ease both; }}
-          @keyframes cardIn {{ from {{ transform: translateY(8px); opacity: 0; }} to {{ transform: translateY(0); opacity: 1; }} }}
-          .copy-btn {{ cursor: pointer; color: #94A3B8; transition: color 0.15s ease, transform 0.1s ease; }}
-          .copy-btn:hover {{ color: #2563EB; }}
-          .copy-btn:active {{ transform: scale(0.85); }}
-          .improve-icon {{ width: 40px; height: 40px; border-radius: 10px; background: #EFF6FF; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }}
-          .dot-bounce {{ display: flex; gap: 8px; justify-content: center; margin-top: 28px; }}
-          .dot-bounce span {{ width: 12px; height: 12px; border-radius: 50%; background: #2563EB; display: inline-block; animation: dotBounce 1.4s infinite ease-in-out both; }}
-          .dot-bounce span:nth-child(1) {{ animation-delay: -0.32s; }}
-          .dot-bounce span:nth-child(2) {{ animation-delay: -0.16s; }}
-          @keyframes dotBounce {{ 0%, 80%, 100% {{ transform: scale(0); }} 40% {{ transform: scale(1); }} }}
-          @keyframes popIn {{ 0% {{ transform: scale(0.6); opacity: 0; }} 100% {{ transform: scale(1); opacity: 1; }} }}
-          .complete-emoji-wrap {{ position: relative; display: inline-block; }}
-          .complete-emoji {{ font-size: 56px; animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); display: inline-block; }}
-          .sparkle {{ position: absolute; font-size: 18px; opacity: 0; animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }}
-          .sparkle-1 {{ top: -6px; left: -18px; animation-delay: 0.25s; }}
-          .sparkle-2 {{ top: -10px; right: -14px; animation-delay: 0.4s; }}
-          .sparkle-3 {{ bottom: 2px; right: -22px; animation-delay: 0.55s; }}
-          #mute-toggle-btn {{ transition: transform 0.15s ease; }}
-          #mute-toggle-btn:active {{ transform: scale(0.9); }}
-        </style>
-      </head>
-      <body class="text-slate-900">
+_ONBOARDING_MUTE_BUTTON_HTML = """
         <button id="mute-toggle-btn" onclick="toggleMute()" type="button" title="Son"
                 class="fixed top-4 right-4 z-50 w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center text-base">
           <span id="mute-toggle-icon">🔊</span>
-        </button>
-        <div class="max-w-md mx-auto px-5 py-6">
+        </button>"""
 
+
+def _onboarding_steps_html(tt, niche_buttons: str, content_step_id: str) -> str:
+    """
+    Étapes 1 à 9 de l'onboarding, identiques entre les deux outils. Seul
+    `content_step_id` change : c'est l'étape suivante propre à chaque
+    outil (upload vidéo ou zone de script) que le bouton "Commencer" de
+    l'écran de complétion doit viser.
+    """
+    return f"""
           <div id="onboarding-header" class="flex items-center gap-3 mb-6">
             <a href="#" onclick="goBackStep(); return false;" class="text-slate-400 hover:text-slate-700">←</a>
             <div class="progress-track flex-1"><div id="progress-fill" class="progress-fill" style="width:11%"></div></div>
@@ -1492,11 +1469,318 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             <p class="inline-block bg-green-50 text-green-700 text-xs font-bold px-3 py-1 rounded-full mb-4">✅ {tt("onboarding_complete_badge")}</p>
             <h1 class="text-2xl font-extrabold mb-3">{tt("onboarding_complete_title")}</h1>
             <p class="text-sm text-slate-500 mb-8">{tt("onboarding_complete_subtitle")}</p>
-            <button onclick="goToStep('step-upload', 100, true)"
+            <button onclick="goToStep('{content_step_id}', 100, true)"
                     class="w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700">
               {tt("onboarding_complete_start_btn")}
             </button>
-          </div>
+          </div>"""
+
+
+def _onboarding_js_core(niche_category: str, account_avg_views: str, lang: str, content_step_id: str) -> str:
+    """
+    État, audio synthétisé (jamais de fichier audio copié — voir le
+    commentaire dans la doc de la route ci-dessous), navigation avant/
+    arrière et fonctions de sélection de l'onboarding, identiques entre
+    les deux outils. `content_step_id` est l'étape propre à chaque outil
+    qui suit l'écran de complétion (seule variation).
+    """
+    return f"""
+          const nicheCategoryFromUrl = "{niche_category}";
+          const accountAvgViewsFromUrl = "{account_avg_views}";
+          const uiLang = "{lang}";
+          const MAX_NICHES = 3;
+          let selectedNiches = [];
+          let selectedGoal = '';
+          let selectedChallenge = '';
+          let selectedAudience = '';
+          let selectedSource = '';
+          let selectedExperience = '';
+          let accountAvgViewsFinal = accountAvgViewsFromUrl;
+          let currentStepId = 'step-goal';
+
+          let audioCtx = null;
+          let masterGain = null;
+          let ambientStarted = false;
+          let audioMuted = false;
+
+          function ensureAudioContext() {{
+            if (!audioCtx) {{
+              const Ctx = window.AudioContext || window.webkitAudioContext;
+              if (!Ctx) return;
+              audioCtx = new Ctx();
+              masterGain = audioCtx.createGain();
+              masterGain.gain.value = audioMuted ? 0 : 0.15;
+              masterGain.connect(audioCtx.destination);
+            }}
+            if (audioCtx.state === 'suspended') {{ audioCtx.resume(); }}
+          }}
+
+          function startAmbient() {{
+            ensureAudioContext();
+            if (!audioCtx || ambientStarted) return;
+            ambientStarted = true;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 900;
+            filter.connect(masterGain);
+            filter.frequency.linearRampToValueAtTime(1400, audioCtx.currentTime + 12);
+
+            const freqs = [130.81, 164.81, 196.00];
+            freqs.forEach(function (f, i) {{
+              const osc = audioCtx.createOscillator();
+              osc.type = 'sine';
+              osc.frequency.value = f;
+              const oscGain = audioCtx.createGain();
+              oscGain.gain.value = 0;
+              osc.connect(oscGain);
+              oscGain.connect(filter);
+              osc.start();
+              oscGain.gain.linearRampToValueAtTime(0.32 / freqs.length, audioCtx.currentTime + 2 + i * 0.3);
+
+              const lfo = audioCtx.createOscillator();
+              lfo.frequency.value = 0.08 + i * 0.02;
+              const lfoGain = audioCtx.createGain();
+              lfoGain.gain.value = 3;
+              lfo.connect(lfoGain);
+              lfoGain.connect(osc.frequency);
+              lfo.start();
+            }});
+          }}
+
+          function playTapSound() {{
+            if (audioMuted || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            const g = audioCtx.createGain();
+            g.gain.value = 0.08;
+            osc.connect(g);
+            g.connect(masterGain);
+            osc.start();
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            osc.stop(audioCtx.currentTime + 0.16);
+          }}
+
+          function toggleMute() {{
+            audioMuted = !audioMuted;
+            ensureAudioContext();
+            startAmbient();
+            if (masterGain) {{ masterGain.gain.linearRampToValueAtTime(audioMuted ? 0 : 0.15, audioCtx.currentTime + 0.2); }}
+            document.getElementById('mute-toggle-icon').textContent = audioMuted ? '🔇' : '🔊';
+          }}
+
+          document.addEventListener('click', function initAudioOnce() {{
+            startAmbient();
+            document.removeEventListener('click', initAudioOnce);
+          }}, {{ once: true }});
+
+          function animateNumber(el, to, duration) {{
+            const startTime = performance.now();
+            function step(ts) {{
+              const progress = Math.min((ts - startTime) / duration, 1);
+              el.textContent = Math.round(progress * to) + '/100';
+              if (progress < 1) {{ requestAnimationFrame(step); }}
+            }}
+            requestAnimationFrame(step);
+          }}
+
+          function setLoadingText(text) {{
+            const el = document.getElementById('loading-status-text');
+            el.style.opacity = 0;
+            setTimeout(function () {{ el.textContent = text; el.style.opacity = 1; }}, 250);
+          }}
+
+          const BACK_TARGETS = {{
+            'step-challenge': ['step-goal', 11],
+            'step-niche': ['step-challenge', 22],
+            'step-audience': ['step-niche', 33],
+            'step-source': ['step-audience', 44],
+            'step-views': ['step-source', 55],
+            '{content_step_id}': ['step-experience', 77]
+          }};
+
+          if (nicheCategoryFromUrl) {{
+            try {{
+              const preBtn = document.querySelector('.niche-btn[data-niche="' + CSS.escape(nicheCategoryFromUrl) + '"]');
+              if (preBtn) {{ toggleNiche(nicheCategoryFromUrl, preBtn); }}
+            }} catch (e) {{}}
+          }}
+
+          function goToStep(stepId, progressPct, showHeader, direction) {{
+            document.querySelectorAll('.step').forEach(function (s) {{ s.classList.remove('active', 'dir-forward', 'dir-back'); }});
+            const el = document.getElementById(stepId);
+            el.classList.add('active');
+            el.classList.add(direction === 'back' ? 'dir-back' : 'dir-forward');
+            currentStepId = stepId;
+            document.getElementById('onboarding-header').style.display = showHeader ? 'flex' : 'none';
+            document.getElementById('progress-fill').style.width = progressPct + '%';
+            window.scrollTo(0, 0);
+          }}
+
+          function goBackStep() {{
+            if (currentStepId === 'step-goal') {{ window.location.href = '/'; return; }}
+            if (currentStepId === 'step-experience') {{
+              if (accountAvgViewsFromUrl) {{ goToStep('step-source', 55, true, 'back'); }} else {{ goToStep('step-views', 66, true, 'back'); }}
+              return;
+            }}
+            const target = BACK_TARGETS[currentStepId];
+            if (target) {{ goToStep(target[0], target[1], true, 'back'); }}
+          }}
+
+          function advanceFromSource() {{
+            if (accountAvgViewsFromUrl) {{ goToStep('step-experience', 77, true); }} else {{ goToStep('step-views', 66, true); }}
+          }}
+
+          function enterSetupStep() {{
+            goToStep('step-setup', 88, false);
+            setTimeout(function () {{ goToStep('step-complete', 100, false); }}, 2200);
+          }}
+
+          function toggleNiche(niche, btnEl) {{
+            playTapSound();
+            const idx = selectedNiches.indexOf(niche);
+            if (idx !== -1) {{
+              selectedNiches.splice(idx, 1);
+              btnEl.classList.remove('selected');
+            }} else {{
+              if (selectedNiches.length >= MAX_NICHES) return;
+              selectedNiches.push(niche);
+              btnEl.classList.add('selected');
+            }}
+            var btn = document.getElementById('niche-next-btn');
+            if (selectedNiches.length > 0) {{
+              btn.disabled = false;
+              btn.className = 'w-full mt-6 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+            }} else {{
+              btn.disabled = true;
+              btn.className = 'w-full mt-6 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition';
+            }}
+          }}
+
+          function selectGoal(value, btnEl) {{
+            playTapSound();
+            selectedGoal = value;
+            document.querySelectorAll('.goal-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('goal-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function selectChallenge(challenge, btnEl) {{
+            playTapSound();
+            selectedChallenge = challenge;
+            document.querySelectorAll('#step-challenge .challenge-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('challenge-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function selectAudience(value, btnEl) {{
+            playTapSound();
+            selectedAudience = value;
+            document.querySelectorAll('.audience-opt').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('audience-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function selectSource(value, btnEl) {{
+            playTapSound();
+            selectedSource = value;
+            document.querySelectorAll('.source-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('source-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function selectViews(value, btnEl) {{
+            playTapSound();
+            accountAvgViewsFinal = String(value);
+            document.querySelectorAll('.views-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('views-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function selectExperience(value, btnEl) {{
+            playTapSound();
+            selectedExperience = value;
+            document.querySelectorAll('.experience-opt').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('experience-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function copyText(text) {{
+            if (navigator.clipboard) {{ navigator.clipboard.writeText(text).catch(function () {{}}); }}
+          }}
+
+          function switchTab(tab) {{
+            document.getElementById('tab-stats').classList.toggle('hidden', tab !== 'stats');
+            document.getElementById('tab-improvements').classList.toggle('hidden', tab !== 'improvements');
+            document.getElementById('tabbtn-stats').classList.toggle('active', tab === 'stats');
+            document.getElementById('tabbtn-improvements').classList.toggle('active', tab === 'improvements');
+          }}
+
+          function scoreColor(score) {{
+            if (score <= 40) return '#DC2626';
+            if (score <= 60) return '#F59E0B';
+            if (score <= 80) return '#F97316';
+            return '#2563EB';
+          }}"""
+
+
+@app.get("/tools/analyze-video", response_class=HTMLResponse)
+def tool_analyze_video_page(request: Request, niche_category: str = "", account_avg_views: str = ""):
+    """
+    Page dédiée pour l'analyse approfondie d'une vidéo importée (upload +
+    transcription réelle). Reçoit le contexte du compte (niche, moyenne de
+    vues) en paramètres d'URL, transmis par le tableau de bord au clic sur
+    le bouton "Analyser la vidéo" — cette page n'a plus besoin de session.
+
+    Parcours en onboarding complet à plusieurs écrans (objectif, défi,
+    niche, audience, provenance, vues moyennes, expérience, écran de
+    configuration, écran de complétion) -> upload -> chargement par
+    étapes -> résultat en onglets, inspiré de la structure d'une app
+    concurrente ("Go Viral"). Les écrans purement déclaratifs (choix de
+    l'utilisateur sur lui-même) sont repris fidèlement. En revanche, ses
+    statistiques de vues/likes prédites, son graphique de simulation et
+    ses témoignages sont fabriqués (vérifié en comparant plusieurs vidéos
+    dans leur app : même animation générique à chaque fois, aucun vrai
+    calcul derrière, avis clients inventés) — Wil App ne les reprend pas.
+    À la place : un vrai score de viralité basé sur l'analyse réelle du
+    hook/rythme (RÈGLE D'OR N°1 : jamais inventé).
+    """
+    lang = _detect_ui_lang(request)
+    tt = lambda key: t(lang, key)  # noqa: E731
+
+    niche_buttons = "".join(
+        f'''<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
+              <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
+              <span>{n}</span>
+            </button>'''
+        for n in NICHE_CATEGORIES
+    )
+
+    return f"""
+    <html lang="{lang}">
+      <head>
+        <title>{tt("tool_video_title")} — Wil App</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
+        <style>{_ONBOARDING_STYLE}</style>
+      </head>
+      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}
+        <div class="max-w-md mx-auto px-5 py-6">
+{_onboarding_steps_html(tt, niche_buttons, "step-upload")}
 
           <!-- ÉTAPE 10 : upload -->
           <div id="step-upload" class="step">
@@ -1626,242 +1910,11 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
         </div>
 
         <script>
-          const nicheCategoryFromUrl = "{niche_category}";
-          const accountAvgViewsFromUrl = "{account_avg_views}";
-          const uiLang = "{lang}";
-          const MAX_NICHES = 3;
-          let selectedNiches = [];
-          let selectedGoal = '';
-          let selectedChallenge = '';
-          let selectedAudience = '';
-          let selectedSource = '';
-          let selectedExperience = '';
-          let accountAvgViewsFinal = accountAvgViewsFromUrl;
-          let selectedFile = null;
-          let thumbDataUrl = '';
-          let currentStepId = 'step-goal';
+{_onboarding_js_core(niche_category, account_avg_views, lang, "step-upload")}
 
           const LOADING_STAGES = ["{tt("loading_upload")}", "{tt("loading_subtitles")}", "{tt("loading_analyzing")}", "{tt("loading_insights")}"];
-
-          let audioCtx = null;
-          let masterGain = null;
-          let ambientStarted = false;
-          let audioMuted = false;
-
-          function ensureAudioContext() {{
-            if (!audioCtx) {{
-              const Ctx = window.AudioContext || window.webkitAudioContext;
-              if (!Ctx) return;
-              audioCtx = new Ctx();
-              masterGain = audioCtx.createGain();
-              masterGain.gain.value = audioMuted ? 0 : 0.15;
-              masterGain.connect(audioCtx.destination);
-            }}
-            if (audioCtx.state === 'suspended') {{ audioCtx.resume(); }}
-          }}
-
-          function startAmbient() {{
-            ensureAudioContext();
-            if (!audioCtx || ambientStarted) return;
-            ambientStarted = true;
-
-            const filter = audioCtx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.value = 900;
-            filter.connect(masterGain);
-            filter.frequency.linearRampToValueAtTime(1400, audioCtx.currentTime + 12);
-
-            const freqs = [130.81, 164.81, 196.00];
-            freqs.forEach(function (f, i) {{
-              const osc = audioCtx.createOscillator();
-              osc.type = 'sine';
-              osc.frequency.value = f;
-              const oscGain = audioCtx.createGain();
-              oscGain.gain.value = 0;
-              osc.connect(oscGain);
-              oscGain.connect(filter);
-              osc.start();
-              oscGain.gain.linearRampToValueAtTime(0.32 / freqs.length, audioCtx.currentTime + 2 + i * 0.3);
-
-              const lfo = audioCtx.createOscillator();
-              lfo.frequency.value = 0.08 + i * 0.02;
-              const lfoGain = audioCtx.createGain();
-              lfoGain.gain.value = 3;
-              lfo.connect(lfoGain);
-              lfoGain.connect(osc.frequency);
-              lfo.start();
-            }});
-          }}
-
-          function playTapSound() {{
-            if (audioMuted || !audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            osc.type = 'sine';
-            osc.frequency.value = 880;
-            const g = audioCtx.createGain();
-            g.gain.value = 0.08;
-            osc.connect(g);
-            g.connect(masterGain);
-            osc.start();
-            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-            osc.stop(audioCtx.currentTime + 0.16);
-          }}
-
-          function toggleMute() {{
-            audioMuted = !audioMuted;
-            ensureAudioContext();
-            startAmbient();
-            if (masterGain) {{ masterGain.gain.linearRampToValueAtTime(audioMuted ? 0 : 0.15, audioCtx.currentTime + 0.2); }}
-            document.getElementById('mute-toggle-icon').textContent = audioMuted ? '🔇' : '🔊';
-          }}
-
-          document.addEventListener('click', function initAudioOnce() {{
-            startAmbient();
-            document.removeEventListener('click', initAudioOnce);
-          }}, {{ once: true }});
-
-          function animateNumber(el, to, duration) {{
-            const startTime = performance.now();
-            function step(ts) {{
-              const progress = Math.min((ts - startTime) / duration, 1);
-              el.textContent = Math.round(progress * to) + '/100';
-              if (progress < 1) {{ requestAnimationFrame(step); }}
-            }}
-            requestAnimationFrame(step);
-          }}
-
-          function setLoadingText(text) {{
-            const el = document.getElementById('loading-status-text');
-            el.style.opacity = 0;
-            setTimeout(function () {{ el.textContent = text; el.style.opacity = 1; }}, 250);
-          }}
-
-          const BACK_TARGETS = {{
-            'step-challenge': ['step-goal', 11],
-            'step-niche': ['step-challenge', 22],
-            'step-audience': ['step-niche', 33],
-            'step-source': ['step-audience', 44],
-            'step-views': ['step-source', 55],
-            'step-upload': ['step-experience', 77]
-          }};
-
-          if (nicheCategoryFromUrl) {{
-            try {{
-              const preBtn = document.querySelector('.niche-btn[data-niche="' + CSS.escape(nicheCategoryFromUrl) + '"]');
-              if (preBtn) {{ toggleNiche(nicheCategoryFromUrl, preBtn); }}
-            }} catch (e) {{}}
-          }}
-
-          function goToStep(stepId, progressPct, showHeader, direction) {{
-            document.querySelectorAll('.step').forEach(function (s) {{ s.classList.remove('active', 'dir-forward', 'dir-back'); }});
-            const el = document.getElementById(stepId);
-            el.classList.add('active');
-            el.classList.add(direction === 'back' ? 'dir-back' : 'dir-forward');
-            currentStepId = stepId;
-            document.getElementById('onboarding-header').style.display = showHeader ? 'flex' : 'none';
-            document.getElementById('progress-fill').style.width = progressPct + '%';
-            window.scrollTo(0, 0);
-          }}
-
-          function goBackStep() {{
-            if (currentStepId === 'step-goal') {{ window.location.href = '/'; return; }}
-            if (currentStepId === 'step-experience') {{
-              if (accountAvgViewsFromUrl) {{ goToStep('step-source', 55, true, 'back'); }} else {{ goToStep('step-views', 66, true, 'back'); }}
-              return;
-            }}
-            const target = BACK_TARGETS[currentStepId];
-            if (target) {{ goToStep(target[0], target[1], true, 'back'); }}
-          }}
-
-          function advanceFromSource() {{
-            if (accountAvgViewsFromUrl) {{ goToStep('step-experience', 77, true); }} else {{ goToStep('step-views', 66, true); }}
-          }}
-
-          function enterSetupStep() {{
-            goToStep('step-setup', 88, false);
-            setTimeout(function () {{ goToStep('step-complete', 100, false); }}, 2200);
-          }}
-
-          function toggleNiche(niche, btnEl) {{
-            playTapSound();
-            const idx = selectedNiches.indexOf(niche);
-            if (idx !== -1) {{
-              selectedNiches.splice(idx, 1);
-              btnEl.classList.remove('selected');
-            }} else {{
-              if (selectedNiches.length >= MAX_NICHES) return;
-              selectedNiches.push(niche);
-              btnEl.classList.add('selected');
-            }}
-            var btn = document.getElementById('niche-next-btn');
-            if (selectedNiches.length > 0) {{
-              btn.disabled = false;
-              btn.className = 'w-full mt-6 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
-            }} else {{
-              btn.disabled = true;
-              btn.className = 'w-full mt-6 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition';
-            }}
-          }}
-
-          function selectGoal(value, btnEl) {{
-            playTapSound();
-            selectedGoal = value;
-            document.querySelectorAll('.goal-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
-            btnEl.classList.add('selected');
-            var btn = document.getElementById('goal-next-btn');
-            btn.disabled = false;
-            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
-          }}
-
-          function selectChallenge(challenge, btnEl) {{
-            playTapSound();
-            selectedChallenge = challenge;
-            document.querySelectorAll('#step-challenge .challenge-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
-            btnEl.classList.add('selected');
-            var btn = document.getElementById('challenge-next-btn');
-            btn.disabled = false;
-            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
-          }}
-
-          function selectAudience(value, btnEl) {{
-            playTapSound();
-            selectedAudience = value;
-            document.querySelectorAll('.audience-opt').forEach(function (b) {{ b.classList.remove('selected'); }});
-            btnEl.classList.add('selected');
-            var btn = document.getElementById('audience-next-btn');
-            btn.disabled = false;
-            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
-          }}
-
-          function selectSource(value, btnEl) {{
-            playTapSound();
-            selectedSource = value;
-            document.querySelectorAll('.source-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
-            btnEl.classList.add('selected');
-            var btn = document.getElementById('source-next-btn');
-            btn.disabled = false;
-            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
-          }}
-
-          function selectViews(value, btnEl) {{
-            playTapSound();
-            accountAvgViewsFinal = String(value);
-            document.querySelectorAll('.views-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
-            btnEl.classList.add('selected');
-            var btn = document.getElementById('views-next-btn');
-            btn.disabled = false;
-            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
-          }}
-
-          function selectExperience(value, btnEl) {{
-            playTapSound();
-            selectedExperience = value;
-            document.querySelectorAll('.experience-opt').forEach(function (b) {{ b.classList.remove('selected'); }});
-            btnEl.classList.add('selected');
-            var btn = document.getElementById('experience-next-btn');
-            btn.disabled = false;
-            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
-          }}
+          let selectedFile = null;
+          let thumbDataUrl = '';
 
           function onVideoSelected(event) {{
             const file = event.target.files && event.target.files[0];
@@ -1889,24 +1942,6 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             const btn = document.getElementById('upload-launch-btn');
             btn.disabled = false;
             btn.className = 'w-full mt-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
-          }}
-
-          function copyText(text) {{
-            if (navigator.clipboard) {{ navigator.clipboard.writeText(text).catch(function () {{}}); }}
-          }}
-
-          function switchTab(tab) {{
-            document.getElementById('tab-stats').classList.toggle('hidden', tab !== 'stats');
-            document.getElementById('tab-improvements').classList.toggle('hidden', tab !== 'improvements');
-            document.getElementById('tabbtn-stats').classList.toggle('active', tab === 'stats');
-            document.getElementById('tabbtn-improvements').classList.toggle('active', tab === 'improvements');
-          }}
-
-          function scoreColor(score) {{
-            if (score <= 40) return '#DC2626';
-            if (score <= 60) return '#F59E0B';
-            if (score <= 80) return '#F97316';
-            return '#2563EB';
           }}
 
           function resetFlow() {{
@@ -1997,34 +2032,146 @@ def tool_analyze_script_page(request: Request):
     Réutilise directement /api/analyze-transcript — la même route qui
     analyse le texte parlé d'une vidéo déjà tournée/postée — pour donner
     un score de viralité et un rapport cohérent avec celui des vidéos.
+
+    Même onboarding complet que "Analyser la vidéo" (objectif -> défi ->
+    niche -> audience -> provenance -> vues moyennes -> expérience ->
+    configuration -> complétion), qui alimente ici `niche_category` et
+    `main_challenge` envoyés à /api/analyze-transcript. Le résultat garde
+    volontairement son propre format, plus riche qu'un simple score
+    (accroche, rythme, structure, pourquoi ça marche ou pas) plutôt que
+    d'être aligné de force sur celui des vidéos.
     """
     lang = _detect_ui_lang(request)
     tt = lambda key: t(lang, key)  # noqa: E731
     words_suffix = tt("tool_script_words_suffix")
+
+    niche_buttons = "".join(
+        f'''<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
+              <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
+              <span>{n}</span>
+            </button>'''
+        for n in NICHE_CATEGORIES
+    )
+
     return f"""
     <html lang="{lang}">
       <head>
         <title>{tt("tool_script_title")} — Wil App</title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>{_TOOL_PAGE_STYLE}</style>
+        <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
+        <style>{_ONBOARDING_STYLE}</style>
       </head>
-      <body>
-        <div class="wrap">
-          <a href="/" class="back">{tt("back_home")}</a>
-          <h1>{tt("tool_script_title")}</h1>
-          <p class="subtitle">{tt("tool_script_subtitle")}</p>
-          <div class="card">
-            <textarea id="script-text" placeholder="{tt("tool_script_placeholder")}" rows="10" oninput="updateScriptWordCount()"></textarea>
-            <p id="script-word-count" style="font-size:12px;color:#777;margin:-4px 0 12px;">0 / {MAX_TRANSCRIPT_WORDS} {words_suffix}</p>
-            <button id="script-analyze-btn" class="primary" onclick="analyzeScript()">{tt("tool_script_analyze_btn")}</button>
-            <div id="script-analyze-result" style="margin-top:14px; text-align:left;"></div>
+      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}
+        <div class="max-w-md mx-auto px-5 py-6">
+{_onboarding_steps_html(tt, niche_buttons, "step-script")}
+
+          <!-- ÉTAPE 10 : script -->
+          <div id="step-script" class="step">
+            <h1 class="text-xl font-extrabold mb-1">{tt("tool_script_title")}</h1>
+            <p class="text-sm text-slate-500 mb-6">{tt("tool_script_subtitle")}</p>
+            <textarea id="script-text" placeholder="{tt("tool_script_placeholder")}" rows="10"
+                      class="w-full rounded-xl border-2 border-slate-200 p-3 text-sm focus:outline-none focus:border-blue-500"
+                      oninput="updateScriptWordCount()"></textarea>
+            <p id="script-word-count" class="text-xs text-slate-400 mt-2">0 / {MAX_TRANSCRIPT_WORDS} {words_suffix}</p>
+            <button id="script-analyze-btn" disabled onclick="launchAnalysis()"
+                    class="w-full mt-4 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
+              {tt("tool_script_analyze_btn")}
+            </button>
+            <div id="script-error" class="text-center text-sm text-red-600 mt-3"></div>
           </div>
+
+          <!-- ÉTAPE 11 : chargement -->
+          <div id="step-loading" class="step text-center">
+            <div class="dot-bounce mt-24"><span></span><span></span><span></span></div>
+            <p id="loading-status-text" class="mt-8 font-semibold text-slate-700">{tt("loading_script_reading")}</p>
+          </div>
+
+          <!-- ÉTAPE 12 : résultat -->
+          <div id="step-results" class="step">
+            <div class="flex items-center justify-between mb-4">
+              <span class="font-extrabold text-lg">Wil App</span>
+              <button onclick="resetFlow()" class="text-xs font-semibold text-blue-600 hover:text-blue-700">{tt("tool_script_analyze_btn")}</button>
+            </div>
+
+            <h2 class="text-lg font-bold mb-4">{tt("results_smart_insights")}</h2>
+
+            <div class="insight-card">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold text-sm">{tt("tool_script_virality_estimated")}</span>
+                <span id="script-score-value" class="font-extrabold text-blue-600">—/100</span>
+              </div>
+              <div class="score-track"><div id="script-score-bar" class="score-fill" style="width:0%"></div></div>
+            </div>
+
+            <div class="insight-card">
+              <div class="flex items-start gap-3">
+                <div class="improve-icon">🎬</div>
+                <div class="flex-1">
+                  <p class="font-bold text-sm mb-1">{tt("tool_script_hook")}</p>
+                  <p id="script-hook-value" class="text-sm text-slate-600"></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="insight-card">
+              <div class="flex items-start gap-3">
+                <div class="improve-icon">⏱️</div>
+                <div class="flex-1">
+                  <p class="font-bold text-sm mb-1">{tt("tool_script_rhythm")}</p>
+                  <p id="script-rhythm-value" class="text-sm text-slate-600"></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="insight-card">
+              <div class="flex items-start gap-3">
+                <div class="improve-icon">🧩</div>
+                <div class="flex-1">
+                  <p class="font-bold text-sm mb-1">{tt("tool_script_structure")}</p>
+                  <ul id="script-structure-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="insight-card">
+              <div class="flex items-start gap-3">
+                <div class="improve-icon">✅</div>
+                <div class="flex-1">
+                  <p class="font-bold text-sm mb-1">{tt("dash_strengths")}</p>
+                  <ul id="script-strengths-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="insight-card">
+              <div class="flex items-start gap-3">
+                <div class="improve-icon">⚠️</div>
+                <div class="flex-1">
+                  <p class="font-bold text-sm mb-1">{tt("tool_script_to_fix")}</p>
+                  <ul id="script-weaknesses-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="insight-card">
+              <div class="flex items-start gap-3">
+                <div class="improve-icon">🎯</div>
+                <div class="flex-1">
+                  <p class="font-bold text-sm mb-1">{tt("tool_script_why")}</p>
+                  <p id="script-why-value" class="text-sm text-slate-600"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
+
         <script>
+{_onboarding_js_core("", "", lang, "step-script")}
+
           const MAX_SCRIPT_WORDS = {MAX_TRANSCRIPT_WORDS};
-          const uiLang = "{lang}";
+          const LOADING_STAGES = ["{tt("loading_script_reading")}", "{tt("loading_script_analyzing")}", "{tt("loading_insights")}"];
 
           function countWords(text) {{
             const trimmed = text.trim();
@@ -2035,67 +2182,77 @@ def tool_analyze_script_page(request: Request):
             const text = document.getElementById('script-text').value;
             const count = countWords(text);
             const counter = document.getElementById('script-word-count');
-            counter.textContent = `${{count}} / ${{MAX_SCRIPT_WORDS}} {words_suffix}`;
-            counter.style.color = count > MAX_SCRIPT_WORDS ? '#c0392b' : '#777';
+            counter.textContent = count + ' / ' + MAX_SCRIPT_WORDS + ' {words_suffix}';
+            counter.className = count > MAX_SCRIPT_WORDS ? 'text-xs text-red-600 mt-2' : 'text-xs text-slate-400 mt-2';
+            const valid = count > 0 && count <= MAX_SCRIPT_WORDS;
+            const btn = document.getElementById('script-analyze-btn');
+            btn.disabled = !valid;
+            btn.className = valid
+              ? 'w-full mt-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700'
+              : 'w-full mt-4 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition';
           }}
 
-          function analyzeScript() {{
+          function resetFlow() {{
+            document.getElementById('script-text').value = '';
+            updateScriptWordCount();
+            document.getElementById('script-error').textContent = '';
+            goToStep('step-script', 100, true);
+          }}
+
+          function launchAnalysis() {{
             const transcript = document.getElementById('script-text').value.trim();
-            const btn = document.getElementById('script-analyze-btn');
-            const result = document.getElementById('script-analyze-result');
+            if (!transcript) return;
 
-            if (!transcript) {{
-              result.innerHTML = '<p style="color:#c0392b;">{tt("tool_script_empty_error")}</p>';
-              return;
-            }}
+            let stageIdx = 0;
+            document.getElementById('loading-status-text').textContent = LOADING_STAGES[0];
+            goToStep('step-loading', 100, false);
+            const stageInterval = setInterval(function () {{
+              stageIdx = Math.min(stageIdx + 1, LOADING_STAGES.length - 1);
+              setLoadingText(LOADING_STAGES[stageIdx]);
+            }}, 3000);
 
-            const wordCount = countWords(transcript);
-            if (wordCount > MAX_SCRIPT_WORDS) {{
-              result.innerHTML = `<p style="color:#c0392b;">${{fmt("{tt('tool_script_too_long')}", {{count: wordCount, max: MAX_SCRIPT_WORDS}})}}</p>`;
-              return;
-            }}
+            const params = new URLSearchParams({{
+              transcript: transcript,
+              niche_category: selectedNiches[0] || '',
+              main_challenge: selectedChallenge,
+              ui_lang: uiLang
+            }});
 
-            btn.disabled = true;
-            btn.textContent = '{tt("dash_analyzing_short")}';
-            result.innerHTML = '';
-
-            const params = new URLSearchParams({{ transcript, ui_lang: uiLang }});
-
-            fetch(`/api/analyze-transcript?${{params.toString()}}`)
-              .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
-              .then(({{ok, status, data}}) => {{
-                if (!ok) {{
-                  const reason = (data && data.detail) ? data.detail : `{tt("common_error_prefix")} ${{status}}`;
-                  result.innerHTML = `<p style="color:#c0392b;">${{reason}}</p>`;
+            fetch('/api/analyze-transcript?' + params.toString())
+              .then(function (r) {{ return r.json().then(function (data) {{ return {{ok: r.ok, status: r.status, data: data}}; }}); }})
+              .then(function (res) {{
+                clearInterval(stageInterval);
+                if (!res.ok) {{
+                  const reason = (res.data && res.data.detail) ? res.data.detail : ('{tt("common_error_prefix")} ' + res.status);
+                  document.getElementById('script-error').textContent = reason;
+                  goToStep('step-script', 100, true);
                   return;
                 }}
-                const structure = (data.structure_breakdown || []).map(s => `<li>${{s}}</li>`).join('');
-                const strengths = (data.strengths || []).map(s => `<li>${{s}}</li>`).join('');
-                const weaknesses = (data.weaknesses || []).map(s => `<li>${{s}}</li>`).join('');
-                result.innerHTML = `
-                  <p><strong>🔥 {tt("tool_script_virality_estimated")}</strong></p>
-                  <p style="font-size:28px;font-weight:700;color:#2563EB;">${{data.virality_score ?? '—'}}/100</p>
-                  <p><strong>🎬 {tt("tool_script_hook")}</strong></p><p>${{data.hook_analysis || ''}}</p>
-                  <p><strong>⏱️ {tt("tool_script_rhythm")}</strong></p><p>${{data.rhythm_analysis || ''}}</p>
-                  <p><strong>🧩 {tt("tool_script_structure")}</strong></p>
-                  <ul class="bullets">${{structure}}</ul>
-                  <p><strong>✅ {tt("dash_strengths")}</strong></p>
-                  <ul class="bullets">${{strengths}}</ul>
-                  <p><strong>⚠️ {tt("tool_script_to_fix")}</strong></p>
-                  <ul class="bullets">${{weaknesses}}</ul>
-                  <p><strong>🎯 {tt("tool_script_why")}</strong></p><p>${{data.why_it_worked_or_not || ''}}</p>`;
+                setLoadingText('{tt("loading_done")}');
+                renderScriptResults(res.data);
+                setTimeout(function () {{ goToStep('step-results', 100, false); }}, 500);
               }})
-              .catch((e) => {{
-                result.innerHTML = `<p style="color:#c0392b;">{tt("common_network_error")} ${{e && e.message ? e.message : e}}</p>`;
-              }})
-              .finally(() => {{
-                btn.disabled = false;
-                btn.textContent = '{tt("tool_script_analyze_btn")}';
+              .catch(function (e) {{
+                clearInterval(stageInterval);
+                document.getElementById('script-error').textContent = '{tt("common_network_error")} ' + (e && e.message ? e.message : e);
+                goToStep('step-script', 100, true);
               }});
           }}
 
-          function fmt(template, vars) {{
-            return template.replace(/\\{{(\\w+)\\}}/g, (_, k) => (k in vars) ? vars[k] : `{{${{k}}}}`);
+          function renderScriptResults(data) {{
+            const score = data.virality_score != null ? data.virality_score : 0;
+            const color = scoreColor(score);
+            animateNumber(document.getElementById('script-score-value'), score, 900);
+            document.getElementById('script-score-value').style.color = color;
+            document.getElementById('script-score-bar').style.width = score + '%';
+            document.getElementById('script-score-bar').style.background = color;
+
+            document.getElementById('script-hook-value').textContent = data.hook_analysis || '';
+            document.getElementById('script-rhythm-value').textContent = data.rhythm_analysis || '';
+            document.getElementById('script-structure-value').innerHTML = (data.structure_breakdown || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
+            document.getElementById('script-strengths-value').innerHTML = (data.strengths || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
+            document.getElementById('script-weaknesses-value').innerHTML = (data.weaknesses || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
+            document.getElementById('script-why-value').textContent = data.why_it_worked_or_not || '';
           }}
         </script>
       </body>
@@ -4138,6 +4295,8 @@ async def analyze_transcript(
     claimed_likes: int = 0,
     claimed_comments: int = 0,
     claimed_shares: int = 0,
+    niche_category: str = "",
+    main_challenge: str = "",
     ui_lang: str = DEFAULT_LANG,
 ):
     """
@@ -4155,6 +4314,11 @@ async def analyze_transcript(
     projet). Les stats (claimed_*) sont déclarées manuellement par
     l'utilisateur (visibles par lui sur TikTok) : aucune API ne permet de
     les récupérer automatiquement pour une vidéo hors du compte connecté.
+
+    `niche_category`/`main_challenge` viennent du mini-questionnaire
+    d'onboarding de la page "Analyser le script" (même structure que
+    "Analyser la vidéo") : oriente l'angle des instructions données,
+    sans jamais inventer de statistique.
     """
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
@@ -4198,6 +4362,12 @@ est donc une ESTIMATION basée uniquement sur la structure du transcript
 — précise-le explicitement dans le résumé, ne fais pas comme si
 c'était un fait vérifié."""
 
+    challenge_text = {
+        "followers": "L'utilisateur dit que son plus gros défi est de gagner des ABONNÉS : oriente tes instructions vers ce qui donne envie de suivre le compte (personnalité, régularité, promesse de contenu à venir).",
+        "engagement": "L'utilisateur dit que son plus gros défi est l'ENGAGEMENT (likes/commentaires) : oriente tes instructions vers ce qui pousse à réagir ou commenter (question ouverte, avis tranché, appel à réagir).",
+        "reach": "L'utilisateur dit que son plus gros défi est la PORTÉE/les VUES : oriente tes instructions vers ce qui retient dès la première seconde et jusqu'au bout (accroche, rythme).",
+    }.get(main_challenge, "Défi principal non précisé — reste équilibré entre accroche, rétention et appel à l'action.")
+
     prompt = f"""DONNÉES DISPONIBLES :
 - Transcript complet ({word_count} mots, durée {"réelle" if duration_seconds else "estimée"} ~{estimated_duration}s) :
 "{transcript}"
@@ -4207,6 +4377,8 @@ c'était un fait vérifié."""
 "{hook_portion}"
 
 {f"- Débit réel mesuré : {words_per_second_actual} mots/seconde (moyenne naturelle en français : ~2.5)" if words_per_second_actual else ""}
+Niche du script : {niche_category or "non précisée"}
+{challenge_text}
 {stats_block}
 
 MÉTHODE D'ANALYSE (obligatoire, avant de répondre) :
