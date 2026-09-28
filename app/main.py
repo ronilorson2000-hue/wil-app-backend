@@ -386,19 +386,19 @@ def home(request: Request):
         gradient = _TESTIMONIAL_GRADIENTS[(i - 1) % len(_TESTIMONIAL_GRADIENTS)]
         name = tt(f"testimonial_{i}_name")
         image_html = (
-            f'<img src="/static/testimonials/{i}.png" alt="" class="w-full h-40 object-cover object-top" loading="lazy" />'
+            f'<img src="/static/testimonials/{i}.png" alt="" class="w-full h-28 sm:h-40 object-cover object-top" loading="lazy" />'
             if i <= TESTIMONIAL_PROOF_IMAGE_COUNT
             else ""
         )
         return f'''<div class="testimonial-card bg-blue-50 border border-blue-100 rounded-2xl overflow-hidden">
               {image_html}
-              <div class="p-6">
-                <p class="text-sm text-slate-600 leading-relaxed mb-4">"{tt(f"testimonial_{i}_quote")}"</p>
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-full bg-gradient-to-br {gradient} flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{name[0]}</div>
+              <div class="p-4 sm:p-6">
+                <p class="text-xs sm:text-sm text-slate-600 leading-relaxed mb-3 sm:mb-4">"{tt(f"testimonial_{i}_quote")}"</p>
+                <div class="flex items-center gap-2 sm:gap-3">
+                  <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br {gradient} flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">{name[0]}</div>
                   <div>
-                    <p class="font-semibold text-sm text-slate-900">{name}</p>
-                    <p class="text-xs text-slate-500">{tt(f"testimonial_{i}_role")}</p>
+                    <p class="font-semibold text-xs sm:text-sm text-slate-900">{name}</p>
+                    <p class="text-[11px] sm:text-xs text-slate-500">{tt(f"testimonial_{i}_role")}</p>
                   </div>
                 </div>
               </div>
@@ -427,12 +427,11 @@ def home(request: Request):
           @media (prefers-reduced-motion: reduce) {{
             .reveal {{ opacity: 1; transform: none; transition: none; }}
           }}
-          @keyframes marqueeScroll {{ from {{ transform: translateX(0); }} to {{ transform: translateX(-50%); }} }}
-          .testimonial-track {{ display: flex; gap: 1rem; width: max-content; animation: marqueeScroll 85s linear infinite; }}
-          .testimonial-track:hover {{ animation-play-state: paused; }}
-          .testimonial-card {{ flex-shrink: 0; width: 260px; }}
-          @media (prefers-reduced-motion: reduce) {{
-            .testimonial-track {{ animation: none; }}
+          .testimonial-track {{ display: flex; gap: 1rem; overflow-x: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 0 0.25rem; }}
+          .testimonial-track::-webkit-scrollbar {{ display: none; }}
+          .testimonial-card {{ flex-shrink: 0; width: 200px; }}
+          @media (min-width: 640px) {{
+            .testimonial-card {{ width: 260px; }}
           }}
         </style>
       </head>
@@ -542,10 +541,14 @@ def home(request: Request):
             <h2 class="text-2xl sm:text-3xl font-bold text-center mb-2">{tt("results_title")}</h2>
             <p class="text-sm sm:text-base text-slate-500 text-center mb-10 sm:mb-14">{tt("results_subtitle")}</p>
           </section>
-          <div class="relative w-screen left-1/2 -translate-x-1/2 overflow-hidden py-2 -mt-10 sm:-mt-14 mb-10 sm:mb-20">
-            <div class="testimonial-track">
+          <div class="relative w-screen left-1/2 -translate-x-1/2 py-2 -mt-10 sm:-mt-14 mb-10 sm:mb-20">
+            <button onclick="scrollTestimonials(-1)" aria-label="{tt("results_prev")}" type="button"
+                    class="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 z-10 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white shadow-md border border-slate-200 flex items-center justify-center text-slate-600 hover:text-blue-600 active:scale-90 transition">‹</button>
+            <div id="testimonial-track" class="testimonial-track">
               {testimonial_cards_html}
             </div>
+            <button onclick="scrollTestimonials(1)" aria-label="{tt("results_next")}" type="button"
+                    class="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 z-10 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white shadow-md border border-slate-200 flex items-center justify-center text-slate-600 hover:text-blue-600 active:scale-90 transition">›</button>
           </div>
 
           <section id="faq" class="py-20 border-t border-slate-100">
@@ -648,6 +651,58 @@ def home(request: Request):
               }});
             }}, {{ threshold: 0.15, rootMargin: '0px 0px -40px 0px' }});
             revealEls.forEach(function (el) {{ observer.observe(el); }});
+          }})();
+
+          // Témoignages : défilement horizontal automatique et continu
+          // (repositionnement invisible à mi-parcours, la liste étant
+          // dupliquée une fois côté serveur), avec deux boutons pour
+          // avancer/reculer manuellement sans attendre — le défilement
+          // auto reprend après une pause si l'utilisateur n'interagit
+          // plus.
+          (function () {{
+            var track = document.getElementById('testimonial-track');
+            if (!track) return;
+            var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            var autoScrollTimer = null;
+            var resumeTimer = null;
+
+            function tick() {{
+              track.scrollLeft += 1;
+              var half = track.scrollWidth / 2;
+              if (track.scrollLeft >= half) {{
+                track.scrollLeft -= half;
+              }}
+            }}
+
+            function startAuto() {{
+              if (reduceMotion || autoScrollTimer) return;
+              autoScrollTimer = setInterval(tick, 30);
+            }}
+
+            function stopAuto() {{
+              clearInterval(autoScrollTimer);
+              autoScrollTimer = null;
+            }}
+
+            function pauseThenResume() {{
+              stopAuto();
+              clearTimeout(resumeTimer);
+              resumeTimer = setTimeout(startAuto, 4000);
+            }}
+
+            window.scrollTestimonials = function (direction) {{
+              pauseThenResume();
+              var firstCard = track.querySelector('.testimonial-card');
+              var cardWidth = firstCard ? firstCard.offsetWidth + 16 : 260;
+              track.scrollBy({{ left: direction * cardWidth * 2, behavior: 'smooth' }});
+            }};
+
+            track.addEventListener('pointerdown', pauseThenResume);
+            track.addEventListener('touchstart', pauseThenResume, {{ passive: true }});
+            track.addEventListener('mouseenter', stopAuto);
+            track.addEventListener('mouseleave', startAuto);
+
+            startAuto();
           }})();
         </script>
       </body>
