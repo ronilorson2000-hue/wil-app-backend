@@ -1239,20 +1239,24 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
     vues) en paramètres d'URL, transmis par le tableau de bord au clic sur
     le bouton "Analyser la vidéo" — cette page n'a plus besoin de session.
 
-    Parcours en plusieurs écrans façon "onboarding" (mini-questionnaire
-    niche/défi -> upload -> chargement par étapes -> résultat en onglets),
-    inspiré de la structure d'une app concurrente ("Go Viral") — mais SANS
-    ses statistiques de vues/likes prédites ni son graphique de simulation,
-    qui sont fabriqués (vérifié en analysant plusieurs vidéos dans leur
-    app : même animation générique à chaque fois, aucun vrai calcul
-    derrière). Wil App affiche à la place un vrai score de viralité basé
-    sur l'analyse réelle du hook/rythme (RÈGLE D'OR N°1 : jamais inventé).
+    Parcours en onboarding complet à plusieurs écrans (objectif, défi,
+    niche, audience, provenance, vues moyennes, expérience, écran de
+    configuration, écran de complétion) -> upload -> chargement par
+    étapes -> résultat en onglets, inspiré de la structure d'une app
+    concurrente ("Go Viral"). Les écrans purement déclaratifs (choix de
+    l'utilisateur sur lui-même) sont repris fidèlement. En revanche, ses
+    statistiques de vues/likes prédites, son graphique de simulation et
+    ses témoignages sont fabriqués (vérifié en comparant plusieurs vidéos
+    dans leur app : même animation générique à chaque fois, aucun vrai
+    calcul derrière, avis clients inventés) — Wil App ne les reprend pas.
+    À la place : un vrai score de viralité basé sur l'analyse réelle du
+    hook/rythme (RÈGLE D'OR N°1 : jamais inventé).
     """
     lang = _detect_ui_lang(request)
     tt = lambda key: t(lang, key)  # noqa: E731
 
     niche_buttons = "".join(
-        f'''<button type="button" class="niche-btn" onclick="selectNiche('{n}', this)">
+        f'''<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
               <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
               <span>{n}</span>
             </button>'''
@@ -1287,6 +1291,8 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           .challenge-btn.selected .challenge-desc {{ color: #CBD5E1; }}
           .challenge-title {{ font-weight: 700; font-size: 15px; color: #0F172A; }}
           .challenge-desc {{ font-size: 13px; color: #64748B; margin-top: 2px; }}
+          .simple-btn {{ display: block; width: 100%; padding: 14px 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; transition: all 0.15s ease; margin-bottom: 10px; font-weight: 600; font-size: 14px; color: #0F172A; }}
+          .simple-btn.selected {{ background: #0F172A; color: #fff; border-color: #0F172A; }}
           .glow-thumb {{ position: relative; width: 160px; margin: 0 auto; }}
           .glow-thumb::before {{ content: ''; position: absolute; inset: -20px; background: radial-gradient(circle, rgba(37,99,235,0.25), transparent 70%); border-radius: 24px; z-index: 0; }}
           .glow-thumb img {{ position: relative; z-index: 1; width: 100%; border-radius: 16px; box-shadow: 0 8px 24px rgba(15,23,42,0.15); object-fit: cover; aspect-ratio: 9/16; background: #E2E8F0; }}
@@ -1296,32 +1302,40 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           .copy-btn {{ cursor: pointer; color: #94A3B8; }}
           .copy-btn:hover {{ color: #2563EB; }}
           .improve-icon {{ width: 40px; height: 40px; border-radius: 10px; background: #EFF6FF; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }}
+          .dot-bounce {{ display: flex; gap: 8px; justify-content: center; margin-top: 28px; }}
+          .dot-bounce span {{ width: 12px; height: 12px; border-radius: 50%; background: #2563EB; display: inline-block; animation: dotBounce 1.4s infinite ease-in-out both; }}
+          .dot-bounce span:nth-child(1) {{ animation-delay: -0.32s; }}
+          .dot-bounce span:nth-child(2) {{ animation-delay: -0.16s; }}
+          @keyframes dotBounce {{ 0%, 80%, 100% {{ transform: scale(0); }} 40% {{ transform: scale(1); }} }}
+          @keyframes popIn {{ 0% {{ transform: scale(0.6); opacity: 0; }} 100% {{ transform: scale(1); opacity: 1; }} }}
+          .complete-emoji {{ font-size: 56px; animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }}
         </style>
       </head>
       <body class="text-slate-900">
         <div class="max-w-md mx-auto px-5 py-6">
 
-          <!-- ÉTAPE 1 : niche -->
-          <div id="step-niche" class="step active">
-            <div class="flex items-center gap-3 mb-6">
-              <a href="/" class="text-slate-400 hover:text-slate-700">←</a>
-              <div class="progress-track flex-1"><div class="progress-fill" style="width:33%"></div></div>
-            </div>
-            <h1 class="text-xl font-extrabold mb-1">{tt("onboarding_niche_title")}</h1>
-            <p class="text-sm text-slate-500 mb-6">{tt("onboarding_niche_subtitle")}</p>
-            <div class="niche-grid">{niche_buttons}</div>
-            <button id="niche-next-btn" disabled onclick="goToStep('step-challenge', 66)"
-                    class="w-full mt-6 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
+          <div id="onboarding-header" class="flex items-center gap-3 mb-6">
+            <a href="#" onclick="goBackStep(); return false;" class="text-slate-400 hover:text-slate-700">←</a>
+            <div class="progress-track flex-1"><div id="progress-fill" class="progress-fill" style="width:11%"></div></div>
+          </div>
+
+          <!-- ÉTAPE 1 : objectif principal -->
+          <div id="step-goal" class="step active">
+            <h1 class="text-xl font-extrabold mb-1">{tt("onboarding_goal_title")}</h1>
+            <p class="text-sm text-slate-500 mb-6">{tt("onboarding_goal_subtitle")}</p>
+            <button type="button" class="simple-btn goal-btn" onclick="selectGoal('views', this)">{tt("onboarding_goal_views")}</button>
+            <button type="button" class="simple-btn goal-btn" onclick="selectGoal('engagement', this)">{tt("onboarding_goal_engagement")}</button>
+            <button type="button" class="simple-btn goal-btn" onclick="selectGoal('fanbase', this)">{tt("onboarding_goal_fanbase")}</button>
+            <button type="button" class="simple-btn goal-btn" onclick="selectGoal('collabs', this)">{tt("onboarding_goal_collabs")}</button>
+            <button type="button" class="simple-btn goal-btn" onclick="selectGoal('other', this)">{tt("onboarding_goal_other")}</button>
+            <button id="goal-next-btn" disabled onclick="goToStep('step-challenge', 22, true)"
+                    class="w-full mt-2 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
               {tt("onboarding_next")}
             </button>
           </div>
 
           <!-- ÉTAPE 2 : plus gros défi -->
           <div id="step-challenge" class="step">
-            <div class="flex items-center gap-3 mb-6">
-              <a href="#" onclick="goToStep('step-niche', 33); return false;" class="text-slate-400 hover:text-slate-700">←</a>
-              <div class="progress-track flex-1"><div class="progress-fill" style="width:66%"></div></div>
-            </div>
             <h1 class="text-xl font-extrabold mb-6">{tt("onboarding_challenge_title")}</h1>
             <button type="button" class="challenge-btn" onclick="selectChallenge('followers', this)">
               <div class="challenge-title">👤 {tt("onboarding_challenge_followers_title")}</div>
@@ -1335,18 +1349,125 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               <div class="challenge-title">▶️ {tt("onboarding_challenge_reach_title")}</div>
               <div class="challenge-desc">{tt("onboarding_challenge_reach_desc")}</div>
             </button>
-            <button id="challenge-next-btn" disabled onclick="goToStep('step-upload', 100)"
+            <button id="challenge-next-btn" disabled onclick="goToStep('step-niche', 33, true)"
                     class="w-full mt-2 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
               {tt("onboarding_next")}
             </button>
           </div>
 
-          <!-- ÉTAPE 3 : upload -->
+          <!-- ÉTAPE 3 : niche (sélection multiple) -->
+          <div id="step-niche" class="step">
+            <h1 class="text-xl font-extrabold mb-1">{tt("onboarding_niche_title")}</h1>
+            <p class="text-sm text-slate-500 mb-1">{tt("onboarding_niche_subtitle")}</p>
+            <p class="text-xs text-slate-400 mb-4">{tt("onboarding_niche_multi_hint")}</p>
+            <div class="niche-grid">{niche_buttons}</div>
+            <button id="niche-next-btn" disabled onclick="goToStep('step-audience', 44, true)"
+                    class="w-full mt-6 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
+              {tt("onboarding_next")}
+            </button>
+          </div>
+
+          <!-- ÉTAPE 4 : âge de l'audience -->
+          <div id="step-audience" class="step">
+            <h1 class="text-xl font-extrabold mb-1">{tt("onboarding_audience_title")}</h1>
+            <p class="text-sm text-slate-500 mb-6">{tt("onboarding_audience_subtitle")}</p>
+            <button type="button" class="challenge-btn audience-opt" onclick="selectAudience('teens', this)">
+              <div class="challenge-title">{tt("onboarding_audience_teens")}</div>
+              <div class="challenge-desc">{tt("onboarding_audience_teens_desc")}</div>
+            </button>
+            <button type="button" class="challenge-btn audience-opt" onclick="selectAudience('young_adults', this)">
+              <div class="challenge-title">{tt("onboarding_audience_young_adults")}</div>
+              <div class="challenge-desc">{tt("onboarding_audience_young_adults_desc")}</div>
+            </button>
+            <button type="button" class="challenge-btn audience-opt" onclick="selectAudience('adults', this)">
+              <div class="challenge-title">{tt("onboarding_audience_adults")}</div>
+              <div class="challenge-desc">{tt("onboarding_audience_adults_desc")}</div>
+            </button>
+            <button type="button" class="challenge-btn audience-opt" onclick="selectAudience('general', this)">
+              <div class="challenge-title">{tt("onboarding_audience_general")}</div>
+              <div class="challenge-desc">{tt("onboarding_audience_general_desc")}</div>
+            </button>
+            <button id="audience-next-btn" disabled onclick="goToStep('step-source', 55, true)"
+                    class="w-full mt-2 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
+              {tt("onboarding_next")}
+            </button>
+          </div>
+
+          <!-- ÉTAPE 5 : provenance -->
+          <div id="step-source" class="step">
+            <h1 class="text-xl font-extrabold mb-6">{tt("onboarding_source_title")}</h1>
+            <button type="button" class="simple-btn source-btn" onclick="selectSource('tiktok', this)">🎵 {tt("onboarding_source_tiktok")}</button>
+            <button type="button" class="simple-btn source-btn" onclick="selectSource('instagram', this)">📸 {tt("onboarding_source_instagram")}</button>
+            <button type="button" class="simple-btn source-btn" onclick="selectSource('reddit', this)">👽 {tt("onboarding_source_reddit")}</button>
+            <button type="button" class="simple-btn source-btn" onclick="selectSource('google', this)">🔎 {tt("onboarding_source_google")}</button>
+            <button type="button" class="simple-btn source-btn" onclick="selectSource('friend', this)">👥 {tt("onboarding_source_friend")}</button>
+            <button type="button" class="simple-btn source-btn" onclick="selectSource('other', this)">✨ {tt("onboarding_source_other")}</button>
+            <button id="source-next-btn" disabled onclick="advanceFromSource()"
+                    class="w-full mt-2 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
+              {tt("onboarding_next")}
+            </button>
+          </div>
+
+          <!-- ÉTAPE 6 : vues moyennes (sautée si déjà connue via le tableau de bord) -->
+          <div id="step-views" class="step">
+            <h1 class="text-xl font-extrabold mb-1">{tt("onboarding_views_title")}</h1>
+            <p class="text-sm text-slate-500 mb-6">{tt("onboarding_views_subtitle")}</p>
+            <button type="button" class="simple-btn views-btn" onclick="selectViews(500, this)">{tt("onboarding_views_lt1000")}</button>
+            <button type="button" class="simple-btn views-btn" onclick="selectViews(3000, this)">{tt("onboarding_views_1k_5k")}</button>
+            <button type="button" class="simple-btn views-btn" onclick="selectViews(12000, this)">{tt("onboarding_views_5k_20k")}</button>
+            <button type="button" class="simple-btn views-btn" onclick="selectViews(35000, this)">{tt("onboarding_views_20k_50k")}</button>
+            <button type="button" class="simple-btn views-btn" onclick="selectViews(75000, this)">{tt("onboarding_views_gt50k")}</button>
+            <button id="views-next-btn" disabled onclick="goToStep('step-experience', 77, true)"
+                    class="w-full mt-2 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
+              {tt("onboarding_next")}
+            </button>
+          </div>
+
+          <!-- ÉTAPE 7 : niveau d'expérience -->
+          <div id="step-experience" class="step">
+            <h1 class="text-xl font-extrabold mb-6">{tt("onboarding_experience_title")}</h1>
+            <button type="button" class="challenge-btn experience-opt" onclick="selectExperience('beginner', this)">
+              <div class="challenge-title">{tt("onboarding_experience_beginner")}</div>
+              <div class="challenge-desc">{tt("onboarding_experience_beginner_desc")}</div>
+            </button>
+            <button type="button" class="challenge-btn experience-opt" onclick="selectExperience('starting', this)">
+              <div class="challenge-title">{tt("onboarding_experience_starting")}</div>
+              <div class="challenge-desc">{tt("onboarding_experience_starting_desc")}</div>
+            </button>
+            <button type="button" class="challenge-btn experience-opt" onclick="selectExperience('advanced', this)">
+              <div class="challenge-title">{tt("onboarding_experience_advanced")}</div>
+              <div class="challenge-desc">{tt("onboarding_experience_advanced_desc")}</div>
+            </button>
+            <button type="button" class="challenge-btn experience-opt" onclick="selectExperience('pro', this)">
+              <div class="challenge-title">{tt("onboarding_experience_pro")}</div>
+              <div class="challenge-desc">{tt("onboarding_experience_pro_desc")}</div>
+            </button>
+            <button id="experience-next-btn" disabled onclick="enterSetupStep()"
+                    class="w-full mt-2 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
+              {tt("onboarding_next")}
+            </button>
+          </div>
+
+          <!-- ÉTAPE 8 : configuration (transition automatique) -->
+          <div id="step-setup" class="step text-center">
+            <div class="dot-bounce mt-24"><span></span><span></span><span></span></div>
+            <p class="mt-8 font-semibold text-slate-700">{tt("onboarding_setup_text")}</p>
+          </div>
+
+          <!-- ÉTAPE 9 : complétion de l'onboarding -->
+          <div id="step-complete" class="step text-center">
+            <div class="mt-16 mb-4 complete-emoji">📣✨</div>
+            <p class="inline-block bg-green-50 text-green-700 text-xs font-bold px-3 py-1 rounded-full mb-4">✅ {tt("onboarding_complete_badge")}</p>
+            <h1 class="text-2xl font-extrabold mb-3">{tt("onboarding_complete_title")}</h1>
+            <p class="text-sm text-slate-500 mb-8">{tt("onboarding_complete_subtitle")}</p>
+            <button onclick="goToStep('step-upload', 100, true)"
+                    class="w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700">
+              {tt("onboarding_complete_start_btn")}
+            </button>
+          </div>
+
+          <!-- ÉTAPE 10 : upload -->
           <div id="step-upload" class="step">
-            <div class="flex items-center gap-3 mb-6">
-              <a href="#" onclick="goToStep('step-challenge', 66); return false;" class="text-slate-400 hover:text-slate-700">←</a>
-              <div class="progress-track flex-1"><div class="progress-fill" style="width:100%"></div></div>
-            </div>
             <h1 class="text-xl font-extrabold mb-1">{tt("tool_video_title")}</h1>
             <p class="text-sm text-slate-500 mb-6">{tt("tool_video_subtitle")}</p>
             <label for="upload-video-input" class="glow-thumb block cursor-pointer">
@@ -1361,7 +1482,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             <div id="upload-error" class="text-center text-sm text-red-600 mt-3"></div>
           </div>
 
-          <!-- ÉTAPE 4 : chargement -->
+          <!-- ÉTAPE 11 : chargement -->
           <div id="step-loading" class="step text-center">
             <div class="glow-thumb mt-10">
               <img id="loading-thumb-preview" alt="" />
@@ -1369,7 +1490,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             <p id="loading-status-text" class="mt-8 font-semibold text-slate-700">{tt("loading_upload")}</p>
           </div>
 
-          <!-- ÉTAPE 5 : résultat -->
+          <!-- ÉTAPE 12 : résultat -->
           <div id="step-results" class="step">
             <div class="flex items-center justify-between mb-4">
               <span class="font-extrabold text-lg">Wil App</span>
@@ -1474,45 +1595,136 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
         <script>
           const nicheCategoryFromUrl = "{niche_category}";
-          const accountAvgViews = "{account_avg_views}";
+          const accountAvgViewsFromUrl = "{account_avg_views}";
           const uiLang = "{lang}";
-          let selectedNiche = nicheCategoryFromUrl || '';
+          const MAX_NICHES = 3;
+          let selectedNiches = [];
+          let selectedGoal = '';
           let selectedChallenge = '';
+          let selectedAudience = '';
+          let selectedSource = '';
+          let selectedExperience = '';
+          let accountAvgViewsFinal = accountAvgViewsFromUrl;
           let selectedFile = null;
           let thumbDataUrl = '';
+          let currentStepId = 'step-goal';
 
           const LOADING_STAGES = ["{tt("loading_upload")}", "{tt("loading_subtitles")}", "{tt("loading_analyzing")}", "{tt("loading_insights")}"];
 
-          if (selectedNiche) {{
-            document.querySelectorAll('.niche-btn').forEach(function (b) {{
-              if (b.textContent.trim().endsWith(selectedNiche)) {{
-                b.classList.add('selected');
-                document.getElementById('niche-next-btn').disabled = false;
-                document.getElementById('niche-next-btn').className = 'w-full mt-6 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
-              }}
-            }});
+          const BACK_TARGETS = {{
+            'step-challenge': ['step-goal', 11],
+            'step-niche': ['step-challenge', 22],
+            'step-audience': ['step-niche', 33],
+            'step-source': ['step-audience', 44],
+            'step-views': ['step-source', 55],
+            'step-upload': ['step-experience', 77]
+          }};
+
+          if (nicheCategoryFromUrl) {{
+            try {{
+              const preBtn = document.querySelector('.niche-btn[data-niche="' + CSS.escape(nicheCategoryFromUrl) + '"]');
+              if (preBtn) {{ toggleNiche(nicheCategoryFromUrl, preBtn); }}
+            }} catch (e) {{}}
           }}
 
-          function goToStep(stepId, progressPct) {{
+          function goToStep(stepId, progressPct, showHeader) {{
             document.querySelectorAll('.step').forEach(function (s) {{ s.classList.remove('active'); }});
             document.getElementById(stepId).classList.add('active');
+            currentStepId = stepId;
+            document.getElementById('onboarding-header').style.display = showHeader ? 'flex' : 'none';
+            document.getElementById('progress-fill').style.width = progressPct + '%';
             window.scrollTo(0, 0);
           }}
 
-          function selectNiche(niche, btnEl) {{
-            selectedNiche = niche;
-            document.querySelectorAll('.niche-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
-            btnEl.classList.add('selected');
+          function goBackStep() {{
+            if (currentStepId === 'step-goal') {{ window.location.href = '/'; return; }}
+            if (currentStepId === 'step-experience') {{
+              if (accountAvgViewsFromUrl) {{ goToStep('step-source', 55, true); }} else {{ goToStep('step-views', 66, true); }}
+              return;
+            }}
+            const target = BACK_TARGETS[currentStepId];
+            if (target) {{ goToStep(target[0], target[1], true); }}
+          }}
+
+          function advanceFromSource() {{
+            if (accountAvgViewsFromUrl) {{ goToStep('step-experience', 77, true); }} else {{ goToStep('step-views', 66, true); }}
+          }}
+
+          function enterSetupStep() {{
+            goToStep('step-setup', 88, false);
+            setTimeout(function () {{ goToStep('step-complete', 100, false); }}, 2200);
+          }}
+
+          function toggleNiche(niche, btnEl) {{
+            const idx = selectedNiches.indexOf(niche);
+            if (idx !== -1) {{
+              selectedNiches.splice(idx, 1);
+              btnEl.classList.remove('selected');
+            }} else {{
+              if (selectedNiches.length >= MAX_NICHES) return;
+              selectedNiches.push(niche);
+              btnEl.classList.add('selected');
+            }}
             var btn = document.getElementById('niche-next-btn');
+            if (selectedNiches.length > 0) {{
+              btn.disabled = false;
+              btn.className = 'w-full mt-6 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+            }} else {{
+              btn.disabled = true;
+              btn.className = 'w-full mt-6 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition';
+            }}
+          }}
+
+          function selectGoal(value, btnEl) {{
+            selectedGoal = value;
+            document.querySelectorAll('.goal-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('goal-next-btn');
             btn.disabled = false;
-            btn.className = 'w-full mt-6 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
           }}
 
           function selectChallenge(challenge, btnEl) {{
             selectedChallenge = challenge;
-            document.querySelectorAll('.challenge-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
+            document.querySelectorAll('#step-challenge .challenge-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
             btnEl.classList.add('selected');
             var btn = document.getElementById('challenge-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function selectAudience(value, btnEl) {{
+            selectedAudience = value;
+            document.querySelectorAll('.audience-opt').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('audience-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function selectSource(value, btnEl) {{
+            selectedSource = value;
+            document.querySelectorAll('.source-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('source-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function selectViews(value, btnEl) {{
+            accountAvgViewsFinal = String(value);
+            document.querySelectorAll('.views-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('views-next-btn');
+            btn.disabled = false;
+            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+          }}
+
+          function selectExperience(value, btnEl) {{
+            selectedExperience = value;
+            document.querySelectorAll('.experience-opt').forEach(function (b) {{ b.classList.remove('selected'); }});
+            btnEl.classList.add('selected');
+            var btn = document.getElementById('experience-next-btn');
             btn.disabled = false;
             btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
           }}
@@ -1573,7 +1785,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             btn.disabled = true;
             btn.className = 'w-full mt-4 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition';
             document.getElementById('upload-error').textContent = '';
-            goToStep('step-upload', 100);
+            goToStep('step-upload', 100, true);
           }}
 
           function launchAnalysis() {{
@@ -1582,7 +1794,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             document.getElementById('result-thumb-preview').src = thumbDataUrl;
             let stageIdx = 0;
             document.getElementById('loading-status-text').textContent = LOADING_STAGES[0];
-            goToStep('step-loading', 100);
+            goToStep('step-loading', 100, false);
             const stageInterval = setInterval(function () {{
               stageIdx = Math.min(stageIdx + 1, LOADING_STAGES.length - 1);
               document.getElementById('loading-status-text').textContent = LOADING_STAGES[stageIdx];
@@ -1590,8 +1802,8 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
             const formData = new FormData();
             formData.append('file', selectedFile);
-            formData.append('account_avg_views', accountAvgViews);
-            formData.append('niche_category', selectedNiche);
+            formData.append('account_avg_views', accountAvgViewsFinal);
+            formData.append('niche_category', selectedNiches[0] || '');
             formData.append('main_challenge', selectedChallenge);
             formData.append('ui_lang', uiLang);
 
@@ -1602,17 +1814,17 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 if (!res.ok) {{
                   const reason = (res.data && res.data.detail) ? res.data.detail : ('{tt("common_error_prefix")} ' + res.status);
                   document.getElementById('upload-error').textContent = reason;
-                  goToStep('step-upload', 100);
+                  goToStep('step-upload', 100, true);
                   return;
                 }}
                 document.getElementById('loading-status-text').textContent = '{tt("loading_done")}';
                 renderResults(res.data);
-                setTimeout(function () {{ goToStep('step-results', 100); }}, 500);
+                setTimeout(function () {{ goToStep('step-results', 100, false); }}, 500);
               }})
               .catch(function (e) {{
                 clearInterval(stageInterval);
                 document.getElementById('upload-error').textContent = '{tt("common_network_error")} ' + (e && e.message ? e.message : e);
-                goToStep('step-upload', 100);
+                goToStep('step-upload', 100, true);
               }});
           }}
 
@@ -1628,8 +1840,8 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             document.getElementById('stats-score-value').style.color = color;
             document.getElementById('stats-score-basis').textContent = data.score_basis || '';
 
-            document.getElementById('result-niche-value').textContent = data.niche || selectedNiche || '—';
-            document.getElementById('stats-niche-value').textContent = data.niche || selectedNiche || '—';
+            document.getElementById('result-niche-value').textContent = data.niche || selectedNiches[0] || '—';
+            document.getElementById('stats-niche-value').textContent = data.niche || selectedNiches[0] || '—';
             document.getElementById('result-hashtags-value').textContent = (data.suggested_hashtags || []).map(function (h) {{ return '#' + h; }}).join(' ');
             document.getElementById('result-caption-value').textContent = data.suggested_caption || '';
 
