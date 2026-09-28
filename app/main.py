@@ -37,6 +37,7 @@ from fastapi.responses import (
     PlainTextResponse,
     RedirectResponse,
 )
+from fastapi.staticfiles import StaticFiles
 
 from app.db import get_supabase
 from app.style_guide import get_style_guide
@@ -246,6 +247,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Sert les fichiers statiques (captures d'écran de témoignages, etc.)
+# depuis app/static/ — ex. app/static/testimonials/1.png devient
+# accessible sur /static/testimonials/1.png.
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+
 
 @app.get("/favicon.ico")
 def favicon():
@@ -358,6 +364,15 @@ def home(request: Request):
     # inspirés dans leur présentation (défilement horizontal en continu)
     # d'une page d'accueil concurrente vue par l'utilisateur, mais avec
     # un contenu qui reflète les vraies fonctionnalités de Wil App.
+    #
+    # Les témoignages 1 à 7 sont accompagnés d'une capture d'écran TikTok
+    # Studio (vues, engagement, récompenses de créateurs) choisie par
+    # l'utilisateur comme "preuve de résultat" — décision explicite de sa
+    # part après qu'on l'ait prévenu que ces captures ne montrent pas
+    # Wil App et ne prouvent pas de lien de cause à effet réel avec
+    # l'app. Les témoignages suivants (8+) restent uniquement textuels.
+    TESTIMONIAL_PROOF_IMAGE_COUNT = 7
+    TESTIMONIAL_TOTAL_COUNT = 13
     _TESTIMONIAL_GRADIENTS = [
         "from-blue-600 to-sky-400",
         "from-purple-500 to-pink-400",
@@ -366,17 +381,30 @@ def home(request: Request):
         "from-rose-500 to-red-400",
         "from-indigo-500 to-blue-400",
     ]
-    testimonial_card = lambda i: f'''<div class="testimonial-card bg-blue-50 border border-blue-100 rounded-2xl p-6">
-              <p class="text-sm text-slate-600 leading-relaxed mb-4">"{tt(f"testimonial_{i}_quote")}"</p>
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br {_TESTIMONIAL_GRADIENTS[i - 1]} flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{tt(f"testimonial_{i}_name")[0]}</div>
-                <div>
-                  <p class="font-semibold text-sm text-slate-900">{tt(f"testimonial_{i}_name")}</p>
-                  <p class="text-xs text-slate-500">{tt(f"testimonial_{i}_role")}</p>
+
+    def testimonial_card(i: int) -> str:
+        gradient = _TESTIMONIAL_GRADIENTS[(i - 1) % len(_TESTIMONIAL_GRADIENTS)]
+        name = tt(f"testimonial_{i}_name")
+        image_html = (
+            f'<img src="/static/testimonials/{i}.png" alt="" class="w-full h-40 object-cover object-top" loading="lazy" />'
+            if i <= TESTIMONIAL_PROOF_IMAGE_COUNT
+            else ""
+        )
+        return f'''<div class="testimonial-card bg-blue-50 border border-blue-100 rounded-2xl overflow-hidden">
+              {image_html}
+              <div class="p-6">
+                <p class="text-sm text-slate-600 leading-relaxed mb-4">"{tt(f"testimonial_{i}_quote")}"</p>
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full bg-gradient-to-br {gradient} flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{name[0]}</div>
+                  <div>
+                    <p class="font-semibold text-sm text-slate-900">{name}</p>
+                    <p class="text-xs text-slate-500">{tt(f"testimonial_{i}_role")}</p>
+                  </div>
                 </div>
               </div>
             </div>'''
-    testimonial_cards_html = "".join(testimonial_card(i) for i in list(range(1, 7)) * 2)
+
+    testimonial_cards_html = "".join(testimonial_card(i) for i in list(range(1, TESTIMONIAL_TOTAL_COUNT + 1)) * 2)
 
     return f"""
     <html lang="{lang}">
@@ -400,7 +428,7 @@ def home(request: Request):
             .reveal {{ opacity: 1; transform: none; transition: none; }}
           }}
           @keyframes marqueeScroll {{ from {{ transform: translateX(0); }} to {{ transform: translateX(-50%); }} }}
-          .testimonial-track {{ display: flex; gap: 1rem; width: max-content; animation: marqueeScroll 40s linear infinite; }}
+          .testimonial-track {{ display: flex; gap: 1rem; width: max-content; animation: marqueeScroll 85s linear infinite; }}
           .testimonial-track:hover {{ animation-play-state: paused; }}
           .testimonial-card {{ flex-shrink: 0; width: 260px; }}
           @media (prefers-reduced-motion: reduce) {{
