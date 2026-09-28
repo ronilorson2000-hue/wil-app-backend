@@ -421,7 +421,7 @@ def home(request: Request):
             <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight mb-5">
               {tt("hero_title_1")}<span class="italic bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{tt("hero_title_2")}</span>
             </h1>
-            <p class="text-lg text-slate-500 mb-10 leading-relaxed">
+            <p class="text-sm sm:text-lg text-slate-500 mb-10 leading-relaxed">
               {tt("hero_subtitle")}
             </p>
             <div class="flex flex-col items-center gap-4">
@@ -445,7 +445,7 @@ def home(request: Request):
         <div class="max-w-5xl mx-auto px-6">
 
           <section id="how-it-works" class="py-10 sm:py-20">
-            <h2 class="text-3xl font-bold text-center mb-14">{tt("hiw_title")}</h2>
+            <h2 class="text-2xl sm:text-3xl font-bold text-center mb-14">{tt("hiw_title")}</h2>
             <div class="grid sm:grid-cols-3 gap-3 sm:gap-6">
               <div class="reveal bg-blue-50 border border-blue-100 rounded-2xl p-4 sm:p-7" style="transition-delay:0s">
                 <div class="w-11 h-11 sm:w-16 sm:h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-3 sm:mb-4">
@@ -478,7 +478,7 @@ def home(request: Request):
           </section>
 
           <section id="pricing" class="py-20 border-t border-slate-100">
-            <h2 class="text-3xl font-bold text-center mb-14">{tt("pricing_title")}</h2>
+            <h2 class="text-2xl sm:text-3xl font-bold text-center mb-14">{tt("pricing_title")}</h2>
             <div class="grid sm:grid-cols-2 gap-6 max-w-xl mx-auto">
               <div class="reveal border border-slate-200 rounded-2xl p-8 text-center flex flex-col" style="transition-delay:0s">
                 <h3 class="font-bold text-lg mb-2">{tt("pricing_free_name")}</h3>
@@ -504,7 +504,7 @@ def home(request: Request):
           </section>
 
           <section id="faq" class="py-20 border-t border-slate-100">
-            <h2 class="text-3xl font-bold text-center mb-14">{tt("faq_title")}</h2>
+            <h2 class="text-2xl sm:text-3xl font-bold text-center mb-14">{tt("faq_title")}</h2>
             <div class="max-w-2xl mx-auto space-y-3">
               <details class="reveal group bg-blue-50 border border-blue-100 rounded-2xl p-6" style="transition-delay:0s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
@@ -552,7 +552,7 @@ def home(request: Request):
                 <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-sky-300 flex items-center justify-center text-blue-900 font-bold text-sm">W</div>
                 <span class="font-bold text-lg text-white">Wil App</span>
               </div>
-              <p class="text-sm text-blue-200 leading-relaxed mb-4">{tt("footer_tagline")}</p>
+              <p class="text-sm text-blue-200 leading-relaxed mb-4">{tt("hero_subtitle")}</p>
               <a href="https://wa.me/447446953451" target="_blank" rel="noopener"
                  class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-800 hover:bg-blue-700 transition text-sm font-medium text-white">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">

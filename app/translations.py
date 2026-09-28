@@ -88,7 +88,6 @@ TRANSLATIONS = {
         "faq_q5": "Comment révoquer l'accès ou poser une question ?",
         "faq_a5": "Tu peux révoquer l'accès de Wil App à tout moment depuis les paramètres de connexions tierces de ton compte TikTok. Pour toute autre question, écris-nous à",
 
-        "footer_tagline": "Analytics et diagnostic IA pour créateurs TikTok — comprends pourquoi tes vidéos marchent, ou pas.",
         "footer_whatsapp": "WhatsApp",
         "footer_col_product": "Produit",
         "footer_col_info": "Informations",
@@ -299,7 +298,6 @@ TRANSLATIONS = {
         "faq_q5": "How do I revoke access or ask a question?",
         "faq_a5": "You can revoke Wil App's access at any time from your TikTok account's third-party connections settings. For any other question, write to us at",
 
-        "footer_tagline": "AI analytics and coaching for TikTok creators — understand why your videos work, or don't.",
         "footer_whatsapp": "WhatsApp",
         "footer_col_product": "Product",
         "footer_col_info": "Information",
@@ -510,7 +508,6 @@ TRANSLATIONS = {
         "faq_q5": "Wie widerrufe ich den Zugriff oder stelle eine Frage?",
         "faq_a5": "Sie können den Zugriff von Wil App jederzeit in den Einstellungen für Drittanbieter-Verbindungen Ihres TikTok-Kontos widerrufen. Bei allen anderen Fragen schreiben Sie uns an",
 
-        "footer_tagline": "KI-Analysen und Coaching für TikTok-Creator — verstehen Sie, warum Ihre Videos funktionieren, oder nicht.",
         "footer_whatsapp": "WhatsApp",
         "footer_col_product": "Produkt",
         "footer_col_info": "Informationen",
@@ -721,7 +718,6 @@ TRANSLATIONS = {
         "faq_q5": "¿Cómo revoco el acceso o hago una pregunta?",
         "faq_a5": "Puedes revocar el acceso de Wil App en cualquier momento desde los ajustes de conexiones de terceros de tu cuenta de TikTok. Para cualquier otra pregunta, escríbenos a",
 
-        "footer_tagline": "Analítica y asesoría con IA para creadores de TikTok — entiende por qué tus vídeos funcionan, o no.",
         "footer_whatsapp": "WhatsApp",
         "footer_col_product": "Producto",
         "footer_col_info": "Información",
@@ -932,7 +928,6 @@ TRANSLATIONS = {
         "faq_q5": "Como revogo o acesso ou faço uma pergunta?",
         "faq_a5": "Podes revogar o acesso do Wil App a qualquer momento nas definições de conexões de terceiros da tua conta do TikTok. Para qualquer outra questão, escreve-nos para",
 
-        "footer_tagline": "Análises e coaching com IA para criadores de TikTok — entenda por que os seus vídeos funcionam, ou não.",
         "footer_whatsapp": "WhatsApp",
         "footer_col_product": "Produto",
         "footer_col_info": "Informações",
@@ -1143,7 +1138,6 @@ TRANSLATIONS = {
         "faq_q5": "Come revoco l'accesso o faccio una domanda?",
         "faq_a5": "Puoi revocare l'accesso di Wil App in qualsiasi momento dalle impostazioni delle connessioni di terze parti del tuo account TikTok. Per qualsiasi altra domanda, scrivici a",
 
-        "footer_tagline": "Analisi e coaching con IA per i creator TikTok — capisci perché i tuoi video funzionano, o no.",
         "footer_whatsapp": "WhatsApp",
         "footer_col_product": "Prodotto",
         "footer_col_info": "Informazioni",
