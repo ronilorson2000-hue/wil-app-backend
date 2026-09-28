@@ -446,28 +446,28 @@ def home(request: Request):
 
           <section id="how-it-works" class="py-20">
             <h2 class="text-3xl font-bold text-center mb-14">{tt("hiw_title")}</h2>
-            <div class="grid sm:grid-cols-3 gap-6">
-              <div class="reveal bg-slate-50 border border-slate-100 rounded-2xl p-7" style="transition-delay:0s">
-                <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-8 h-8">
+            <div class="grid sm:grid-cols-3 gap-3 sm:gap-6">
+              <div class="reveal bg-blue-50 border border-blue-100 rounded-2xl p-4 sm:p-7" style="transition-delay:0s">
+                <div class="w-11 h-11 sm:w-16 sm:h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-3 sm:mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-5 h-5 sm:w-8 sm:h-8">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0l-3 3m3-3H3" />
                   </svg>
                 </div>
                 <h3 class="font-bold text-base mb-2">{tt("hiw_1_title")}</h3>
                 <p class="text-slate-500 text-sm leading-relaxed">{tt("hiw_1_desc")}</p>
               </div>
-              <div class="reveal bg-slate-50 border border-slate-100 rounded-2xl p-7" style="transition-delay:0.12s">
-                <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-8 h-8">
+              <div class="reveal bg-blue-50 border border-blue-100 rounded-2xl p-4 sm:p-7" style="transition-delay:0.12s">
+                <div class="w-11 h-11 sm:w-16 sm:h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-3 sm:mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-5 h-5 sm:w-8 sm:h-8">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
                   </svg>
                 </div>
                 <h3 class="font-bold text-base mb-2">{tt("hiw_2_title")}</h3>
                 <p class="text-slate-500 text-sm leading-relaxed">{tt("hiw_2_desc")}</p>
               </div>
-              <div class="reveal bg-slate-50 border border-slate-100 rounded-2xl p-7" style="transition-delay:0.24s">
-                <div class="w-16 h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-8 h-8">
+              <div class="reveal bg-blue-50 border border-blue-100 rounded-2xl p-4 sm:p-7" style="transition-delay:0.24s">
+                <div class="w-11 h-11 sm:w-16 sm:h-16 rounded-full bg-blue-700 text-white flex items-center justify-center mb-3 sm:mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-5 h-5 sm:w-8 sm:h-8">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
                 </div>
@@ -546,8 +546,8 @@ def home(request: Request):
         </div>
 
         <footer class="bg-blue-900 text-blue-100 mt-10">
-          <div class="max-w-6xl mx-auto px-6 py-14 grid sm:grid-cols-3 gap-10">
-            <div>
+          <div class="max-w-6xl mx-auto px-6 py-8 sm:py-14 grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-10">
+            <div class="col-span-2 sm:col-span-1">
               <div class="flex items-center gap-2 mb-3">
                 <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-sky-300 flex items-center justify-center text-blue-900 font-bold text-sm">W</div>
                 <span class="font-bold text-lg text-white">Wil App</span>
@@ -579,7 +579,7 @@ def home(request: Request):
               </ul>
             </div>
           </div>
-          <div class="border-t border-blue-800 text-center py-6 px-6 text-xs text-blue-300">
+          <div class="border-t border-blue-800 text-center py-4 sm:py-6 px-6 text-xs text-blue-300">
             © 2026 Wil App. {tt("footer_rights")}
           </div>
         </footer>
