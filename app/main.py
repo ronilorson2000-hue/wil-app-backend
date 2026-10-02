@@ -1578,6 +1578,10 @@ def _onboarding_steps_html(
     les réponses puis ouvrir /app).
     """
     complete_action = complete_onclick or f"goToStep('{content_step_id}', 100, true)"
+    age_consent_html = tt("onboarding_age_consent").format(
+        terms=f'<a href="/terms" target="_blank" rel="noopener" class="text-blue-600 underline">{tt("set_terms")}</a>',
+        privacy=f'<a href="/privacy" target="_blank" rel="noopener" class="text-blue-600 underline">{tt("set_privacy")}</a>',
+    )
     return f"""
           <div id="onboarding-header" class="flex items-center gap-3 mb-6">
             <a href="#" onclick="goBackStep(); return false;" class="text-slate-400 hover:text-slate-700">←</a>
@@ -1593,6 +1597,10 @@ def _onboarding_steps_html(
             <button type="button" class="simple-btn goal-btn" onclick="selectGoal('fanbase', this)">{tt("onboarding_goal_fanbase")}</button>
             <button type="button" class="simple-btn goal-btn" onclick="selectGoal('collabs', this)">{tt("onboarding_goal_collabs")}</button>
             <button type="button" class="simple-btn goal-btn" onclick="selectGoal('other', this)">{tt("onboarding_goal_other")}</button>
+            <label class="flex items-start gap-3 mt-4 mb-4 text-sm text-slate-600 leading-snug cursor-pointer">
+              <input id="age-check" type="checkbox" class="mt-0.5 w-5 h-5 shrink-0 accent-blue-600" onchange="updateGoalNext()">
+              <span>{age_consent_html}</span>
+            </label>
             <button id="goal-next-btn" disabled onclick="goToStep('step-challenge', 22, true)"
                     class="w-full mt-2 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
               {tt("onboarding_next")}
@@ -1763,7 +1771,7 @@ def _onboarding_js_core(
         f"""
           (function applyStoredOnboarding() {{
             const stored = loadOnboarding();
-            if (!stored || !stored.niches || stored.niches.length === 0) return;
+            if (!stored || !stored.niches || stored.niches.length === 0 || !stored.ageConfirmed) return;
             selectedGoal = stored.goal || '';
             selectedChallenge = stored.challenge || '';
             selectedAudience = stored.audience || '';
@@ -1800,7 +1808,7 @@ def _onboarding_js_core(
               localStorage.setItem(WIL_ONBOARDING_KEY, JSON.stringify({{
                 goal: selectedGoal, challenge: selectedChallenge, niches: selectedNiches,
                 audience: selectedAudience, source: selectedSource, avgViews: accountAvgViewsFinal,
-                experience: selectedExperience, savedAt: Date.now()
+                experience: selectedExperience, ageConfirmed: true, savedAt: Date.now()
               }}));
             }} catch (e) {{}}
           }}
@@ -1995,14 +2003,22 @@ def _onboarding_js_core(
             }}
           }}
 
+          function updateGoalNext() {{
+            var ageOk = !!(document.getElementById('age-check') && document.getElementById('age-check').checked);
+            var ready = !!selectedGoal && ageOk;
+            var btn = document.getElementById('goal-next-btn');
+            btn.disabled = !ready;
+            btn.className = ready
+              ? 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700'
+              : 'w-full mt-2 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition';
+          }}
+
           function selectGoal(value, btnEl) {{
             playTapSound();
             selectedGoal = value;
             document.querySelectorAll('.goal-btn').forEach(function (b) {{ b.classList.remove('selected'); }});
             btnEl.classList.add('selected');
-            var btn = document.getElementById('goal-next-btn');
-            btn.disabled = false;
-            btn.className = 'w-full mt-2 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+            updateGoalNext();
           }}
 
           function selectChallenge(challenge, btnEl) {{
@@ -2944,7 +2960,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     (function () {
       try {
         var stored = JSON.parse(localStorage.getItem('wilOnboarding') || 'null');
-        var done = stored && stored.niches && stored.niches.length > 0;
+        var done = stored && stored.niches && stored.niches.length > 0 && stored.ageConfirmed;
         var open = new URLSearchParams(location.search).get('open');
         var tools = { video: '/tools/analyze-video', script: '/tools/analyze-script', account: '/tools/analyze-account' };
         if (!done) {
