@@ -43,6 +43,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.db import get_supabase
+from app.library_starter import get_starter_library
 from app.style_guide import get_style_guide
 from app.translations import DEFAULT_LANG, LANG_FLAGS, LANG_NAMES, SUPPORTED_LANGS, t
 
@@ -2938,6 +2939,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
     .badge-trend { background: #E0F2FE; color: #0369A1; }
     .badge-niche { background: #F1F5F9; color: #64748B; }
+    .badge-starter { background: #FEF3C7; color: #92400E; }
     .chip { display: inline-block; padding: 6px 12px; border-radius: 999px; background: #EFF6FF; color: #1D4ED8; font-size: 12px; font-weight: 600; margin: 0 6px 6px 0; }
     .niche-pill { padding: 8px 14px; border-radius: 999px; border: 2px solid #E2E8F0; background: #fff; font-size: 13px; font-weight: 600; color: #334155; white-space: nowrap; cursor: pointer; }
     .niche-pill.active { background: #2563EB; border-color: #2563EB; color: #fff; }
@@ -2999,7 +3001,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       <div id="lib-cats" class="hscroll flex gap-6 overflow-x-auto border-b border-slate-200 mb-4"></div>
       <div id="lib-niches" class="hscroll flex gap-2 overflow-x-auto pb-3"></div>
       <div id="lib-banner" class="flex items-start gap-3 rounded-2xl bg-sky-50 text-sky-800 text-sm font-medium leading-snug p-4 my-3">
-        <span>🔥</span><span>__T_lib_banner__</span>
+        <span id="lib-banner-icon">🔥</span><span id="lib-banner-text">__T_lib_banner__</span>
       </div>
       <div id="lib-content"></div>
     </section>
@@ -3215,8 +3217,10 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
 
     function libCardHtml(item, index) {
       const saved = readSaved().some(function (s) { return s.id === item.id; });
-      return '<div class="idea-card" data-card="' + index + '"><div class="flex items-center justify-between mb-3">' +
-        '<span class="badge badge-trend">🔥 ' + esc(I18N.libBadge) + '</span>' +
+      const badge = item.starter
+        ? '<span class="badge badge-starter">💡 ' + esc(I18N.libBadgeStarter) + '</span>'
+        : '<span class="badge badge-trend">🔥 ' + esc(I18N.libBadge) + '</span>';
+      return '<div class="idea-card" data-card="' + index + '"><div class="flex items-center justify-between mb-3">' + badge +
         '<span class="badge badge-niche">' + esc(item.niche) + '</span></div>' +
         '<p class="font-bold text-lg leading-snug">' + esc(itemDisplay(item)) + '</p>' +
         '<div class="flex justify-end gap-5 mt-4">' +
@@ -3271,9 +3275,12 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         const items = [];
         results.forEach(function (r) {
           (r.data[cat.key] || []).forEach(function (text) {
-            items.push({id: itemId(cat.id, r.niche, text), category: cat.id, niche: r.niche, text: text});
+            items.push({id: itemId(cat.id, r.niche, text), category: cat.id, niche: r.niche, text: text, starter: r.data.source === 'starter'});
           });
         });
+        const anyStarter = results.some(function (r) { return r.data.source === 'starter'; });
+        document.getElementById('lib-banner-icon').textContent = anyStarter ? '💡' : '🔥';
+        document.getElementById('lib-banner-text').textContent = anyStarter ? I18N.libBannerStarter : I18N.libBanner;
         showLibItems(items, emptyState('🗂️', I18N.libEmptyCategory, ''));
       }).catch(function (e) {
         if (token !== libRenderToken) return;
@@ -3375,6 +3382,9 @@ def app_shell_page(request: Request):
         "libPillMine": tt("lib_pill_mine"),
         "libPillAll": tt("lib_pill_all"),
         "libBadge": tt("lib_badge"),
+        "libBadgeStarter": tt("lib_badge_starter"),
+        "libBanner": tt("lib_banner"),
+        "libBannerStarter": tt("lib_banner_starter"),
         "libCopy": tt("lib_copy"),
         "libCopied": tt("lib_copied"),
         "libSave": tt("lib_save"),
@@ -4285,6 +4295,7 @@ async def _fetch_library_from_web(niche_category: str, lang: str, week: str) -> 
     des tendances trouvées sur le web sont renvoyées, jamais de statistique.
     """
     if not ANTHROPIC_API_KEY:
+        print("[library] ANTHROPIC_API_KEY manquant : contenu de départ affiché à la place")
         return None
 
     lang_instruction = (
@@ -4327,6 +4338,7 @@ inventer. Ne donne aucune statistique chiffrée."""
                 },
             )
         if response.status_code != 200:
+            print(f"[library] Anthropic {response.status_code} pour {niche_category}/{lang}: {response.text[:300]}")
             return None
 
         raw_text = _extract_text_block(response.json())
@@ -4347,13 +4359,21 @@ inventer. Ne donne aucune statistique chiffrée."""
             "week": week,
             "niche_category": niche_category,
             "lang": lang,
+            "source": "web",
             "hooks": hooks,
             "video_ideas": ideas,
             "hashtags": hashtags,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
-    except Exception:
+    except Exception as exc:
+        print(f"[library] échec de la recherche web pour {niche_category}/{lang}: {exc!r}")
         return None
+
+
+# Après un échec de la recherche web, on ne la relance pas pendant 10 minutes
+# pour la même niche/langue (évite de marteler l'API si elle est en panne).
+_library_retry_after: dict[str, float] = {}
+LIBRARY_RETRY_DELAY_SECONDS = 10 * 60
 
 
 async def _get_library(niche_category: str, lang: str) -> dict | None:
@@ -4374,9 +4394,13 @@ async def _get_library(niche_category: str, lang: str) -> dict | None:
         cached = await asyncio.to_thread(_library_cache_get, cache_key)
         if cached:
             return cached
+        if _library_retry_after.get(cache_key, 0) > time.time():
+            return None
         data = await _fetch_library_from_web(niche_category, lang, week)
         if data:
             await asyncio.to_thread(_library_cache_set, cache_key, data)
+        else:
+            _library_retry_after[cache_key] = time.time() + LIBRARY_RETRY_DELAY_SECONDS
         return data
 
 
@@ -4385,7 +4409,9 @@ async def library(niche_category: str, lang: str = DEFAULT_LANG):
     """
     Bibliothèque (onglet "Bibliothèque" de /app) : hooks, idées de vidéos et
     hashtags tendance d'une niche, renouvelés chaque semaine à partir de
-    recherches web de Claude. Première version : uniquement le web ; les
+    recherches web de Claude ("source": "web"). Si la recherche échoue, un
+    contenu de départ écrit à la main est renvoyé ("source": "starter") pour
+    qu'aucune rubrique ne soit vide. Première version : uniquement le web ; les
     vidéos des utilisateurs ne servent PAS à l'alimenter (pas de
     consentement recueilli pour le moment).
     """
@@ -4395,10 +4421,9 @@ async def library(niche_category: str, lang: str = DEFAULT_LANG):
         lang = DEFAULT_LANG
     result = await _get_library(niche_category, lang)
     if not result:
-        raise HTTPException(
-            status_code=502,
-            detail="Impossible de récupérer les tendances pour le moment. Réessaie plus tard.",
-        )
+        # Recherche web indisponible : contenu de départ (étiqueté « Exemple »
+        # côté interface), jamais présenté comme une tendance.
+        result = get_starter_library(niche_category, lang)
     return JSONResponse(content=result)
 
 
