@@ -2940,6 +2940,10 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     .badge-trend { background: #E0F2FE; color: #0369A1; }
     .badge-niche { background: #F1F5F9; color: #64748B; }
     .badge-starter { background: #FEF3C7; color: #92400E; }
+    .disc-card { position: absolute; left: 0; right: 0; top: 0; background: #fff; border: 1.5px solid #E2E8F0; border-radius: 28px; padding: 22px; box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08); transition: transform 0.3s ease, opacity 0.3s ease; touch-action: pan-y; user-select: none; }
+    .disc-card[data-depth="0"] { cursor: grab; }
+    .disc-btn { width: 68px; height: 68px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 26px; transition: transform 0.1s ease; }
+    .disc-btn:active { transform: scale(0.92); }
     .chip { display: inline-block; padding: 6px 12px; border-radius: 999px; background: #EFF6FF; color: #1D4ED8; font-size: 12px; font-weight: 600; margin: 0 6px 6px 0; }
     .niche-pill { padding: 8px 14px; border-radius: 999px; border: 2px solid #E2E8F0; background: #fff; font-size: 13px; font-weight: 600; color: #334155; white-space: nowrap; cursor: pointer; }
     .niche-pill.active { background: #2563EB; border-color: #2563EB; color: #fff; }
@@ -3008,10 +3012,14 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
 
     <!-- DÉCOUVRIR -->
     <section id="tab-discover" class="app-tab hidden">
-      <h1 class="text-2xl font-extrabold">__T_app_tab_discover__</h1>
-      <p class="text-sm text-slate-500 mt-1 mb-4">__T_app_discover_subtitle__</p>
-      <div id="discover-niches" class="hscroll flex gap-2 overflow-x-auto pb-3 mb-2"></div>
-      <div id="discover-content"></div>
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-extrabold">__T_app_tab_discover__</h1>
+        <span class="badge" style="background:#DBEAFE;color:#1D4ED8;padding:8px 16px;font-size:13px;">__T_disc_new_today__</span>
+      </div>
+      <div class="flex items-start gap-3 rounded-2xl bg-sky-50 text-sky-800 text-sm font-medium leading-snug p-4 mb-5">
+        <span id="disc-banner-icon">⚡</span><span id="disc-banner-text">__T_disc_banner__</span>
+      </div>
+      <div id="disc-stage"></div>
     </section>
 
     <!-- PROFIL -->
@@ -3083,50 +3091,157 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
 
     }
 
-    let discoverNiche = niches[0] || '';
-    const discoverCache = {};
+    // ---------- DÉCOUVRIR : idées du jour à balayer ----------
+    const DISCOVER_KEY = 'wilDiscover';
+    let discoverQueue = [];
+    let discoverDate = '';
 
-    function renderDiscoverNiches() {
-      const wrap = document.getElementById('discover-niches');
-      wrap.innerHTML = niches.length > 1
-        ? niches.map(function (n, i) {
-            return '<button type="button" class="niche-pill' + (n === discoverNiche ? ' active' : '') + '" data-i="' + i + '">' + esc(n) + '</button>';
-          }).join('')
-        : '';
-      wrap.querySelectorAll('.niche-pill').forEach(function (b) {
-        b.addEventListener('click', function () { discoverNiche = niches[Number(b.dataset.i)]; renderDiscoverNiches(); loadDiscover(); });
-      });
+    function discoverState() {
+      const st = readJson(DISCOVER_KEY, {});
+      return st.date === discoverDate ? st : {date: discoverDate, done: []};
+    }
+    function discoverMarkDone(id) {
+      const st = discoverState();
+      if (st.done.indexOf(id) === -1) st.done.push(id);
+      try { localStorage.setItem(DISCOVER_KEY, JSON.stringify(st)); } catch (e) {}
+    }
+    function levelFor(score) {
+      if (score >= 75) return {label: I18N.discLevelHigh, color: '#16A34A'};
+      if (score >= 60) return {label: I18N.discLevelGood, color: '#2563EB'};
+      return {label: I18N.discLevelMedium, color: '#F59E0B'};
+    }
+    function ringSvg(score, color) {
+      const c = 263.9;
+      return '<svg viewBox="0 0 100 100" width="92" height="92" style="flex-shrink:0">' +
+        '<circle cx="50" cy="50" r="42" fill="none" stroke="#E2E8F0" stroke-width="9"/>' +
+        '<circle cx="50" cy="50" r="42" fill="none" stroke="' + color + '" stroke-width="9" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + (c * (1 - score / 100)).toFixed(1) + '" transform="rotate(-90 50 50)"/>' +
+        '<text x="50" y="59" text-anchor="middle" font-size="30" font-weight="800" fill="#0F172A">' + score + '</text></svg>';
     }
 
-    function ideasHtml(data) {
-      const card = function (text, badge) {
-        return '<div class="idea-card"><div class="flex items-center justify-between mb-3"><span class="badge badge-trend">🔥 ' + esc(badge) +
-          '</span><span class="badge badge-niche">' + esc(discoverNiche) + '</span></div><p class="font-semibold leading-snug">' + esc(text) + '</p></div>';
-      };
-      return (data.video_ideas || []).map(function (i) { return card(i, I18N.ideasLabel); }).join('') +
-        (data.trending_hooks || []).map(function (h) { return card(h, I18N.hooksLabel); }).join('');
+    function discoverCardHtml(idea, depth) {
+      const badge = idea.starter
+        ? '<span class="badge badge-starter">💡 ' + esc(I18N.libBadgeStarter) + '</span>'
+        : '<span class="badge badge-trend">🔥 ' + esc(I18N.libBadge) + '</span>';
+      const hook = idea.hook
+        ? '<p class="text-sm text-slate-500 mb-4 leading-snug"><span class="font-bold text-slate-700">' + esc(I18N.discHook) + ' :</span> « ' + esc(idea.hook) + ' »</p>'
+        : '';
+      let gauge = '';
+      if (idea.score != null) {
+        const lvl = levelFor(idea.score);
+        gauge = '<div class="rounded-2xl bg-slate-50 p-4 flex items-center gap-4">' + ringSvg(idea.score, lvl.color) +
+          '<div><p class="text-xs text-slate-400">' + esc(I18N.discPotential) + '</p>' +
+          '<p class="font-extrabold text-lg" style="color:' + lvl.color + '">' + esc(lvl.label) + '</p>' +
+          (idea.reason ? '<p class="text-sm text-slate-500 leading-snug">' + esc(idea.reason) + '</p>' : '') + '</div></div>' +
+          '<p class="text-[11px] text-slate-400 mt-3">' + esc(I18N.discEstimate) + '</p>';
+      }
+      const transform = depth ? 'transform:translateY(' + (depth * 14) + 'px) scale(' + (1 - depth * 0.05) + ');' : '';
+      return '<div class="disc-card" data-depth="' + depth + '" style="z-index:' + (10 - depth) + ';' + transform + '">' +
+        '<div class="flex gap-2 mb-4">' + badge + '<span class="badge badge-niche">' + esc(idea.niche) + '</span></div>' +
+        '<p class="font-extrabold text-xl leading-snug mb-3">' + esc(idea.idea) + '</p>' + hook + gauge + '</div>';
+    }
+
+    function openSaved() { libCat = 'saved'; libNiche = 'all'; showTab('library'); }
+
+    function renderDiscoverStack() {
+      const stage = document.getElementById('disc-stage');
+      if (!discoverQueue.length) {
+        stage.innerHTML = emptyState('✅', I18N.discDoneTitle, I18N.discDoneDesc) +
+          '<div class="text-center"><button type="button" onclick="openSaved()" class="px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold">' + esc(I18N.discGoSaved) + '</button></div>';
+        return;
+      }
+      const visible = discoverQueue.slice(0, 3);
+      stage.innerHTML = '<div id="disc-stack" class="relative" style="height:420px;">' +
+        visible.map(function (idea, i) { return discoverCardHtml(idea, i); }).reverse().join('') + '</div>' +
+        '<div class="flex justify-center gap-8 mt-6">' +
+        '<button type="button" class="disc-btn bg-white border border-slate-200 text-slate-500" aria-label="' + esc(I18N.discSkip) + '" onclick="discoverDecide(\\'skip\\')">✕</button>' +
+        '<button type="button" class="disc-btn bg-blue-600 text-white shadow-lg" aria-label="' + esc(I18N.libSave) + '" onclick="discoverDecide(\\'save\\')">♥</button></div>' +
+        '<p class="text-center text-sm text-slate-400 mt-4">' + esc(I18N.discLeft.replace('{n}', discoverQueue.length)) + '</p>';
+      attachDiscoverDrag(stage.querySelector('.disc-card[data-depth="0"]'));
+    }
+
+    let discoverBusy = false;
+    function discoverDecide(action) {
+      if (discoverBusy || !discoverQueue.length) return;
+      discoverBusy = true;
+      const idea = discoverQueue[0];
+      const card = document.querySelector('#disc-stack .disc-card[data-depth="0"]');
+      const dir = action === 'save' ? 1 : -1;
+      if (card) {
+        card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+        card.style.transform = 'translateX(' + (dir * 130) + '%) rotate(' + (dir * 18) + 'deg)';
+        card.style.opacity = '0';
+      }
+      setTimeout(function () {
+        const id = itemId('ideas', idea.niche, idea.idea);
+        if (action === 'save') {
+          const saved = readSaved();
+          if (!saved.some(function (x) { return x.id === id; })) {
+            saved.unshift({id: id, category: 'ideas', niche: idea.niche, text: idea.idea});
+            writeSaved(saved);
+          }
+        }
+        discoverMarkDone(id);
+        discoverQueue.shift();
+        discoverBusy = false;
+        renderDiscoverStack();
+      }, 280);
+    }
+
+    function attachDiscoverDrag(card) {
+      if (!card) return;
+      let startX = null, dx = 0;
+      card.addEventListener('pointerdown', function (e) {
+        startX = e.clientX; dx = 0;
+        try { card.setPointerCapture(e.pointerId); } catch (err) {}
+        card.style.transition = 'none';
+      });
+      card.addEventListener('pointermove', function (e) {
+        if (startX === null) return;
+        dx = e.clientX - startX;
+        card.style.transform = 'translateX(' + dx + 'px) rotate(' + (dx / 18) + 'deg)';
+      });
+      function end() {
+        if (startX === null) return;
+        const moved = dx;
+        startX = null; dx = 0;
+        card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+        if (Math.abs(moved) > 90) { discoverDecide(moved > 0 ? 'save' : 'skip'); } else { card.style.transform = ''; }
+      }
+      card.addEventListener('pointerup', end);
+      card.addEventListener('pointercancel', end);
     }
 
     function loadDiscover() {
-      const box = document.getElementById('discover-content');
-      if (!discoverNiche) { box.innerHTML = '<p class="text-sm text-slate-500">' + esc(I18N.discoverNoNiche) + '</p>'; return; }
-      if (discoverCache[discoverNiche]) { box.innerHTML = ideasHtml(discoverCache[discoverNiche]); return; }
-      const requested = discoverNiche;
-      box.innerHTML = '<p class="text-sm text-slate-500">⏳ ' + esc(I18N.searching) + '</p>';
-      fetch('/api/trending-ideas?niche_category=' + encodeURIComponent(requested) + '&lang=' + encodeURIComponent(LANG))
-        .then(function (r) { return r.json().then(function (data) { return {ok: r.ok, status: r.status, data: data}; }); })
-        .then(function (res) {
-          if (requested !== discoverNiche) return;
-          if (!res.ok) {
-            box.innerHTML = '<p class="text-sm text-red-600">' + esc((res.data && res.data.detail) || (I18N.errorPrefix + ' ' + res.status)) + '</p>';
-            return;
-          }
-          discoverCache[requested] = res.data;
-          box.innerHTML = ideasHtml(res.data);
-        })
-        .catch(function (e) {
-          if (requested === discoverNiche) box.innerHTML = '<p class="text-sm text-red-600">' + esc(I18N.networkError + ' ' + (e && e.message ? e.message : e)) + '</p>';
+      const stage = document.getElementById('disc-stage');
+      if (niches.length === 0) { stage.innerHTML = '<p class="text-sm text-slate-500">' + esc(I18N.discoverNoNiche) + '</p>'; return; }
+      stage.innerHTML = '<p class="text-sm text-slate-500 py-4">⏳ ' + esc(I18N.searching) + '</p>';
+      Promise.all(niches.map(function (n) {
+        return fetch('/api/discover?niche_category=' + encodeURIComponent(n) + '&lang=' + encodeURIComponent(LANG))
+          .then(function (r) { return r.json().then(function (data) { return {ok: r.ok, status: r.status, data: data}; }); })
+          .then(function (res) {
+            if (!res.ok) throw new Error((res.data && res.data.detail) || (I18N.errorPrefix + ' ' + res.status));
+            return res.data;
+          });
+      })).then(function (results) {
+        discoverDate = results.map(function (d) { return d.date; }).sort().pop() || '';
+        const done = discoverState().done;
+        let all = [];
+        results.forEach(function (d) {
+          d.ideas.forEach(function (i) {
+            all.push({niche: d.niche_category, idea: i.idea, hook: i.hook, score: i.score, reason: i.reason, starter: d.source === 'starter'});
+          });
         });
+        // Meilleur potentiel d'abord ; les idées de départ (sans score) viennent après.
+        all.sort(function (a, b) { return (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score); });
+        discoverQueue = all.filter(function (i) { return done.indexOf(itemId('ideas', i.niche, i.idea)) === -1; });
+        const allStarter = results.every(function (d) { return d.source === 'starter'; });
+        document.getElementById('disc-banner-icon').textContent = allStarter ? '💡' : '⚡';
+        document.getElementById('disc-banner-text').textContent = allStarter ? I18N.discBannerStarter : I18N.discBanner;
+        renderDiscoverStack();
+      }).catch(function (e) {
+        stage.innerHTML = '<p class="text-sm text-red-600 mb-3">' + esc(e && e.message ? e.message : e) + '</p>' +
+          '<button type="button" onclick="loadDiscover()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold">' + esc(I18N.libRetry) + '</button>';
+      });
     }
 
     function renderProfile() {
@@ -3323,7 +3438,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
       });
       document.querySelectorAll('.nav-item').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
-      if (name === 'discover' && !discoverLoaded) { discoverLoaded = true; renderDiscoverNiches(); loadDiscover(); }
+      if (name === 'discover' && !discoverLoaded) { discoverLoaded = true; loadDiscover(); }
       if (name === 'library') { renderLibrary(); }
       try { history.replaceState(null, '', '#' + name); } catch (e) {}
       window.scrollTo(0, 0);
@@ -3381,6 +3496,19 @@ def app_shell_page(request: Request):
         "libCatHistory": tt("lib_cat_history"),
         "libPillMine": tt("lib_pill_mine"),
         "libPillAll": tt("lib_pill_all"),
+        "discBanner": tt("disc_banner"),
+        "discBannerStarter": tt("disc_banner_starter"),
+        "discPotential": tt("disc_potential"),
+        "discLevelHigh": tt("disc_level_high"),
+        "discLevelGood": tt("disc_level_good"),
+        "discLevelMedium": tt("disc_level_medium"),
+        "discHook": tt("disc_hook"),
+        "discLeft": tt("disc_left"),
+        "discDoneTitle": tt("disc_done_title"),
+        "discDoneDesc": tt("disc_done_desc"),
+        "discGoSaved": tt("disc_go_saved"),
+        "discEstimate": tt("disc_estimate"),
+        "discSkip": tt("disc_skip"),
         "libBadge": tt("lib_badge"),
         "libBadgeStarter": tt("lib_badge_starter"),
         "libBanner": tt("lib_banner"),
@@ -3419,7 +3547,7 @@ def app_shell_page(request: Request):
         "app_tool_script_title", "app_tool_script_desc", "app_tool_account_title",
         "app_tool_account_desc", "app_history_title", "app_see_all", "app_tab_home",
         "app_tab_library", "app_tab_discover", "app_tab_profile", "app_discover_subtitle",
-        "lib_banner",
+        "lib_banner", "disc_new_today", "disc_banner",
     ):
         html = html.replace(f"__T_{key}__", tt(key))
     return html
@@ -4424,6 +4552,168 @@ async def library(niche_category: str, lang: str = DEFAULT_LANG):
         # Recherche web indisponible : contenu de départ (étiqueté « Exemple »
         # côté interface), jamais présenté comme une tendance.
         result = get_starter_library(niche_category, lang)
+    return JSONResponse(content=result)
+
+
+def _discover_clean(raw_ideas) -> list[dict]:
+    """
+    Nettoie les idées renvoyées par Claude : texte obligatoire, score borné à
+    0-100, tri par score décroissant. On garde en priorité celles à bon
+    potentiel (>= 60) ; s'il y en a moins de 3, on complète avec les
+    meilleures restantes pour que la pile ne soit pas vide.
+    """
+    ideas: list[dict] = []
+    seen: set[str] = set()
+    for item in raw_ideas or []:
+        if not isinstance(item, dict):
+            continue
+        idea = str(item.get("idea") or "").strip()
+        if not idea or idea.lower() in seen:
+            continue
+        seen.add(idea.lower())
+        ideas.append({
+            "idea": idea[:300],
+            "hook": str(item.get("hook") or "").strip()[:300] or None,
+            "score": _clamp_score(item.get("score")),
+            "reason": str(item.get("reason") or "").strip()[:200] or None,
+        })
+    ideas.sort(key=lambda i: i["score"], reverse=True)
+    good = [i for i in ideas if i["score"] >= 60]
+    return (good if len(good) >= 3 else ideas[:3])[:6]
+
+
+async def _fetch_discover_from_web(niche_category: str, lang: str, date: str) -> dict | None:
+    """
+    Idées de vidéos du JOUR pour une niche, avec une estimation du potentiel
+    de viralité de chacune, à partir d'une recherche web de Claude. Le score
+    est une estimation de l'IA (force de l'accroche + tendance observée),
+    jamais une prédiction de vues : l'interface le présente comme tel.
+    """
+    if not ANTHROPIC_API_KEY:
+        print("[discover] ANTHROPIC_API_KEY manquant : idées de départ affichées à la place")
+        return None
+
+    lang_instruction = (
+        "RÉDIGÉ EN FRANÇAIS" if lang == "fr"
+        else f'rédigé dans la langue de code ISO 639-1 "{lang}"'
+    )
+    prompt = f"""Cherche sur le web ce qui fonctionne sur TikTok en ce moment pour la
+catégorie de niche suivante : "{niche_category}" (public dont la langue a le
+code ISO 639-1 "{lang}"). Date du jour : {date}.
+
+Propose 6 idées de vidéos concrètes inspirées de ces tendances. Réponds
+UNIQUEMENT avec un objet JSON (pas de markdown, pas de balises de code),
+{lang_instruction}, de cette forme, classé du meilleur au moins bon score :
+{{
+  "ideas": [
+    {{
+      "idea": "idée de vidéo concrète en une phrase",
+      "hook": "phrase d'ouverture concrète (une phrase) pour cette vidéo",
+      "score": un entier de 0 à 100 : potentiel de viralité ESTIMÉ,
+      "reason": "une courte phrase : ce qui justifie ce score (tendance observée + force de l'accroche)"
+    }}
+  ]
+}}
+
+RÈGLES : le score est une estimation honnête fondée sur ce que tes recherches
+montrent (sujet ou format en hausse, force de l'accroche), PAS une prédiction de
+vues ; varie les scores et ne dépasse pas 85 sans source claire. Si tu manques
+de sources fiables, donne MOINS d'idées plutôt que d'en inventer. Aucune
+statistique chiffrée dans "reason"."""
+
+    try:
+        async with httpx.AsyncClient(timeout=90) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-sonnet-5",
+                    "max_tokens": 2500,
+                    "output_config": {"effort": "low"},
+                    "tools": [
+                        {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+                    ],
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+        if response.status_code != 200:
+            print(f"[discover] Anthropic {response.status_code} pour {niche_category}/{lang}: {response.text[:300]}")
+            return None
+
+        cleaned = _extract_text_block(response.json()).strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.strip("`")
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+            cleaned = cleaned.strip()
+        ideas = _discover_clean(json.loads(cleaned).get("ideas"))
+        if not ideas:
+            return None
+        return {
+            "date": date,
+            "niche_category": niche_category,
+            "lang": lang,
+            "source": "web",
+            "ideas": ideas,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as exc:
+        print(f"[discover] échec de la recherche web pour {niche_category}/{lang}: {exc!r}")
+        return None
+
+
+async def _get_discover(niche_category: str, lang: str, date: str) -> dict | None:
+    """Idées du jour d'une niche : cache du jour, sinon une recherche web partagée par tous."""
+    cache_key = f"discover:{date}:{_niche_cache_key(niche_category, lang)}"
+    cached = await asyncio.to_thread(_library_cache_get, cache_key)
+    if cached:
+        return cached
+
+    lock = _library_locks.setdefault(cache_key, asyncio.Lock())
+    async with lock:
+        cached = await asyncio.to_thread(_library_cache_get, cache_key)
+        if cached:
+            return cached
+        if _library_retry_after.get(cache_key, 0) > time.time():
+            return None
+        data = await _fetch_discover_from_web(niche_category, lang, date)
+        if data:
+            await asyncio.to_thread(_library_cache_set, cache_key, data)
+        else:
+            _library_retry_after[cache_key] = time.time() + LIBRARY_RETRY_DELAY_SECONDS
+        return data
+
+
+@app.get("/api/discover", response_class=JSONResponse)
+async def discover(niche_category: str, lang: str = DEFAULT_LANG):
+    """
+    Onglet "Découvrir" : idées de vidéos du jour pour une niche, chacune avec
+    une estimation du potentiel de viralité ("source": "web"). Si la recherche
+    web échoue, des idées de départ SANS score sont renvoyées ("source":
+    "starter") : on n'invente jamais un score.
+    """
+    if niche_category not in NICHE_CATEGORIES:
+        raise HTTPException(status_code=422, detail="Niche inconnue.")
+    if lang not in SUPPORTED_LANGS:
+        lang = DEFAULT_LANG
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    result = await _get_discover(niche_category, lang, date)
+    if not result:
+        starter = get_starter_library(niche_category, lang)
+        result = {
+            "date": date,
+            "niche_category": niche_category,
+            "lang": lang,
+            "source": "starter",
+            "ideas": [
+                {"idea": idea, "hook": None, "score": None, "reason": None}
+                for idea in starter["video_ideas"]
+            ],
+        }
     return JSONResponse(content=result)
 
 
