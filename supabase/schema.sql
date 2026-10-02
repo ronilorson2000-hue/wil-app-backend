@@ -77,6 +77,26 @@ create table if not exists pending_states (
     created_at timestamptz not null default now()
 );
 
+-- Retours utilisateurs sur les estimations de /tools/analyze-video (vidéos
+-- déjà publiées ailleurs) : "ces estimations sont-elles proches des
+-- résultats réels ?". Mesure interne pour recalibrer les multiplicateurs
+-- PERFORMANCE_BAND_MULTIPLIERS (app/main.py) ; une ligne est créée à
+-- l'analyse, "verdict" reste null tant que l'utilisateur n'a pas répondu.
+-- Aucune vidéo ni identité stockée (ce flux n'a pas de session).
+create table if not exists video_estimate_feedback (
+    id uuid primary key,
+    lang text,
+    niche_category text,
+    virality_score int,
+    performance_band text,
+    account_avg_views int,
+    estimated_views_low int,
+    estimated_views_high int,
+    verdict text check (verdict in ('yes', 'no', 'roughly')),
+    created_at timestamptz not null default now()
+);
+create index if not exists idx_video_estimate_feedback_verdict on video_estimate_feedback (verdict);
+
 -- Note sécurité : ce backend accède à ces tables uniquement via la clé
 -- service_role (jamais exposée au client Flutter/web), donc Row Level
 -- Security n'est pas activé par défaut ici. Si un jour le client accède

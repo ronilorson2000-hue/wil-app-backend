@@ -15,19 +15,21 @@ la variable TIKTOK_REDIRECT_URI dans .env pointe vers cette URL publique.
 """
 
 import asyncio
+import base64
 import json
 import math
 import os
 import re
 import secrets
 import time
+import uuid
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from langdetect import LangDetectException, detect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import (
@@ -38,6 +40,7 @@ from fastapi.responses import (
     RedirectResponse,
 )
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from app.db import get_supabase
 from app.style_guide import get_style_guide
@@ -50,7 +53,8 @@ TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY")
 TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET")
 TIKTOK_REDIRECT_URI = os.getenv("TIKTOK_REDIRECT_URI")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
 # Les "state" générés servent à vérifier que la réponse de TikTok
 # correspond bien à une demande qu'on a nous-même initiée (protection
@@ -1977,7 +1981,7 @@ def tool_analyze_account_page(request: Request):
 def tool_analyze_video_page(request: Request, niche_category: str = "", account_avg_views: str = ""):
     """
     Page dédiée pour l'analyse approfondie d'une vidéo importée (upload +
-    transcription réelle). Reçoit le contexte du compte (niche, moyenne de
+    analyse de la vidéo brute par Gemini, images et son). Reçoit le contexte du compte (niche, moyenne de
     vues) en paramètres d'URL, transmis par le tableau de bord au clic sur
     le bouton "Analyser la vidéo" — cette page n'a plus besoin de session.
 
@@ -2022,11 +2026,26 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           <div id="step-upload" class="step">
             <h1 class="text-xl font-extrabold mb-1">{tt("tool_video_title")}</h1>
             <p class="text-sm text-slate-500 mb-6">{tt("tool_video_subtitle")}</p>
-            <label for="upload-video-input" class="glow-thumb block cursor-pointer">
-              <img id="upload-thumb-preview" alt="" onerror="this.style.opacity=0" />
+            <label for="upload-video-input" id="upload-dropzone" class="block cursor-pointer text-center"
+                   style="border:3px dashed #d4d4d8;border-radius:28px;background:#f1f1f1;padding:36px 20px;">
+              <div id="upload-dropzone-empty">
+                <svg class="mx-auto" width="56" height="56" viewBox="0 0 48 48" fill="none" stroke="#ff2d55" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M24 31V9"/><path d="M13 20L24 9l11 11"/><path d="M6 30v7a3 3 0 0 0 3 3h30a3 3 0 0 0 3-3v-7"/>
+                </svg>
+                <p class="font-semibold text-xl text-slate-900 mt-5 leading-snug">{tt("upload_dropzone_title")}</p>
+                <p class="text-sm text-slate-500 mt-3">{tt("upload_dropzone_formats")}</p>
+              </div>
+              <img id="upload-thumb-preview" alt="" class="hidden mx-auto rounded-2xl" style="max-height:260px;object-fit:cover;" />
             </label>
             <input id="upload-video-input" type="file" accept="video/*" class="hidden" onchange="onVideoSelected(event)" />
-            <p id="upload-file-hint" class="text-center text-xs text-slate-400 mt-3">{tt("tool_video_choose_file_error")}</p>
+            <p id="upload-file-hint" class="text-center text-xs text-slate-400 mt-3 break-all"></p>
+            <p class="font-semibold text-sm text-center mt-6 mb-3">{tt("tool_video_published_q")}</p>
+            <div class="flex gap-3">
+              <button type="button" id="published-yes-btn" onclick="setPublished(true)"
+                      class="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm transition">{tt("tool_video_published_yes")}</button>
+              <button type="button" id="published-no-btn" onclick="setPublished(false)"
+                      class="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm transition">{tt("tool_video_published_no")}</button>
+            </div>
             <button id="upload-launch-btn" disabled onclick="launchAnalysis()"
                     class="w-full mt-4 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
               {tt("tool_video_analyze_btn")}
@@ -2137,6 +2156,30 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 <p id="stats-score-basis" class="text-xs text-slate-400"></p>
               </div>
               <div class="insight-card">
+                <p class="font-semibold text-sm mb-3">{tt("results_categories_title")}</p>
+                <div id="stats-categories" class="space-y-3"></div>
+              </div>
+              <div id="policy-card" class="insight-card hidden">
+                <p class="font-bold text-sm mb-1">⚠️ {tt("results_policy_title")}</p>
+                <ul id="policy-issues" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
+              </div>
+              <div id="estimate-card" class="insight-card hidden">
+                <p class="font-semibold text-sm mb-1">{tt("est_title")}</p>
+                <p id="estimate-band" class="text-sm font-bold text-blue-600 mb-2"></p>
+                <div id="estimate-numbers" class="grid grid-cols-3 gap-2 text-center mb-2"></div>
+                <p id="estimate-basis" class="text-sm text-slate-600 mb-1"></p>
+                <p id="estimate-disclaimer" class="text-xs text-slate-400"></p>
+                <div id="feedback-block" class="mt-4 pt-4 border-t border-slate-100">
+                  <p class="font-semibold text-sm mb-3">{tt("est_feedback_q")}</p>
+                  <div id="feedback-buttons" class="flex gap-2">
+                    <button type="button" onclick="sendFeedback('yes')" class="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-semibold text-slate-700 hover:border-blue-600 transition">{tt("est_feedback_yes")}</button>
+                    <button type="button" onclick="sendFeedback('roughly')" class="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-semibold text-slate-700 hover:border-blue-600 transition">{tt("est_feedback_roughly")}</button>
+                    <button type="button" onclick="sendFeedback('no')" class="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-semibold text-slate-700 hover:border-blue-600 transition">{tt("est_feedback_no")}</button>
+                  </div>
+                  <p id="feedback-message" class="text-sm mt-2"></p>
+                </div>
+              </div>
+              <div class="insight-card">
                 <p class="font-semibold text-sm mb-1">{tt("results_niche_label")}</p>
                 <p id="stats-niche-value" class="text-sm text-slate-600"></p>
               </div>
@@ -2148,9 +2191,49 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
         <script>
 {_onboarding_js_core(niche_category, account_avg_views, lang, "step-upload")}
 
-          const LOADING_STAGES = ["{tt("loading_upload")}", "{tt("loading_subtitles")}", "{tt("loading_analyzing")}", "{tt("loading_insights")}"];
+          const LOADING_STAGES = ["{tt("loading_upload")}", "{tt("loading_watching")}", "{tt("loading_analyzing")}", "{tt("loading_insights")}"];
+          const CAT_LABELS = {{
+            hook: "{tt("cat_hook")}",
+            visual_engagement: "{tt("cat_visual")}",
+            storytelling: "{tt("cat_story")}",
+            call_to_action: "{tt("cat_cta")}"
+          }};
+          const BAND_LABELS = {{
+            well_below: "{tt("est_band_well_below")}",
+            below: "{tt("est_band_below")}",
+            around: "{tt("est_band_around")}",
+            above: "{tt("est_band_above")}",
+            well_above: "{tt("est_band_well_above")}"
+          }};
+          const EST_LABELS = {{ views: "{tt("est_views")}", likes: "{tt("est_likes")}", comments: "{tt("est_comments")}" }};
           let selectedFile = null;
           let thumbDataUrl = '';
+          let alreadyPublished = null;
+          let currentAnalysisId = null;
+
+          function escapeHtml(text) {{
+            return String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {{
+              return {{'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}}[c];
+            }});
+          }}
+
+          function updateLaunchBtn() {{
+            const btn = document.getElementById('upload-launch-btn');
+            const ready = selectedFile && alreadyPublished !== null;
+            btn.disabled = !ready;
+            btn.className = ready
+              ? 'w-full mt-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700'
+              : 'w-full mt-4 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition';
+          }}
+
+          function setPublished(value) {{
+            alreadyPublished = value;
+            const on = 'flex-1 py-3 rounded-xl border-2 border-blue-600 bg-blue-50 text-blue-700 font-semibold text-sm transition';
+            const off = 'flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm transition';
+            document.getElementById('published-yes-btn').className = value ? on : off;
+            document.getElementById('published-no-btn').className = value ? off : on;
+            updateLaunchBtn();
+          }}
 
           function onVideoSelected(event) {{
             const file = event.target.files && event.target.files[0];
@@ -2172,23 +2255,25 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
               thumbDataUrl = canvas.toDataURL('image/jpeg', 0.85);
               document.getElementById('upload-thumb-preview').src = thumbDataUrl;
-              document.getElementById('upload-thumb-preview').style.opacity = 1;
+              document.getElementById('upload-thumb-preview').classList.remove('hidden');
+              document.getElementById('upload-dropzone-empty').classList.add('hidden');
             }});
 
-            const btn = document.getElementById('upload-launch-btn');
-            btn.disabled = false;
-            btn.className = 'w-full mt-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700';
+            updateLaunchBtn();
           }}
 
           function resetFlow() {{
             document.getElementById('upload-video-input').value = '';
             selectedFile = null;
+            alreadyPublished = null;
+            currentAnalysisId = null;
+            document.getElementById('published-yes-btn').className = 'flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm transition';
+            document.getElementById('published-no-btn').className = 'flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm transition';
             document.getElementById('upload-thumb-preview').removeAttribute('src');
-            document.getElementById('upload-thumb-preview').style.opacity = 1;
-            document.getElementById('upload-file-hint').textContent = "{tt("tool_video_choose_file_error")}";
-            const btn = document.getElementById('upload-launch-btn');
-            btn.disabled = true;
-            btn.className = 'w-full mt-4 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition';
+            document.getElementById('upload-thumb-preview').classList.add('hidden');
+            document.getElementById('upload-dropzone-empty').classList.remove('hidden');
+            document.getElementById('upload-file-hint').textContent = '';
+            updateLaunchBtn();
             document.getElementById('upload-error').textContent = '';
             goToStep('step-upload', 100, true);
           }}
@@ -2211,6 +2296,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             formData.append('niche_category', selectedNiches[0] || '');
             formData.append('main_challenge', selectedChallenge);
             formData.append('ui_lang', uiLang);
+            formData.append('already_published', alreadyPublished ? 'true' : 'false');
 
             fetch('/api/analyze-video-upload', {{ method: 'POST', body: formData }})
               .then(function (r) {{ return r.json().then(function (data) {{ return {{ok: r.ok, status: r.status, data: data}}; }}); }})
@@ -2254,6 +2340,58 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             document.getElementById('result-strengths-value').innerHTML = (data.strengths || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
             document.getElementById('result-weaknesses-value').innerHTML = (data.weaknesses || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
             document.getElementById('result-actions-value').innerHTML = (data.action_plan || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
+
+            const cats = data.category_scores || {{}};
+            document.getElementById('stats-categories').innerHTML = Object.keys(CAT_LABELS).map(function (key) {{
+              const c = cats[key] || {{score: 0, comment: ''}};
+              return '<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-medium">' + CAT_LABELS[key] +
+                '</span><span class="text-sm font-extrabold" style="color:' + scoreColor(c.score) + '">' + c.score + '</span></div>' +
+                '<div class="score-track"><div class="score-fill" style="width:' + c.score + '%;background:' + scoreColor(c.score) + '"></div></div>' +
+                '<p class="text-xs text-slate-500 mt-1">' + escapeHtml(c.comment) + '</p></div>';
+            }}).join('');
+
+            const issues = (data.policy_check && data.policy_check.status === 'risk') ? (data.policy_check.issues || []) : [];
+            document.getElementById('policy-card').classList.toggle('hidden', issues.length === 0);
+            document.getElementById('policy-issues').innerHTML = issues.map(function (s) {{ return '<li>' + escapeHtml(s) + '</li>'; }}).join('');
+
+            const est = data.estimate;
+            currentAnalysisId = data.analysis_id || null;
+            document.getElementById('estimate-card').classList.toggle('hidden', !est);
+            if (est) {{
+              const fmt = new Intl.NumberFormat(uiLang, {{notation: 'compact', maximumFractionDigits: 1}});
+              document.getElementById('estimate-band').textContent = BAND_LABELS[est.band] || '';
+              document.getElementById('estimate-numbers').innerHTML = est.views
+                ? ['views', 'likes', 'comments'].map(function (k) {{
+                    return '<div class="rounded-xl bg-slate-50 py-2"><p class="text-xs text-slate-500">' + EST_LABELS[k] + '</p>' +
+                      '<p class="text-sm font-extrabold">' + fmt.format(est[k][0]) + ' – ' + fmt.format(est[k][1]) + '</p></div>';
+                  }}).join('')
+                : '<p class="col-span-3 text-xs text-slate-500">' + escapeHtml("{tt("est_no_avg")}") + '</p>';
+              document.getElementById('estimate-basis').textContent = est.basis || '';
+              document.getElementById('estimate-disclaimer').textContent = "{tt("est_disclaimer")}";
+              document.getElementById('feedback-buttons').classList.remove('hidden');
+              document.getElementById('feedback-message').textContent = '';
+              document.getElementById('feedback-block').classList.toggle('hidden', !currentAnalysisId);
+            }}
+          }}
+
+          function sendFeedback(verdict) {{
+            if (!currentAnalysisId) return;
+            const msg = document.getElementById('feedback-message');
+            fetch('/api/video-estimate-feedback', {{
+              method: 'POST',
+              headers: {{'Content-Type': 'application/json'}},
+              body: JSON.stringify({{analysis_id: currentAnalysisId, verdict: verdict}})
+            }})
+              .then(function (r) {{
+                if (!r.ok) throw new Error('http ' + r.status);
+                document.getElementById('feedback-buttons').classList.add('hidden');
+                msg.className = 'text-sm mt-2 text-green-600';
+                msg.textContent = "{tt("est_feedback_thanks")}";
+              }})
+              .catch(function () {{
+                msg.className = 'text-sm mt-2 text-red-600';
+                msg.textContent = "{tt("est_feedback_error")}";
+              }});
           }}
         </script>
       </body>
@@ -4247,275 +4385,430 @@ instructions :
     return JSONResponse(content=result)
 
 
-async def _transcribe_video(client: httpx.AsyncClient, video_bytes: bytes) -> dict:
-    """
-    Transcrit un fichier vidéo/audio via AssemblyAI : upload du fichier
-    brut, lancement de la transcription, puis attente (polling) jusqu'à
-    complétion. AssemblyAI extrait l'audio automatiquement des conteneurs
-    vidéo courants (mp4, mov...), pas besoin de le faire nous-mêmes.
-    Lève une HTTPException explicite à chaque étape qui peut échouer.
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com"
+GEMINI_INLINE_MAX_BYTES = 15 * 1024 * 1024  # au-delà : Files API (l'inline est plafonné à ~20 Mo au total)
+MAX_VIDEO_BYTES = 200 * 1024 * 1024
 
-    Renvoie {"text": str, "words": list[dict]} — "words" contient les
-    horodatages réels mot par mot (start/end en ms, fournis nativement
-    par AssemblyAI) utilisés ensuite pour ancrer les conseils à un
-    moment précis de la vidéo (ex: "à 0:02, dites...") plutôt que de
-    deviner un timing (RÈGLE D'OR N°1 : jamais inventé).
+# Palier de performance choisi par Gemini -> fourchette de vues, en multiple
+# de la moyenne de vues RÉELLE du compte. Gemini ne produit jamais de chiffre
+# (RÈGLE D'OR N°1) : seul le palier, justifié par des éléments concrets de
+# la vidéo, vient de lui. Les multiplicateurs ci-dessous sont des constantes
+# à recalibrer avec les retours oui/non/à peu près (table video_estimate_feedback).
+PERFORMANCE_BAND_MULTIPLIERS = {
+    "well_below": (0.2, 0.5),
+    "below": (0.5, 0.9),
+    "around": (0.8, 1.2),
+    "above": (1.2, 2.5),
+    "well_above": (2.5, 6.0),
+}
+# Ratios génériques likes/vues et commentaires/vues : on n'a que la moyenne de
+# vues du compte, pas ses vrais ratios, donc ce sont des estimations larges.
+ESTIMATED_LIKE_RATE = (0.03, 0.08)
+ESTIMATED_COMMENT_RATE = (0.001, 0.004)
+
+VIDEO_FEEDBACK_VERDICTS = {"yes", "no", "roughly"}
+VIDEO_CATEGORY_KEYS = ("hook", "visual_engagement", "storytelling", "call_to_action")
+
+
+def _gemini_headers() -> dict:
+    # Clé dans un en-tête (pas dans l'URL) pour ne jamais la laisser dans des logs d'accès.
+    return {"x-goog-api-key": GEMINI_API_KEY}
+
+
+async def _gemini_upload_video(client: httpx.AsyncClient, video_bytes: bytes, mime_type: str) -> dict:
     """
-    upload_response = await client.post(
-        "https://api.assemblyai.com/v2/upload",
-        headers={"authorization": ASSEMBLYAI_API_KEY},
+    Envoie la vidéo à la Files API de Gemini (upload "resumable" en 2 temps)
+    puis attend que le fichier soit traité (état ACTIVE). Renvoie les infos
+    du fichier ({"name", "uri", "mimeType", ...}).
+    """
+    start = await client.post(
+        f"{GEMINI_API_BASE}/upload/v1beta/files",
+        headers={
+            **_gemini_headers(),
+            "X-Goog-Upload-Protocol": "resumable",
+            "X-Goog-Upload-Command": "start",
+            "X-Goog-Upload-Header-Content-Length": str(len(video_bytes)),
+            "X-Goog-Upload-Header-Content-Type": mime_type,
+            "Content-Type": "application/json",
+        },
+        json={"file": {"display_name": "wil-video"}},
+    )
+    upload_url = start.headers.get("x-goog-upload-url")
+    if start.status_code != 200 or not upload_url:
+        raise HTTPException(status_code=502, detail="Échec de l'envoi de la vidéo au service d'analyse.")
+
+    finish = await client.post(
+        upload_url,
+        headers={
+            "X-Goog-Upload-Offset": "0",
+            "X-Goog-Upload-Command": "upload, finalize",
+        },
         content=video_bytes,
     )
-    if upload_response.status_code != 200:
-        raise HTTPException(
-            status_code=502,
-            detail="Échec de l'envoi du fichier au service de transcription.",
-        )
-    upload_url = upload_response.json()["upload_url"]
+    if finish.status_code != 200:
+        raise HTTPException(status_code=502, detail="Échec de l'envoi de la vidéo au service d'analyse.")
+    file_info = finish.json().get("file", {})
 
-    transcript_response = await client.post(
-        "https://api.assemblyai.com/v2/transcript",
-        headers={"authorization": ASSEMBLYAI_API_KEY},
-        json={"audio_url": upload_url, "language_detection": True},
-    )
-    if transcript_response.status_code != 200:
-        raise HTTPException(
-            status_code=502,
-            detail="Échec de la demande de transcription.",
-        )
-    transcript_id = transcript_response.json()["id"]
-
-    # Vidéos TikTok courtes (quelques dizaines de secondes à ~3 min) :
-    # on attend jusqu'à 2 minutes, avec un poll toutes les 2 secondes.
     for _ in range(60):
-        poll_response = await client.get(
-            f"https://api.assemblyai.com/v2/transcript/{transcript_id}",
-            headers={"authorization": ASSEMBLYAI_API_KEY},
-        )
-        poll_data = poll_response.json()
-        status = poll_data.get("status")
-        if status == "completed":
-            return {"text": poll_data.get("text") or "", "words": poll_data.get("words") or []}
-        if status == "error":
-            raise HTTPException(
-                status_code=502,
-                detail=f"Erreur de transcription : {poll_data.get('error')}",
-            )
+        state = file_info.get("state")
+        if state == "ACTIVE":
+            return file_info
+        if state == "FAILED":
+            raise HTTPException(status_code=502, detail="Le service d'analyse n'a pas pu lire cette vidéo.")
         await asyncio.sleep(2)
-
-    raise HTTPException(
-        status_code=504,
-        detail="La transcription prend trop de temps, réessaie plus tard.",
-    )
-
-
-def _format_timestamped_transcript(words: list[dict], bucket_seconds: float = 3.0) -> str:
-    """
-    Regroupe les mots horodatés (fournis par AssemblyAI) en tranches de
-    quelques secondes, format "[0:02] texte du groupe", pour que Claude
-    puisse ancrer un conseil sur un instant réel de la vidéo au lieu
-    d'inventer un timing. Repli sur une chaîne vide si "words" est
-    absent (transcription sans horodatage) — le prompt gère ce cas en
-    ne demandant aucune citation de timestamp.
-    """
-    if not words:
-        return ""
-    lines = []
-    bucket_start_ms = None
-    bucket_words: list[str] = []
-    bucket_ms = bucket_seconds * 1000
-    for w in words:
-        start = w.get("start", 0)
-        text = w.get("text", "")
-        if bucket_start_ms is None:
-            bucket_start_ms = start
-        if start - bucket_start_ms >= bucket_ms and bucket_words:
-            m, s = divmod(int(bucket_start_ms / 1000), 60)
-            lines.append(f"[{m}:{s:02d}] {' '.join(bucket_words)}")
-            bucket_start_ms = start
-            bucket_words = []
-        bucket_words.append(text)
-    if bucket_words:
-        m, s = divmod(int(bucket_start_ms / 1000), 60)
-        lines.append(f"[{m}:{s:02d}] {' '.join(bucket_words)}")
-    return "\n".join(lines)
-
-
-@app.post("/api/analyze-video-upload", response_class=JSONResponse)
-async def analyze_video_upload(
-    file: UploadFile = File(...),
-    account_avg_views: int = 0,
-    niche_category: str = "",
-    main_challenge: str = "",
-    ui_lang: str = DEFAULT_LANG,
-):
-    """
-    Analyse approfondie d'UNE vidéo à partir d'un fichier importé
-    directement par l'utilisateur (téléphone ou machine — jamais récupéré
-    depuis TikTok, l'API ne fournit aucun fichier vidéo). Transcrit le
-    contenu parlé réel via AssemblyAI (texte ET horodatage mot par mot),
-    puis l'envoie à Claude pour une analyse du hook/de la structure basée
-    sur ce qui est VRAIMENT dit, pas seulement le titre — contrairement à
-    /api/analyze-video. `niche_category` est la niche choisie par
-    l'utilisateur pour CETTE vidéo (mini-questionnaire sur la page outil,
-    pas forcément la niche de tout le compte). `main_challenge` (abonnés/
-    engagement/vues) oriente l'angle du conseil, sans jamais inventer de
-    statistique.
-
-    Fonctionne aussi bien sur une vidéo déjà postée que sur une vidéo pas
-    encore publiée (analyse "avant de poster").
-    """
-    if not ASSEMBLYAI_API_KEY:
-        raise HTTPException(status_code=500, detail="ASSEMBLYAI_API_KEY manquant dans .env")
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
-
-    video_bytes = await file.read()
-    # Garde-fou : 200 Mo max, largement suffisant pour une vidéo TikTok
-    # (quelques minutes maximum), évite un upload abusif ou accidentel.
-    if len(video_bytes) > 200 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Fichier trop volumineux (200 Mo max).")
-
-    try:
-        async with httpx.AsyncClient(timeout=150) as client:
-            transcription = await _transcribe_video(client, video_bytes)
-    except httpx.HTTPError:
-        raise HTTPException(status_code=502, detail="Erreur réseau vers le service de transcription.")
-
-    transcript_text = transcription["text"]
-    if not transcript_text.strip():
-        raise HTTPException(
-            status_code=502,
-            detail="Transcription vide — vérifie que la vidéo contient bien de la voix.",
+        poll = await client.get(
+            f"{GEMINI_API_BASE}/v1beta/{file_info['name']}", headers=_gemini_headers()
         )
-    timestamped_transcript = _format_timestamped_transcript(transcription["words"])
+        if poll.status_code != 200:
+            raise HTTPException(status_code=502, detail="Échec du suivi du traitement de la vidéo.")
+        file_info = poll.json()
 
+    raise HTTPException(status_code=504, detail="Le traitement de la vidéo prend trop de temps, réessayez.")
+
+
+def _video_analysis_schema(already_published: bool) -> dict:
+    category = {
+        "type": "object",
+        "properties": {
+            "score": {"type": "integer", "description": "0 à 100"},
+            "comment": {"type": "string", "description": "1 phrase simple qui justifie ce score"},
+        },
+        "required": ["score", "comment"],
+    }
+    properties = {
+        "virality_score": {"type": "integer", "description": "0 à 100, cohérent avec category_scores"},
+        "score_basis": {"type": "string"},
+        "category_scores": {
+            "type": "object",
+            "properties": {key: category for key in VIDEO_CATEGORY_KEYS},
+            "required": list(VIDEO_CATEGORY_KEYS),
+        },
+        "niche": {"type": "string"},
+        "hook_excerpt": {"type": "string"},
+        "hook_type": {"type": "string"},
+        "strengths": {"type": "array", "items": {"type": "string"}},
+        "weaknesses": {"type": "array", "items": {"type": "string"}},
+        "action_plan": {"type": "array", "items": {"type": "string"}},
+        "suggested_hashtags": {"type": "array", "items": {"type": "string"}},
+        "suggested_caption": {"type": "string"},
+        "policy_check": {
+            "type": "object",
+            "properties": {
+                "status": {"type": "string", "enum": ["ok", "risk"]},
+                "issues": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["status", "issues"],
+        },
+    }
+    required = [
+        "virality_score", "score_basis", "category_scores", "niche", "hook_excerpt",
+        "hook_type", "strengths", "weaknesses", "action_plan", "suggested_hashtags",
+        "suggested_caption", "policy_check",
+    ]
+    if already_published:
+        properties["performance_band"] = {"type": "string", "enum": list(PERFORMANCE_BAND_MULTIPLIERS)}
+        properties["estimation_basis"] = {"type": "string"}
+        required += ["performance_band", "estimation_basis"]
+    return {"type": "object", "properties": properties, "required": required}
+
+
+def _build_video_prompt(
+    niche_category: str, account_avg_views: int, main_challenge: str, already_published: bool
+) -> str:
     comparison_text = (
         f"Pour comparaison, la moyenne du compte est de {account_avg_views} vues par vidéo."
         if account_avg_views > 0
         else "Pas de moyenne de compte disponible pour comparaison — ne pas en inventer une."
     )
-
     challenge_text = {
         "followers": "L'utilisateur dit que son plus gros défi est de gagner des ABONNÉS : privilégie dans \"action_plan\" ce qui donne envie de suivre le compte (personnalité, régularité, promesse de contenu à venir).",
         "engagement": "L'utilisateur dit que son plus gros défi est l'ENGAGEMENT (likes/commentaires) : privilégie dans \"action_plan\" ce qui pousse à réagir ou commenter (question ouverte, avis tranché, appel à réagir).",
         "reach": "L'utilisateur dit que son plus gros défi est la PORTÉE/les VUES : privilégie dans \"action_plan\" ce qui retient dès la première seconde et jusqu'au bout (accroche, rythme).",
     }.get(main_challenge, "Défi principal non précisé — reste équilibré entre accroche, rétention et appel à l'action.")
 
-    timestamp_instruction = (
-        f"""
-Voici aussi la transcription DÉCOUPÉE PAR HORODATAGE RÉEL (minute:seconde
-mesurées par la transcription, pas devinées) :
-\"\"\"{timestamped_transcript}\"\"\"
-Quand c'est pertinent, ancre UNE instruction de "weaknesses" ou
-"action_plan" sur un instant précis en citant le timestamp entre
-crochets exactement comme fourni ci-dessus (ex: "À [0:02], ..."). Ne
-cite un timestamp QUE s'il vient de cette liste — jamais un instant
-inventé (RÈGLE D'OR N°1)."""
-        if timestamped_transcript
-        else ""
-    )
+    if already_published:
+        publication_text = """Cette vidéo a DÉJÀ été publiée ailleurs. En plus du reste, compare son potentiel à la moyenne habituelle du compte :
+- "performance_band" : "well_below", "below", "around", "above" ou "well_above" (très en dessous / en dessous / proche / au-dessus / très au-dessus de la moyenne de vues habituelle du compte), choisi à partir des éléments réellement observés dans la vidéo.
+- "estimation_basis" : 2 phrases maximum, en mots simples, qui nomment les éléments CONCRETS déjà cités dans "strengths" et "weaknesses" qui tirent le résultat vers le haut ou vers le bas (exemple de forme : "Votre accroche retient l'attention tout de suite et la fin donne envie de réagir, ce qui pousse au-dessus de votre moyenne. Mais le milieu perd le fil, ce qui limite le résultat."). N'écris JAMAIS de chiffre de vues, de likes ou de commentaires, ni dans ce champ ni ailleurs : les chiffres sont calculés séparément."""
+    else:
+        publication_text = """Cette vidéo n'est PAS encore publiée : aucune vue, aucun like, aucun commentaire n'existe. N'invente aucun chiffre de ce genre nulle part dans ta réponse."""
 
-    prompt = f"""Voici la TRANSCRIPTION RÉELLE (le vrai contenu parlé) de cette vidéo,
-obtenue par transcription audio — pas juste un titre :
-\"\"\"{transcript_text}\"\"\"
+    return f"""Tu reçois la VIDÉO elle-même (images ET son). Regarde-la et écoute-la en entier avant de répondre. Base-toi uniquement sur ce que tu vois et entends réellement, jamais sur une supposition (RÈGLE D'OR N°1 du guide de style). La vidéo peut ne contenir aucune voix : analyse alors le visuel, le texte à l'écran et la musique.
 
 Niche choisie pour cette vidéo : {niche_category or "non précisée"}
 {comparison_text}
 {challenge_text}
-{timestamp_instruction}
 
-Analyse le HOOK réel (les toutes premières phrases prononcées, pas un
-titre) en t'appuyant EN INTERNE sur les "TYPES D'ACCROCHES RÉELLES" du
-guide de style ci-dessus pour comprendre ce qui se joue — mais dans ta
-réponse, décris ce que fait ce hook en mots simples (ex : "le spectateur
-se reconnaît tout de suite dans ce que vous dites"), JAMAIS avec un nom
-technique de catégorie. Si aucun type ne correspond clairement, dis
-simplement qu'il n'y a pas vraiment d'accroche identifiable.
-Analyse aussi comment la vidéo est construite du début à la fin (est-ce
-que le propos reste clair, y a-t-il un vrai fil, la fin donne-t-elle
-envie d'agir) à partir du texte réel, pas d'une supposition.
+NOTE PAR CATÉGORIE ("category_scores", chaque score de 0 à 100 avec une phrase simple qui le justifie) :
+- "hook" : les 3 premières secondes — est-ce que ça arrête le scroll ?
+- "visual_engagement" : composition, qualité de l'image, esthétique, texte à l'écran, montage.
+- "storytelling" : structure, clarté du propos, rythme, arc émotionnel jusqu'à la fin.
+- "call_to_action" : y a-t-il un appel à l'action, est-il efficace, pousse-t-il à interagir ?
 
-Calcule aussi un "virality_score" (0-100) basé UNIQUEMENT sur la qualité
-réelle du hook, du rythme et de la structure observés dans le texte —
-précise dans "score_basis" que c'est une estimation basée sur le script,
-PAS une prédiction de vues garantie (aucune vraie vue n'existe encore
-pour cette vidéo, donc aucun chiffre de vues/likes/commentaires ne doit
-être inventé nulle part dans la réponse).
+NOTE GLOBALE : "virality_score" (0-100) résume ces 4 catégories. Elle doit être COHÉRENTE avec elles et avec "strengths"/"weaknesses" : jamais au-dessus de la meilleure catégorie ni au-dessous de la pire, et une note élevée exige de vrais points forts cités. Ne la calcule pas à part. "score_basis" : 1 phrase rappelant que c'est une estimation basée sur la vidéo, PAS une prédiction de vues garantie.
 
-RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2 du guide de
-style) : "strengths" PEUT citer LE chiffre le plus marquant SI une vraie
-donnée chiffrée est disponible ci-dessus (ex: comparaison à la moyenne
-du compte) et qu'elle prouve une réussite — sinon reste en mots simples,
-n'invente jamais un chiffre. "hook_type", "weaknesses" et "action_plan"
-restent SANS AUCUN CHIFFRE (un timestamp réel cité entre crochets n'est
-pas un chiffre de statistique, c'est autorisé). VOUVOIEMENT OBLIGATOIRE
-("vous", "votre", "vos" — jamais "tu"/"ton"/"tes") et mots simples,
-niveau CM2 : phrases courtes, une idée par phrase, aucun nom technique
-de catégorie d'accroche. "weaknesses" et "action_plan" doivent être des
-INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de style), pas des
-observations : "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrêtez
-de..."), "action_plan" = ce qu'il FAUT faire à la place ("Faites...",
-"Commencez par...").
+{publication_text}
 
-BRIÈVETÉ (important) : réponse courte et directe, lisible en 15 secondes.
+Analyse le HOOK réel (les toutes premières secondes : ce qui est dit, écrit à l'écran ou montré) en t'appuyant EN INTERNE sur les "TYPES D'ACCROCHES RÉELLES" du guide de style pour comprendre ce qui se joue — mais dans ta réponse, décris ce que fait ce hook en mots simples (ex : "le spectateur se reconnaît tout de suite dans ce que vous dites"), JAMAIS avec un nom technique de catégorie. Si aucun type ne correspond clairement, dis simplement qu'il n'y a pas vraiment d'accroche identifiable. "hook_excerpt" : ce qui est réellement dit ou écrit dans ces premières secondes, cité tel quel (chaîne vide s'il n'y a ni parole ni texte).
 
-Réponds avec un objet JSON (pas de markdown, pas de balises de code,
-juste du JSON brut) contenant exactement ces champs, avec un texte très
-simple (niveau CM2), dans la langue précisée au tout début de tes
-instructions :
-{{
-  "virality_score": nombre entre 0 et 100,
-  "score_basis": "1 phrase rappelant que ce score est une estimation basée sur le script, pas une vue garantie",
-  "niche": "1-3 mots identifiant précisément le sujet de CETTE vidéo",
-  "hook_excerpt": "les 1-2 premières phrases réellement prononcées, citées telles quelles",
-  "hook_type": "1 phrase simple décrivant CE QUE FAIT ce hook (sans nom technique de catégorie), ou dis qu'il n'y a pas vraiment d'accroche",
-  "strengths": ["1-2 points forts concrets MAXIMUM, en phrases simples, basés sur le texte réel — ce que le créateur fait déjà bien et doit continuer ; UN chiffre marquant autorisé si une vraie donnée le permet"],
-  "weaknesses": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Arrêtez de...' ou 'Évitez de...', en phrases simples et sans chiffre, nommant une technique manquante, avec un timestamp réel entre crochets si pertinent"],
-  "action_plan": ["1-2 instructions MAXIMUM à l'impératif commençant par 'Faites...' ou 'Commencez par...', en phrases simples et sans chiffre, pour la prochaine vidéo, avec un timestamp réel entre crochets si pertinent"],
-  "suggested_hashtags": ["3-5 hashtags pertinents pour cette vidéo, sans le #"],
-  "suggested_caption": "une légende TikTok courte et accrocheuse pour cette vidéo, cohérente avec son vrai contenu"
-}}"""
+CONFORMITÉ ("policy_check") : vérifie aussi que la vidéo respecte les règles de modération de TikTok, Instagram, YouTube et Facebook (violence, nudité, discours haineux, propos trompeurs, contenu manifestement protégé, produits réglementés...). "status" = "ok" si rien de problématique n'est VISIBLE ou AUDIBLE ; "risk" seulement si tu vois ou entends un vrai problème, décrit en 1-3 phrases simples dans "issues" (sinon liste vide). Jamais un risque supposé.
 
+MOMENTS DANS LA VIDÉO : tu estimes, tu ne mesures pas. Si tu situes un passage, reste approximatif ("vers le début", "autour de la dixième seconde"), jamais une seconde exacte.
+
+RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2 du guide de style) : "strengths" PEUT citer LE chiffre le plus marquant SEULEMENT si une vraie donnée chiffrée est fournie ci-dessus (ex: la moyenne du compte) et qu'elle prouve une réussite — sinon reste en mots simples, n'invente jamais un chiffre. "hook_type", "weaknesses" et "action_plan" restent SANS AUCUN CHIFFRE. VOUVOIEMENT OBLIGATOIRE ("vous", "votre", "vos" — jamais "tu"/"ton"/"tes") et mots simples, niveau CM2 : phrases courtes, une idée par phrase, aucun nom technique de catégorie d'accroche. "weaknesses" et "action_plan" doivent être des INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de style), pas des observations : "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrêtez de..."), "action_plan" = ce qu'il FAUT faire à la place ("Faites...", "Commencez par...").
+
+BRIÈVETÉ (important) : 1-2 éléments MAXIMUM dans "strengths", "weaknesses" et "action_plan", 3-5 hashtags sans le #, une légende TikTok courte et accrocheuse cohérente avec le vrai contenu. Réponse courte et directe, lisible en 15 secondes."""
+
+
+async def _analyze_video_with_gemini(
+    video_bytes: bytes, mime_type: str, prompt: str, ui_lang: str, response_schema: dict
+) -> dict:
+    """
+    Envoie la vidéo brute (images + son) à Gemini avec le guide de style en
+    instruction système, et renvoie l'analyse structurée (JSON garanti par
+    responseSchema). Lève une HTTPException explicite à chaque étape qui
+    peut échouer.
+    """
+    lang = ui_lang if ui_lang in _CACHED_SYSTEM_BLOCKS else DEFAULT_LANG
+    uploaded_name = None
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        # Timeouts larges : l'envoi d'une grosse vidéo peut durer plusieurs minutes sur une connexion lente.
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=30, read=300, write=300, pool=30)) as client:
+            if len(video_bytes) <= GEMINI_INLINE_MAX_BYTES:
+                video_part = {
+                    "inline_data": {"mime_type": mime_type, "data": base64.b64encode(video_bytes).decode()}
+                }
+            else:
+                file_info = await _gemini_upload_video(client, video_bytes, mime_type)
+                uploaded_name = file_info["name"]
+                video_part = {"file_data": {"mime_type": mime_type, "file_uri": file_info["uri"]}}
+
             response = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
+                f"{GEMINI_API_BASE}/v1beta/models/{GEMINI_MODEL}:generateContent",
+                headers=_gemini_headers(),
                 json={
-                    "model": "claude-sonnet-5",
-                    "max_tokens": 1200,
-                    "output_config": {"effort": "low"},
-                    "messages": _cached_messages(prompt, ui_lang),
+                    "systemInstruction": {"parts": [{"text": _CACHED_SYSTEM_BLOCKS[lang]}]},
+                    "contents": [{"role": "user", "parts": [video_part, {"text": prompt}]}],
+                    "generationConfig": {
+                        "temperature": 0.4,
+                        "maxOutputTokens": 4000,
+                        "responseMimeType": "application/json",
+                        "responseSchema": response_schema,
+                        "mediaResolution": "MEDIA_RESOLUTION_LOW",
+                    },
                 },
             )
+
+            if uploaded_name:
+                try:
+                    await client.delete(f"{GEMINI_API_BASE}/v1beta/{uploaded_name}", headers=_gemini_headers())
+                except httpx.HTTPError:
+                    pass  # best effort : Google supprime de toute façon le fichier après 48 h
     except httpx.HTTPError:
-        raise HTTPException(status_code=502, detail="Erreur réseau vers l'API Anthropic.")
+        raise HTTPException(status_code=502, detail="Erreur réseau vers le service d'analyse vidéo.")
 
     if response.status_code != 200:
+        try:
+            message = response.json().get("error", {}).get("message", "")
+        except ValueError:
+            message = ""
         raise HTTPException(
             status_code=502,
-            detail=f"Erreur API Anthropic: {response.status_code} {response.text}",
+            detail=f"Erreur du service d'analyse vidéo: {response.status_code} {message[:300]}",
         )
 
-    raw_text = _extract_text_block(response.json())
-    cleaned = raw_text.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        if cleaned.startswith("json"):
-            cleaned = cleaned[4:]
-        cleaned = cleaned.strip()
-
+    data = response.json()
+    if data.get("promptFeedback", {}).get("blockReason"):
+        raise HTTPException(status_code=422, detail="Cette vidéo n'a pas pu être analysée (contenu refusé par le service d'IA).")
+    candidates = data.get("candidates") or []
+    parts = (candidates[0].get("content", {}).get("parts") if candidates else None) or []
+    raw_text = "".join(p.get("text", "") for p in parts if not p.get("thought")).strip()
+    if not raw_text:
+        raise HTTPException(status_code=502, detail="Réponse IA vide.")
     try:
-        result = json.loads(cleaned)
+        return json.loads(raw_text)
     except json.JSONDecodeError:
         raise HTTPException(status_code=502, detail="Réponse IA invalide.")
 
+
+def _round_sig(value: float, digits: int = 2) -> int:
+    if value <= 0:
+        return 0
+    step = 10 ** max(int(math.floor(math.log10(value))) - (digits - 1), 0)
+    return int(round(value / step) * step)
+
+
+def _build_estimate(band: str, avg_views: int, basis: str) -> dict:
+    """
+    Convertit le palier choisi par Gemini en fourchettes de vues/likes/
+    commentaires, ancrées sur la moyenne RÉELLE du compte. Sans moyenne
+    connue, aucun chiffre (RÈGLE D'OR N°1) : seul le palier est renvoyé.
+    """
+    estimate = {"band": band, "basis": basis, "views": None, "likes": None, "comments": None}
+    if avg_views <= 0:
+        return estimate
+    low_mult, high_mult = PERFORMANCE_BAND_MULTIPLIERS[band]
+    views = (_round_sig(avg_views * low_mult), _round_sig(avg_views * high_mult))
+    estimate["views"] = list(views)
+    estimate["likes"] = [_round_sig(views[0] * ESTIMATED_LIKE_RATE[0]), _round_sig(views[1] * ESTIMATED_LIKE_RATE[1])]
+    comments_low = _round_sig(views[0] * ESTIMATED_COMMENT_RATE[0])
+    comments_high = max(_round_sig(views[1] * ESTIMATED_COMMENT_RATE[1]), comments_low, 1)
+    estimate["comments"] = [comments_low, comments_high]
+    return estimate
+
+
+def _clamp_score(value, default: int = 0) -> int:
+    try:
+        return max(0, min(100, int(round(float(value)))))
+    except (TypeError, ValueError):
+        return default
+
+
+def _store_video_estimate(row: dict) -> None:
+    supabase = get_supabase()
+    if not supabase:
+        return
+    try:
+        supabase.table("video_estimate_feedback").insert(row).execute()
+    except Exception as exc:  # ne jamais faire échouer l'analyse pour de la mesure interne
+        print(f"[video_estimate_feedback] insertion impossible: {exc}")
+
+
+@app.post("/api/analyze-video-upload", response_class=JSONResponse)
+async def analyze_video_upload(
+    file: UploadFile = File(...),
+    account_avg_views: str = Form(""),
+    niche_category: str = Form(""),
+    main_challenge: str = Form(""),
+    ui_lang: str = Form(DEFAULT_LANG),
+    already_published: str = Form(""),
+):
+    """
+    Analyse approfondie d'UNE vidéo importée directement par l'utilisateur
+    (téléphone ou machine — jamais récupérée depuis TikTok, l'API ne
+    fournit aucun fichier vidéo). La vidéo brute (images + son) est envoyée
+    à Gemini en UN seul appel : il voit et entend la vidéo, note 4
+    catégories (accroche, impact visuel, narration, appel à l'action),
+    en déduit le score de viralité, repère les points forts/faibles et
+    vérifie la conformité aux règles des plateformes.
+
+    `already_published` ("true"/"false", réponse à "avez-vous déjà publié
+    cette vidéo ailleurs ?") : si vrai, Gemini choisit en plus un palier de
+    performance justifié par des éléments concrets, converti côté serveur
+    en fourchettes de vues/likes/commentaires ancrées sur
+    `account_avg_views` (jamais de chiffre inventé par l'IA). Un
+    `analysis_id` est alors renvoyé pour que l'utilisateur confirme ensuite
+    via /api/video-estimate-feedback si l'estimation était proche du réel.
+    `niche_category` est la niche choisie pour CETTE vidéo, `main_challenge`
+    (abonnés/engagement/vues) oriente l'angle du conseil.
+    """
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY manquant dans .env")
+
+    published = already_published.strip().lower() == "true"
+    try:
+        avg_views = max(int(float(account_avg_views)), 0) if account_avg_views.strip() else 0
+    except ValueError:
+        avg_views = 0
+
+    video_bytes = await file.read()
+    # Garde-fou : 200 Mo max, largement suffisant pour une vidéo TikTok
+    # (quelques minutes maximum), évite un upload abusif ou accidentel.
+    if len(video_bytes) > MAX_VIDEO_BYTES:
+        raise HTTPException(status_code=413, detail="Fichier trop volumineux (200 Mo max).")
+    if not video_bytes:
+        raise HTTPException(status_code=400, detail="Fichier vide.")
+    mime_type = file.content_type if (file.content_type or "").startswith("video/") else "video/mp4"
+
+    result = await _analyze_video_with_gemini(
+        video_bytes,
+        mime_type,
+        _build_video_prompt(niche_category, avg_views, main_challenge, published),
+        ui_lang,
+        _video_analysis_schema(published),
+    )
+
+    # Garde-fous côté serveur : on ne fait jamais confiance aveuglément au
+    # modèle pour la cohérence des scores.
+    categories = result.get("category_scores") or {}
+    cleaned_categories = {}
+    for key in VIDEO_CATEGORY_KEYS:
+        entry = categories.get(key) or {}
+        cleaned_categories[key] = {
+            "score": _clamp_score(entry.get("score")),
+            "comment": entry.get("comment") or "",
+        }
+    category_values = [c["score"] for c in cleaned_categories.values()]
+    score = _clamp_score(result.get("virality_score"))
+    score = max(min(category_values), min(max(category_values), score))
+    result["category_scores"] = cleaned_categories
+    result["virality_score"] = score
+
+    band = result.pop("performance_band", None)
+    basis = result.pop("estimation_basis", "")
+    if published and band in PERFORMANCE_BAND_MULTIPLIERS:
+        estimate = _build_estimate(band, avg_views, basis)
+        analysis_id = str(uuid.uuid4())
+        result["estimate"] = estimate
+        result["analysis_id"] = analysis_id
+        await asyncio.to_thread(
+            _store_video_estimate,
+            {
+                "id": analysis_id,
+                "lang": ui_lang,
+                "niche_category": niche_category or None,
+                "virality_score": score,
+                "performance_band": band,
+                "account_avg_views": avg_views or None,
+                "estimated_views_low": (estimate["views"] or [None, None])[0],
+                "estimated_views_high": (estimate["views"] or [None, None])[1],
+            },
+        )
+
     return JSONResponse(content=result)
+
+
+class VideoEstimateFeedback(BaseModel):
+    analysis_id: str
+    verdict: str
+
+
+@app.post("/api/video-estimate-feedback", response_class=JSONResponse)
+async def video_estimate_feedback(body: VideoEstimateFeedback):
+    """
+    Enregistre la réponse de l'utilisateur (yes / no / roughly) à la
+    question "ces estimations sont-elles proches des résultats réels ?".
+    Mesure interne uniquement : n'altère pas le rapport déjà affiché. Une
+    seule réponse par analyse (la première gagne).
+    """
+    if body.verdict not in VIDEO_FEEDBACK_VERDICTS:
+        raise HTTPException(status_code=422, detail="Réponse invalide.")
+    try:
+        uuid.UUID(body.analysis_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Identifiant d'analyse invalide.")
+
+    supabase = get_supabase()
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Stockage indisponible.")
+
+    def _save():
+        return (
+            supabase.table("video_estimate_feedback")
+            .update({"verdict": body.verdict})
+            .eq("id", body.analysis_id)
+            .is_("verdict", "null")
+            .execute()
+        )
+
+    try:
+        res = await asyncio.to_thread(_save)
+    except Exception as exc:
+        print(f"[video_estimate_feedback] mise à jour impossible: {exc}")
+        raise HTTPException(status_code=503, detail="Stockage indisponible.")
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Analyse inconnue ou déjà évaluée.")
+    return JSONResponse(content={"ok": True})
 
 
 WORDS_PER_SECOND_FR = 2.5  # débit oral moyen en français, approximatif
