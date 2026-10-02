@@ -468,7 +468,7 @@ def home(request: Request):
                 </div>
               </div>
             </details>
-            <a href="/tools/analyze-account" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">{tt("nav_login")}</a>
+            <a href="/app" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">{tt("nav_login")}</a>
           </div>
         </nav>
 
@@ -489,16 +489,16 @@ def home(request: Request):
               {tt("hero_subtitle")}
             </p>
             <div class="flex flex-col items-center gap-4">
-              <a href="/tools/analyze-account"
+              <a href="/app"
                  class="w-full max-w-sm sm:max-w-[19.2rem] mx-auto flex items-center justify-center gap-2 px-[1.875rem] sm:px-[1.2rem] py-[1.243125rem] sm:py-[1.5912rem] rounded-[0.690625rem] sm:rounded-[0.7956rem] text-white font-bold text-[1.0359375rem] sm:text-[1.1934rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 {tt("hero_cta")}
               </a>
               <p class="text-xs text-slate-400 -mt-1">{tt("trust_line")}</p>
-              <a href="/tools/analyze-video"
+              <a href="/app?open=video"
                  class="w-full max-w-sm sm:max-w-[19.2rem] mx-auto flex items-center justify-center gap-2 px-[1.875rem] sm:px-[1.2rem] py-[1.243125rem] sm:py-[1.5912rem] rounded-[0.690625rem] sm:rounded-[0.7956rem] text-white font-bold text-[1.0359375rem] sm:text-[1.1934rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 🎬 {tt("hero_cta_video")}
               </a>
-              <a href="/tools/analyze-script"
+              <a href="/app?open=script"
                  class="w-full max-w-sm sm:max-w-[19.2rem] mx-auto flex items-center justify-center gap-2 px-[1.875rem] sm:px-[1.2rem] py-[1.243125rem] sm:py-[1.5912rem] rounded-[0.690625rem] sm:rounded-[0.7956rem] text-white font-bold text-[1.0359375rem] sm:text-[1.1934rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 📝 {tt("hero_cta_script")}
               </a>
@@ -811,7 +811,7 @@ def pricing_page(request: Request):
                 <li>✔ {tt("pricing_free_feature1")}</li>
                 <li>✔ {tt("pricing_free_feature2")}</li>
               </ul>
-              <a href="/tools/analyze-account" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">{tt("pricing_free_cta")}</a>
+              <a href="/app" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">{tt("pricing_free_cta")}</a>
               <p class="text-xs text-slate-400 mt-3">{tt("trust_line")}</p>
             </div>
             <div class="border-2 border-blue-600 rounded-2xl p-8 text-center relative flex flex-col">
@@ -1101,6 +1101,14 @@ async def tiktok_callback(request: Request):
     username_enc = quote(username)
     bio_enc = quote(bio)
     main_challenge_enc = quote(main_challenge)
+    tiktok_profile_js = _js_json(
+        {
+            "display_name": display_name,
+            "username": username,
+            "avatar_url": avatar_url,
+            "is_verified": bool(is_verified),
+        }
+    )
     # Pas de sélecteur de langue interactif ici : cette page n'est
     # accessible que via le retour OAuth de TikTok (code/state à usage
     # unique) — un rechargement casserait la page ("state déjà utilisé").
@@ -1181,9 +1189,13 @@ async def tiktok_callback(request: Request):
         </div>
         <div id="analysis-result"></div>
 
-        <a href="/" class="home">{tt("dash_back")}</a>
+        <a href="/app" class="home">{tt("dash_back")}</a>
 
         <script>
+          // Mémorise le profil (jamais le session_id) pour l'onglet Profil de /app.
+          try {{
+            localStorage.setItem('wilTikTok', JSON.stringify({tiktok_profile_js}));
+          }} catch (e) {{}}
           const sessionId = "{session_id}";
           const uiLang = "{lang}";
           window.__wilUiLang = uiLang;
@@ -1480,13 +1492,18 @@ _ONBOARDING_MUTE_BUTTON_HTML = """
         </button>"""
 
 
-def _onboarding_steps_html(tt, niche_buttons: str, content_step_id: str) -> str:
+def _onboarding_steps_html(
+    tt, niche_buttons: str, content_step_id: str, complete_onclick: str | None = None
+) -> str:
     """
-    Étapes 1 à 9 de l'onboarding, identiques entre les deux outils. Seul
+    Étapes 1 à 9 de l'onboarding, identiques entre les outils. Seul
     `content_step_id` change : c'est l'étape suivante propre à chaque
     outil (upload vidéo ou zone de script) que le bouton "Commencer" de
-    l'écran de complétion doit viser.
+    l'écran de complétion doit viser. `complete_onclick` remplace cette
+    navigation par une action JS (page /onboarding autonome : mémoriser
+    les réponses puis ouvrir /app).
     """
+    complete_action = complete_onclick or f"goToStep('{content_step_id}', 100, true)"
     return f"""
           <div id="onboarding-header" class="flex items-center gap-3 mb-6">
             <a href="#" onclick="goBackStep(); return false;" class="text-slate-400 hover:text-slate-700">←</a>
@@ -1641,21 +1658,51 @@ def _onboarding_steps_html(tt, niche_buttons: str, content_step_id: str) -> str:
             <p class="inline-block bg-green-50 text-green-700 text-xs font-bold px-3 py-1 rounded-full mb-4">✅ {tt("onboarding_complete_badge")}</p>
             <h1 class="text-2xl font-extrabold mb-3">{tt("onboarding_complete_title")}</h1>
             <p class="text-sm text-slate-500 mb-8">{tt("onboarding_complete_subtitle")}</p>
-            <button onclick="goToStep('{content_step_id}', 100, true)"
+            <button onclick="{complete_action}"
                     class="w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700">
               {tt("onboarding_complete_start_btn")}
             </button>
           </div>"""
 
 
-def _onboarding_js_core(niche_category: str, account_avg_views: str, lang: str, content_step_id: str) -> str:
+def _onboarding_js_core(
+    niche_category: str,
+    account_avg_views: str,
+    lang: str,
+    content_step_id: str,
+    allow_skip: bool = True,
+) -> str:
     """
     État, audio synthétisé (jamais de fichier audio copié — voir le
     commentaire dans la doc de la route ci-dessous), navigation avant/
     arrière et fonctions de sélection de l'onboarding, identiques entre
     les deux outils. `content_step_id` est l'étape propre à chaque outil
     qui suit l'écran de complétion (seule variation).
+
+    Mémoire : les réponses sont sauvegardées dans localStorage
+    ("wilOnboarding") dès la fin de l'onboarding. Si elles existent déjà
+    (`allow_skip`), la page saute directement à `content_step_id` :
+    l'utilisateur ne refait jamais l'onboarding à chaque visite. La page
+    /onboarding elle-même passe allow_skip=False.
     """
+    apply_stored_js = (
+        f"""
+          (function applyStoredOnboarding() {{
+            const stored = loadOnboarding();
+            if (!stored || !stored.niches || stored.niches.length === 0) return;
+            selectedGoal = stored.goal || '';
+            selectedChallenge = stored.challenge || '';
+            selectedAudience = stored.audience || '';
+            selectedSource = stored.source || '';
+            selectedExperience = stored.experience || '';
+            if (selectedNiches.length === 0) {{ selectedNiches = stored.niches.slice(); }}
+            if (!accountAvgViewsFromUrl && stored.avgViews) {{ accountAvgViewsFinal = String(stored.avgViews); }}
+            onboardingSkipped = true;
+            goToStep('{content_step_id}', 100, true);
+          }})();"""
+        if allow_skip
+        else ""
+    )
     return f"""
           const nicheCategoryFromUrl = "{niche_category}";
           const accountAvgViewsFromUrl = "{account_avg_views}";
@@ -1669,6 +1716,32 @@ def _onboarding_js_core(niche_category: str, account_avg_views: str, lang: str, 
           let selectedExperience = '';
           let accountAvgViewsFinal = accountAvgViewsFromUrl;
           let currentStepId = 'step-goal';
+          let onboardingSkipped = false;
+
+          const WIL_ONBOARDING_KEY = 'wilOnboarding';
+          const WIL_HISTORY_KEY = 'wilHistory';
+
+          function saveOnboarding() {{
+            try {{
+              localStorage.setItem(WIL_ONBOARDING_KEY, JSON.stringify({{
+                goal: selectedGoal, challenge: selectedChallenge, niches: selectedNiches,
+                audience: selectedAudience, source: selectedSource, avgViews: accountAvgViewsFinal,
+                experience: selectedExperience, savedAt: Date.now()
+              }}));
+            }} catch (e) {{}}
+          }}
+
+          function loadOnboarding() {{
+            try {{ return JSON.parse(localStorage.getItem(WIL_ONBOARDING_KEY) || 'null'); }} catch (e) {{ return null; }}
+          }}
+
+          function saveHistoryEntry(entry) {{
+            try {{
+              const list = JSON.parse(localStorage.getItem(WIL_HISTORY_KEY) || '[]');
+              list.unshift(entry);
+              localStorage.setItem(WIL_HISTORY_KEY, JSON.stringify(list.slice(0, 50)));
+            }} catch (e) {{}}
+          }}
 
           let audioCtx = null;
           let masterGain = null;
@@ -1791,6 +1864,7 @@ def _onboarding_js_core(niche_category: str, account_avg_views: str, lang: str, 
           }}
 
           function goBackStep() {{
+            if (onboardingSkipped && currentStepId === '{content_step_id}') {{ window.location.href = '/app'; return; }}
             if (currentStepId === 'step-goal') {{ window.location.href = '/'; return; }}
             if (currentStepId === 'step-experience') {{
               if (accountAvgViewsFromUrl) {{ goToStep('step-source', 55, true, 'back'); }} else {{ goToStep('step-views', 66, true, 'back'); }}
@@ -1805,6 +1879,7 @@ def _onboarding_js_core(niche_category: str, account_avg_views: str, lang: str, 
           }}
 
           function enterSetupStep() {{
+            saveOnboarding();
             goToStep('step-setup', 88, false);
             setTimeout(function () {{ goToStep('step-complete', 100, false); }}, 2200);
           }}
@@ -1906,7 +1981,8 @@ def _onboarding_js_core(niche_category: str, account_avg_views: str, lang: str, 
             if (score <= 60) return '#F59E0B';
             if (score <= 80) return '#F97316';
             return '#2563EB';
-          }}"""
+          }}
+{apply_stored_js}"""
 
 
 @app.get("/tools/analyze-account", response_class=HTMLResponse)
@@ -2341,6 +2417,11 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             document.getElementById('result-weaknesses-value').innerHTML = (data.weaknesses || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
             document.getElementById('result-actions-value').innerHTML = (data.action_plan || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
 
+            saveHistoryEntry({{
+              type: 'video', score: score, niche: data.niche || selectedNiches[0] || '',
+              title: data.hook_excerpt || data.niche || selectedNiches[0] || '', ts: Date.now()
+            }});
+
             const cats = data.category_scores || {{}};
             document.getElementById('stats-categories').innerHTML = Object.keys(CAT_LABELS).map(function (key) {{
               const c = cats[key] || {{score: 0, comment: ''}};
@@ -2627,6 +2708,11 @@ def tool_analyze_script_page(request: Request):
             document.getElementById('script-strengths-value').innerHTML = (data.strengths || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
             document.getElementById('script-weaknesses-value').innerHTML = (data.weaknesses || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
             document.getElementById('script-why-value').textContent = data.why_it_worked_or_not || '';
+
+            saveHistoryEntry({{
+              type: 'script', score: score, niche: selectedNiches[0] || '',
+              title: document.getElementById('script-text').value.trim().slice(0, 70), ts: Date.now()
+            }});
           }}
         </script>
       </body>
@@ -2693,6 +2779,394 @@ def tool_trending_ideas_page(request: Request, niche_category: str = "", lang: s
       </body>
     </html>
     """
+
+
+def _js_json(value) -> str:
+    """
+    Sérialise une valeur Python en littéral JSON sûr à insérer dans un bloc
+    <script> : échappe <, > et & pour qu'aucune donnée (nom TikTok, texte
+    traduit...) ne puisse refermer la balise ou injecter du HTML.
+    """
+    return json.dumps(value).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+
+
+_ONBOARDING_NEXT_RE = re.compile(r"/app(\?open=(video|script|account))?")
+
+
+@app.get("/onboarding", response_class=HTMLResponse)
+def onboarding_page(request: Request, next: str = ""):
+    """
+    Onboarding autonome, juste après la landing page : mêmes 7 questions
+    que celles des outils, mais réponses mémorisées (localStorage) puis
+    redirection vers /app. L'utilisateur ne le refait plus ensuite :
+    /app et les pages d'outils sautent directement au contenu quand les
+    réponses existent. `next` n'accepte que /app ou /app?open=<outil>
+    (jamais une URL externe).
+    """
+    lang = _detect_ui_lang(request)
+    tt = lambda key: t(lang, key)  # noqa: E731
+    next_url = next if _ONBOARDING_NEXT_RE.fullmatch(next) else "/app"
+
+    niche_buttons = "".join(
+        f'''<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
+              <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
+              <span>{n}</span>
+            </button>'''
+        for n in NICHE_CATEGORIES
+    )
+
+    return f"""
+    <html lang="{lang}">
+      <head>
+        <title>Wil App</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
+        <style>{_ONBOARDING_STYLE}</style>
+      </head>
+      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}
+        <div class="max-w-md mx-auto px-5 py-6">
+{_onboarding_steps_html(tt, niche_buttons, "step-none", complete_onclick="finishOnboarding()")}
+        </div>
+
+        <script>
+{_onboarding_js_core("", "", lang, "step-none", allow_skip=False)}
+
+          function finishOnboarding() {{
+            saveOnboarding();
+            window.location.href = {_js_json(next_url)};
+          }}
+        </script>
+      </body>
+    </html>
+    """
+
+
+_APP_SHELL_HTML = """<!DOCTYPE html>
+<html lang="__LANG__">
+<head>
+  <meta charset="utf-8">
+  <title>Wil App</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <script>
+    // Pas d'onboarding mémorisé -> on y va d'abord (puis retour ici).
+    (function () {
+      try {
+        var stored = JSON.parse(localStorage.getItem('wilOnboarding') || 'null');
+        var done = stored && stored.niches && stored.niches.length > 0;
+        var open = new URLSearchParams(location.search).get('open');
+        var tools = { video: '/tools/analyze-video', script: '/tools/analyze-script', account: '/tools/analyze-account' };
+        if (!done) {
+          location.replace('/onboarding' + (tools[open] ? '?next=' + encodeURIComponent('/app?open=' + open) : ''));
+        } else if (tools[open]) {
+          location.replace(tools[open]);
+        }
+      } catch (e) {}
+    })();
+  </script>
+  __HEAD_ASSETS__
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; background: #F8FAFC; -webkit-tap-highlight-color: transparent; }
+    .tool-card { display: flex; align-items: center; gap: 14px; padding: 16px; background: #fff; border: 1.5px solid #E2E8F0; border-radius: 20px; margin-bottom: 12px; text-decoration: none; color: inherit; transition: transform 0.1s ease, border-color 0.15s ease; }
+    .tool-card:active { transform: scale(0.98); }
+    .tool-card:hover { border-color: #93C5FD; }
+    .tool-icon { width: 48px; height: 48px; border-radius: 14px; background: #EFF6FF; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .history-item { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 20px; padding: 16px 18px; margin-bottom: 10px; }
+    .idea-card { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 20px; padding: 18px; margin-bottom: 12px; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .badge-trend { background: #E0F2FE; color: #0369A1; }
+    .badge-niche { background: #F1F5F9; color: #64748B; }
+    .chip { display: inline-block; padding: 6px 12px; border-radius: 999px; background: #EFF6FF; color: #1D4ED8; font-size: 12px; font-weight: 600; margin: 0 6px 6px 0; }
+    .niche-pill { padding: 8px 14px; border-radius: 999px; border: 2px solid #E2E8F0; background: #fff; font-size: 13px; font-weight: 600; color: #334155; white-space: nowrap; cursor: pointer; }
+    .niche-pill.active { background: #2563EB; border-color: #2563EB; color: #fff; }
+    .nav-item { color: #6B7280; font-size: 12px; font-weight: 500; border-bottom: 3px solid transparent; }
+    .nav-item.active { color: #2563EB; font-weight: 700; border-bottom-color: #2563EB; }
+    .nav-item svg { width: 28px; height: 28px; }
+    .app-tab { animation: tabIn 0.25s ease; }
+    @keyframes tabIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #F1F5F9; font-size: 14px; }
+    .row:last-child { border-bottom: none; }
+  </style>
+</head>
+<body class="text-slate-900">
+  <div class="max-w-md mx-auto px-5" style="padding-top: 96px; padding-bottom: 40px;">
+
+    <!-- ACCUEIL -->
+    <section id="tab-home" class="app-tab">
+      <div class="flex items-center gap-2 mb-6">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white font-bold text-sm">W</div>
+        <span class="font-extrabold text-lg">Wil App</span>
+      </div>
+      <h1 class="text-2xl font-extrabold">__T_app_welcome__</h1>
+      <p class="text-sm text-slate-500 mt-1 mb-5">__T_app_home_subtitle__</p>
+
+      <a class="tool-card" href="/tools/analyze-video">
+        <div class="tool-icon">🎬</div>
+        <div class="flex-1"><p class="font-bold">__T_app_tool_video_title__</p><p class="text-sm text-slate-500 leading-snug">__T_app_tool_video_desc__</p></div>
+        <span class="text-slate-400">›</span>
+      </a>
+      <a class="tool-card" href="/tools/analyze-script">
+        <div class="tool-icon">📝</div>
+        <div class="flex-1"><p class="font-bold">__T_app_tool_script_title__</p><p class="text-sm text-slate-500 leading-snug">__T_app_tool_script_desc__</p></div>
+        <span class="text-slate-400">›</span>
+      </a>
+      <a class="tool-card" href="/tools/analyze-account">
+        <div class="tool-icon">🔗</div>
+        <div class="flex-1"><p class="font-bold">__T_app_tool_account_title__</p><p class="text-sm text-slate-500 leading-snug">__T_app_tool_account_desc__</p></div>
+        <span class="text-slate-400">›</span>
+      </a>
+
+      <div class="flex items-center justify-between mt-8 mb-3">
+        <h2 class="text-xl font-extrabold">__T_app_history_title__</h2>
+        <button type="button" onclick="showTab('library')" class="text-sm font-semibold text-blue-600">__T_app_see_all__ ›</button>
+      </div>
+      <div id="home-history"></div>
+    </section>
+
+    <!-- BIBLIOTHÈQUE -->
+    <section id="tab-library" class="app-tab hidden">
+      <h1 class="text-2xl font-extrabold mb-5">__T_app_tab_library__</h1>
+      <div id="library-list"></div>
+    </section>
+
+    <!-- DÉCOUVRIR -->
+    <section id="tab-discover" class="app-tab hidden">
+      <h1 class="text-2xl font-extrabold">__T_app_tab_discover__</h1>
+      <p class="text-sm text-slate-500 mt-1 mb-4">__T_app_discover_subtitle__</p>
+      <div id="discover-niches" class="flex gap-2 overflow-x-auto pb-3 mb-2"></div>
+      <div id="discover-content"></div>
+    </section>
+
+    <!-- PROFIL -->
+    <section id="tab-profile" class="app-tab hidden">
+      <h1 class="text-2xl font-extrabold mb-5">__T_app_tab_profile__</h1>
+      <div id="profile-content"></div>
+    </section>
+
+  </div>
+
+  <nav class="fixed top-0 inset-x-0 z-40 bg-white border-b border-slate-200" style="padding-top: env(safe-area-inset-top);">
+    <div class="max-w-md mx-auto flex">
+      <button type="button" data-tab="home" onclick="showTab('home')" class="nav-item flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5L12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5h4v5"/></svg>
+        <span>__T_app_tab_home__</span>
+      </button>
+      <button type="button" data-tab="library" onclick="showTab('library')" class="nav-item flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/></svg>
+        <span>__T_app_tab_library__</span>
+      </button>
+      <button type="button" data-tab="discover" onclick="showTab('discover')" class="nav-item flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2 5.2-5.2 2 2-5.2z"/></svg>
+        <span>__T_app_tab_discover__</span>
+      </button>
+      <button type="button" data-tab="profile" onclick="showTab('profile')" class="nav-item flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4 3.4-6 7.5-6s7.5 2 7.5 6"/></svg>
+        <span>__T_app_tab_profile__</span>
+      </button>
+    </div>
+  </nav>
+
+  <script>
+    const I18N = __I18N__;
+    const LANG = __LANG_JS__;
+    const TABS = ['home', 'library', 'discover', 'profile'];
+
+    function esc(text) {
+      return String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {
+        return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+      });
+    }
+    function readJson(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key) || 'null') || fallback; } catch (e) { return fallback; }
+    }
+    function scoreColor(score) {
+      if (score <= 40) return '#DC2626';
+      if (score <= 60) return '#F59E0B';
+      if (score <= 80) return '#F97316';
+      return '#2563EB';
+    }
+
+    const onboarding = readJson('wilOnboarding', {});
+    const niches = onboarding.niches || [];
+
+    function historyItemHtml(entry) {
+      const typeLabel = entry.type === 'script' ? I18N.script : I18N.video;
+      const date = entry.ts ? new Date(entry.ts).toLocaleDateString(LANG) : '';
+      return '<div class="history-item"><p class="font-bold text-base truncate">' + esc(entry.title || entry.niche || typeLabel) + '</p>' +
+        '<p class="text-sm mt-1"><span style="color:' + scoreColor(entry.score) + ';font-weight:700;">' + esc(entry.score) + I18N.scoreSuffix + '</span>' +
+        '<span class="text-slate-400"> · ' + esc(typeLabel) + (date ? ' · ' + esc(date) : '') + '</span></p></div>';
+    }
+
+    function renderHistory() {
+      const history = readJson('wilHistory', []);
+      const home = document.getElementById('home-history');
+      home.innerHTML = history.length
+        ? history.slice(0, 3).map(historyItemHtml).join('')
+        : '<p class="text-sm text-slate-500">' + esc(I18N.historyEmpty) + '</p>';
+
+      const library = document.getElementById('library-list');
+      library.innerHTML = history.length
+        ? history.map(historyItemHtml).join('')
+        : '<div class="text-center py-16"><div class="w-20 h-20 mx-auto rounded-full bg-blue-50 flex items-center justify-center text-3xl mb-5">🗂️</div>' +
+          '<p class="font-extrabold text-lg mb-2">' + esc(I18N.libraryEmptyTitle) + '</p>' +
+          '<p class="text-sm text-slate-500 leading-relaxed px-6">' + esc(I18N.libraryEmptyDesc) + '</p></div>';
+    }
+
+    let discoverNiche = niches[0] || '';
+    const discoverCache = {};
+
+    function renderDiscoverNiches() {
+      const wrap = document.getElementById('discover-niches');
+      wrap.innerHTML = niches.length > 1
+        ? niches.map(function (n, i) {
+            return '<button type="button" class="niche-pill' + (n === discoverNiche ? ' active' : '') + '" data-i="' + i + '">' + esc(n) + '</button>';
+          }).join('')
+        : '';
+      wrap.querySelectorAll('.niche-pill').forEach(function (b) {
+        b.addEventListener('click', function () { discoverNiche = niches[Number(b.dataset.i)]; renderDiscoverNiches(); loadDiscover(); });
+      });
+    }
+
+    function ideasHtml(data) {
+      const card = function (text, badge) {
+        return '<div class="idea-card"><div class="flex items-center justify-between mb-3"><span class="badge badge-trend">🔥 ' + esc(badge) +
+          '</span><span class="badge badge-niche">' + esc(discoverNiche) + '</span></div><p class="font-semibold leading-snug">' + esc(text) + '</p></div>';
+      };
+      return (data.video_ideas || []).map(function (i) { return card(i, I18N.ideasLabel); }).join('') +
+        (data.trending_hooks || []).map(function (h) { return card(h, I18N.hooksLabel); }).join('');
+    }
+
+    function loadDiscover() {
+      const box = document.getElementById('discover-content');
+      if (!discoverNiche) { box.innerHTML = '<p class="text-sm text-slate-500">' + esc(I18N.discoverNoNiche) + '</p>'; return; }
+      if (discoverCache[discoverNiche]) { box.innerHTML = ideasHtml(discoverCache[discoverNiche]); return; }
+      const requested = discoverNiche;
+      box.innerHTML = '<p class="text-sm text-slate-500">⏳ ' + esc(I18N.searching) + '</p>';
+      fetch('/api/trending-ideas?niche_category=' + encodeURIComponent(requested) + '&lang=' + encodeURIComponent(LANG))
+        .then(function (r) { return r.json().then(function (data) { return {ok: r.ok, status: r.status, data: data}; }); })
+        .then(function (res) {
+          if (requested !== discoverNiche) return;
+          if (!res.ok) {
+            box.innerHTML = '<p class="text-sm text-red-600">' + esc((res.data && res.data.detail) || (I18N.errorPrefix + ' ' + res.status)) + '</p>';
+            return;
+          }
+          discoverCache[requested] = res.data;
+          box.innerHTML = ideasHtml(res.data);
+        })
+        .catch(function (e) {
+          if (requested === discoverNiche) box.innerHTML = '<p class="text-sm text-red-600">' + esc(I18N.networkError + ' ' + (e && e.message ? e.message : e)) + '</p>';
+        });
+    }
+
+    function renderProfile() {
+      const tiktok = readJson('wilTikTok', null);
+      const account = tiktok
+        ? '<div class="history-item text-center"><img src="' + esc(tiktok.avatar_url) + '" alt="" class="w-24 h-24 rounded-full object-cover mx-auto mb-3" onerror="this.style.display=\\'none\\'">' +
+          '<p class="font-extrabold text-lg">' + esc(tiktok.display_name) + (tiktok.is_verified ? ' <span style="color:#0EA5E9">✔</span>' : '') + '</p>' +
+          '<p class="text-sm text-slate-500">@' + esc(tiktok.username) + '</p>' +
+          '<p class="text-xs font-semibold text-green-600 mt-2">✅ ' + esc(I18N.profileConnected) + '</p></div>'
+        : '<div class="history-item text-center"><div class="w-20 h-20 mx-auto rounded-full bg-blue-50 flex items-center justify-center text-3xl mb-3">👤</div>' +
+          '<p class="font-extrabold text-lg">' + esc(I18N.profileNotConnected) + '</p>' +
+          '<p class="text-sm text-slate-500 mt-1 mb-4">' + esc(I18N.profileNotConnectedDesc) + '</p>' +
+          '<a href="/tools/analyze-account" class="block w-full py-3.5 rounded-xl bg-slate-900 text-white font-bold text-sm">' + esc(I18N.profileConnectBtn) + '</a></div>';
+
+      const nicheChips = niches.length
+        ? '<p class="font-extrabold mt-6 mb-2">' + esc(I18N.profileThemes) + '</p><div>' + niches.map(function (n) { return '<span class="chip">' + esc(n) + '</span>'; }).join('') + '</div>'
+        : '';
+      const rows = [];
+      if (onboarding.goal && I18N.goals[onboarding.goal]) rows.push('<div class="row"><span class="text-slate-500">' + esc(I18N.profileGoal) + '</span><span class="font-semibold text-right">' + esc(I18N.goals[onboarding.goal]) + '</span></div>');
+      if (onboarding.challenge && I18N.challenges[onboarding.challenge]) rows.push('<div class="row"><span class="text-slate-500">' + esc(I18N.profileChallenge) + '</span><span class="font-semibold text-right">' + esc(I18N.challenges[onboarding.challenge]) + '</span></div>');
+      const summary = rows.length ? '<div class="history-item mt-4">' + rows.join('') + '</div>' : '';
+
+      document.getElementById('profile-content').innerHTML = account + nicheChips + summary +
+        '<a href="/onboarding" class="tool-card mt-6"><div class="tool-icon">🔄</div><div class="flex-1 font-bold">' + esc(I18N.profileRedo) + '</div><span class="text-slate-400">›</span></a>';
+    }
+
+    let discoverLoaded = false;
+    function showTab(name) {
+      if (TABS.indexOf(name) === -1) name = 'home';
+      TABS.forEach(function (t) {
+        document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
+      });
+      document.querySelectorAll('.nav-item').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
+      if (name === 'discover' && !discoverLoaded) { discoverLoaded = true; renderDiscoverNiches(); loadDiscover(); }
+      try { history.replaceState(null, '', '#' + name); } catch (e) {}
+      window.scrollTo(0, 0);
+    }
+
+    renderHistory();
+    renderProfile();
+    showTab(location.hash.replace('#', '') || 'home');
+  </script>
+</body>
+</html>
+"""
+
+
+@app.get("/app", response_class=HTMLResponse)
+def app_shell_page(request: Request):
+    """
+    Application web après l'onboarding : 4 onglets (Accueil, Bibliothèque,
+    Découvrir, Profil) avec une barre de navigation en bas. Tout l'état
+    vient de localStorage : réponses de l'onboarding ("wilOnboarding"),
+    historique des analyses ("wilHistory", alimenté par les pages
+    d'analyse vidéo/script) et profil TikTok ("wilTikTok", écrit au
+    retour de connexion). Sans onboarding mémorisé, la page redirige vers
+    /onboarding avant même de s'afficher.
+    """
+    lang = _detect_ui_lang(request)
+    tt = lambda key: t(lang, key)  # noqa: E731
+
+    i18n = {
+        "video": tt("app_tool_video_title"),
+        "script": tt("app_tool_script_title"),
+        "scoreSuffix": tt("app_score_suffix"),
+        "historyEmpty": tt("app_history_empty"),
+        "libraryEmptyTitle": tt("app_library_empty_title"),
+        "libraryEmptyDesc": tt("app_library_empty_desc"),
+        "discoverNoNiche": tt("app_discover_no_niche"),
+        "ideasLabel": tt("tool_trending_ideas_label"),
+        "hooksLabel": tt("tool_trending_hooks_label"),
+        "searching": tt("tool_trending_searching"),
+        "errorPrefix": tt("common_error_prefix"),
+        "networkError": tt("common_network_error"),
+        "profileConnected": tt("app_profile_connected"),
+        "profileNotConnected": tt("app_profile_not_connected"),
+        "profileNotConnectedDesc": tt("app_profile_not_connected_desc"),
+        "profileConnectBtn": tt("app_profile_connect_btn"),
+        "profileThemes": tt("app_profile_themes"),
+        "profileGoal": tt("app_profile_goal"),
+        "profileChallenge": tt("app_profile_challenge"),
+        "profileRedo": tt("app_profile_redo"),
+        "goals": {
+            "views": tt("onboarding_goal_views"),
+            "engagement": tt("onboarding_goal_engagement"),
+            "fanbase": tt("onboarding_goal_fanbase"),
+            "collabs": tt("onboarding_goal_collabs"),
+            "other": tt("onboarding_goal_other"),
+        },
+        "challenges": {
+            "followers": tt("onboarding_challenge_followers_title"),
+            "engagement": tt("onboarding_challenge_engagement_title"),
+            "reach": tt("onboarding_challenge_reach_title"),
+        },
+    }
+
+    html = (
+        _APP_SHELL_HTML.replace("__HEAD_ASSETS__", _ONBOARDING_HEAD_ASSETS)
+        .replace("__I18N__", _js_json(i18n))
+        .replace("__LANG_JS__", _js_json(lang))
+        .replace("__LANG__", lang)
+    )
+    for key in (
+        "app_welcome", "app_home_subtitle", "app_tool_video_title", "app_tool_video_desc",
+        "app_tool_script_title", "app_tool_script_desc", "app_tool_account_title",
+        "app_tool_account_desc", "app_history_title", "app_see_all", "app_tab_home",
+        "app_tab_library", "app_tab_discover", "app_tab_profile", "app_discover_subtitle",
+    ):
+        html = html.replace(f"__T_{key}__", tt(key))
+    return html
 
 
 _LEGAL_STYLE = """
