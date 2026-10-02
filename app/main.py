@@ -489,7 +489,7 @@ def home(request: Request):
               {tt("hero_subtitle")}
             </p>
             <div class="flex flex-col items-center gap-4">
-              <a href="/app"
+              <a href="/app?open=account"
                  class="w-full max-w-sm sm:max-w-[19.2rem] mx-auto flex items-center justify-center gap-2 px-[1.875rem] sm:px-[1.2rem] py-[1.243125rem] sm:py-[1.5912rem] rounded-[0.690625rem] sm:rounded-[0.7956rem] text-white font-bold text-[1.0359375rem] sm:text-[1.1934rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
                 {tt("hero_cta")}
               </a>
@@ -1473,8 +1473,11 @@ _ONBOARDING_STYLE = """
   .sparkle-1 { top: -6px; left: -18px; animation-delay: 0.25s; }
   .sparkle-2 { top: -10px; right: -14px; animation-delay: 0.4s; }
   .sparkle-3 { bottom: 2px; right: -22px; animation-delay: 0.55s; }
-  #mute-toggle-btn { transition: transform 0.15s ease; }
+  #mute-toggle-btn { transition: transform 0.15s ease, top 0.2s ease; }
   #mute-toggle-btn:active { transform: scale(0.9); }
+  .nav-item { color: #6B7280; font-size: 12px; font-weight: 500; border-bottom: 3px solid transparent; text-decoration: none; }
+  .nav-item.active { color: #2563EB; font-weight: 700; border-bottom-color: #2563EB; }
+  .nav-item svg { width: 28px; height: 28px; }
 """
 
 _ONBOARDING_HEAD_ASSETS = """
@@ -1490,6 +1493,39 @@ _ONBOARDING_MUTE_BUTTON_HTML = """
                 class="fixed top-4 right-4 z-50 w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center text-base">
           <span id="mute-toggle-icon">🔊</span>
         </button>"""
+
+
+_TOPBAR_ICONS = {
+    "home": '<path d="M3 11.5L12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5h4v5"/>',
+    "library": '<rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/>',
+    "discover": '<circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2 5.2-5.2 2 2-5.2z"/>',
+    "profile": '<circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4 3.4-6 7.5-6s7.5 2 7.5 6"/>',
+}
+
+
+def _app_topbar_html(tt, active: str = "home") -> str:
+    """
+    Barre des 4 onglets (Accueil, Bibliothèque, Découvrir, Profil) pour les
+    pages d'outils : même rendu que sur /app, mais en liens vers
+    /app#<onglet>. Masquée tant que l'onboarding est en cours (le JS du
+    coeur d'onboarding la montre dès qu'on atteint le contenu de l'outil).
+    """
+    labels = {
+        "home": tt("app_tab_home"),
+        "library": tt("app_tab_library"),
+        "discover": tt("app_tab_discover"),
+        "profile": tt("app_tab_profile"),
+    }
+    items = "".join(
+        f'''<a href="/app#{key}" class="nav-item{" active" if key == active else ""} flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{_TOPBAR_ICONS[key]}</svg>
+          <span>{labels[key]}</span></a>'''
+        for key in ("home", "library", "discover", "profile")
+    )
+    return (
+        '<nav id="app-topbar" class="hidden sticky top-0 z-40 bg-white border-b border-slate-200">'
+        f'<div class="max-w-md mx-auto flex">{items}</div></nav>'
+    )
 
 
 def _onboarding_steps_html(
@@ -1799,12 +1835,14 @@ def _onboarding_js_core(
             osc.type = 'sine';
             osc.frequency.value = 880;
             const g = audioCtx.createGain();
-            g.gain.value = 0.08;
+            g.gain.value = 0.3;
             osc.connect(g);
-            g.connect(masterGain);
+            // Branché directement (pas via masterGain, réglé bas pour l'ambiance) : le son
+            // de sélection reste bien audible sans rendre l'ambiance plus forte.
+            g.connect(audioCtx.destination);
             osc.start();
-            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-            osc.stop(audioCtx.currentTime + 0.16);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            osc.stop(audioCtx.currentTime + 0.21);
           }}
 
           function toggleMute() {{
@@ -1852,19 +1890,32 @@ def _onboarding_js_core(
             }} catch (e) {{}}
           }}
 
+          const ONBOARDING_STEP_IDS = ['step-goal', 'step-challenge', 'step-niche', 'step-audience', 'step-source', 'step-views', 'step-experience', 'step-setup', 'step-complete'];
+          function isOnboardingStep(stepId) {{ return ONBOARDING_STEP_IDS.indexOf(stepId) !== -1; }}
+
           function goToStep(stepId, progressPct, showHeader, direction) {{
             document.querySelectorAll('.step').forEach(function (s) {{ s.classList.remove('active', 'dir-forward', 'dir-back'); }});
             const el = document.getElementById(stepId);
             el.classList.add('active');
             el.classList.add(direction === 'back' ? 'dir-back' : 'dir-forward');
             currentStepId = stepId;
-            document.getElementById('onboarding-header').style.display = showHeader ? 'flex' : 'none';
+            // Hors onboarding (contenu de l'outil, chargement, résultats) : la barre des
+            // 4 onglets reste en haut et la flèche de retour ramène à l'accueil.
+            const inTool = !isOnboardingStep(stepId);
+            const header = document.getElementById('onboarding-header');
+            header.style.display = (showHeader || (inTool && stepId !== 'step-loading')) ? 'flex' : 'none';
+            const track = header.querySelector('.progress-track');
+            if (track) {{ track.style.display = inTool ? 'none' : ''; }}
             document.getElementById('progress-fill').style.width = progressPct + '%';
+            const topbar = document.getElementById('app-topbar');
+            if (topbar) {{ topbar.classList.toggle('hidden', !inTool); }}
+            const muteBtn = document.getElementById('mute-toggle-btn');
+            if (muteBtn) {{ muteBtn.style.top = inTool && topbar ? '84px' : '16px'; }}
             window.scrollTo(0, 0);
           }}
 
           function goBackStep() {{
-            if (onboardingSkipped && currentStepId === '{content_step_id}') {{ window.location.href = '/app'; return; }}
+            if (!isOnboardingStep(currentStepId)) {{ window.location.href = '/app'; return; }}
             if (currentStepId === 'step-goal') {{ window.location.href = '/'; return; }}
             if (currentStepId === 'step-experience') {{
               if (accountAvgViewsFromUrl) {{ goToStep('step-source', 55, true, 'back'); }} else {{ goToStep('step-views', 66, true, 'back'); }}
@@ -2023,7 +2074,7 @@ def tool_analyze_account_page(request: Request):
         <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
         <style>{_ONBOARDING_STYLE}</style>
       </head>
-      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}
+      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}{_app_topbar_html(tt)}
         <div class="max-w-md mx-auto px-5 py-6">
 {_onboarding_steps_html(tt, niche_buttons, "step-account")}
 
@@ -2094,7 +2145,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
         <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
         <style>{_ONBOARDING_STYLE}</style>
       </head>
-      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}
+      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}{_app_topbar_html(tt)}
         <div class="max-w-md mx-auto px-5 py-6">
 {_onboarding_steps_html(tt, niche_buttons, "step-upload")}
 
@@ -2517,7 +2568,7 @@ def tool_analyze_script_page(request: Request):
         <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
         <style>{_ONBOARDING_STYLE}</style>
       </head>
-      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}
+      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}{_app_topbar_html(tt)}
         <div class="max-w-md mx-auto px-5 py-6">
 {_onboarding_steps_html(tt, niche_buttons, "step-script")}
 
