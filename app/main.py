@@ -3843,7 +3843,8 @@ def terms_of_service(from_app: str = Query("", alias="from")):
     </ul>
     <p>Les rapports et contenus sont générés par des modèles d'intelligence artificielle fournis par des prestataires tiers : Claude (Anthropic) pour l'analyse de compte, l'analyse de script et la bibliothèque, et Gemini (Google) pour l'analyse de vidéo. Ils s'appuient sur les données que vous fournissez, sur les données réellement récupérées via l'API officielle de TikTok, ou sur des recherches web.</p>
 
-    <h2>2. Connexion et accès au compte</h2>
+    <h2>2. Âge minimum, connexion et accès au compte</h2>
+    <p><strong>Âge minimum.</strong> Le Service est réservé aux personnes âgées de 18 ans révolus ou plus. En utilisant le Service, vous déclarez avoir au moins 18 ans. Si vous avez moins de 18 ans, vous n'êtes pas autorisé à utiliser le Service, et en particulier à importer des vidéos ou des scripts pour analyse. Si nous apprenons qu'un utilisateur a moins de 18 ans, nous pouvons suspendre son accès et supprimer ses données.</p>
     <p>L'accès aux fonctionnalités liées à l'analyse de compte nécessite une connexion via le Login Kit officiel de TikTok (protocole OAuth). Wil App n'a et ne demande jamais accès à votre mot de passe TikTok. Vous pouvez révoquer l'autorisation donnée à Wil App à tout moment depuis les paramètres de connexions tierces de votre compte TikTok.</p>
 
     <h2>3. Contenu importé par l'utilisateur</h2>
@@ -3951,10 +3952,13 @@ def privacy_policy(from_app: str = Query("", alias="from")):
     </ul>
     <p>You may also revoke Wil App's access via your TikTok account settings, and request access to or deletion of any data we hold by contacting us.</p>
 
-    <h2>6. Changes to This Policy</h2>
+    <h2>6. Age Requirement</h2>
+    <p>The Service is intended for people aged 18 or over. We do not knowingly collect information from anyone under 18. If you believe a person under 18 has used the Service, contact us and we will delete the related data.</p>
+
+    <h2>7. Changes to This Policy</h2>
     <p>We may update this Privacy Policy from time to time. Continued use of the Service after changes constitutes acceptance of the updated policy.</p>
 
-    <h2>7. Contact</h2>
+    <h2>8. Contact</h2>
     <p>Questions? Contact us at <a href="mailto:contact.wilapp@proton.me">contact.wilapp@proton.me</a>.</p>
 
     <footer>Wil App — Privacy Policy</footer>
