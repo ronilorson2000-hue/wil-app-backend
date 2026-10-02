@@ -55,6 +55,15 @@ TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET")
 TIKTOK_REDIRECT_URI = os.getenv("TIKTOK_REDIRECT_URI")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Liens de l'écran Paramètres (onglet Profil). Liens des stores laissés vides
+# tant que l'app n'est pas publiée : "Partager l'application" retombe alors sur
+# l'adresse du site (voir CFG dans la page /app).
+SITE_URL = os.getenv("SITE_URL", "https://wilapp.tech").rstrip("/")
+APP_STORE_URL = os.getenv("APP_STORE_URL", "").strip()
+PLAY_STORE_URL = os.getenv("PLAY_STORE_URL", "").strip()
+WHATSAPP_URL = "https://wa.me/447446953451"  # même numéro que le pied de page de la landing
+APP_VERSION = "1.0.0"
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
 # Les "state" générés servent à vérifier que la réponse de TikTok
@@ -1198,6 +1207,8 @@ async def tiktok_callback(request: Request):
             localStorage.setItem('wilTikTok', JSON.stringify({tiktok_profile_js}));
           }} catch (e) {{}}
           const sessionId = "{session_id}";
+          // Sert uniquement à "Paramètres > Fermer le compte" (suppression côté serveur).
+          try {{ localStorage.setItem('wilSession', sessionId); }} catch (e) {{}}
           const uiLang = "{lang}";
           window.__wilUiLang = uiLang;
           // Petit helper i18n : remplace {{cle}} par sa valeur dans un
@@ -1424,6 +1435,14 @@ _NAV_POSITION_CSS = """
   body.nav-visible { padding-top: 76px; }
 """
 
+# Thème sombre (Paramètres > Apparence) : inversion des couleurs de la page,
+# avec les images/vidéos remises à l'endroit. Choix v1 : un seul jeu de CSS pour
+# toutes les pages d'outils ; les emojis colorés sont inversés eux aussi.
+_THEME_CSS = """
+  html.wil-dark { filter: invert(1) hue-rotate(180deg); background: #fff; }
+  html.wil-dark img, html.wil-dark video, html.wil-dark canvas { filter: invert(1) hue-rotate(180deg); }
+"""
+
 # Onboarding partagé entre "Analyser la vidéo" et "Analyser le script" :
 # même structure en 9 écrans (objectif -> défi -> niche -> audience ->
 # provenance -> vues moyennes -> expérience -> configuration ->
@@ -1488,9 +1507,18 @@ _ONBOARDING_STYLE = """
   .nav-item:hover { background: #F8FAFC; }
   .nav-item.active { color: #2563EB; font-weight: 700; background: #EFF6FF; }
   .nav-item svg { width: 24px; height: 24px; }
-""" + _NAV_POSITION_CSS
+""" + _NAV_POSITION_CSS + _THEME_CSS
 
 _ONBOARDING_HEAD_ASSETS = """
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem('wilTheme') || 'light';
+          var dark = mode === 'dark' || (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('wil-dark', dark);
+        } catch (e) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -2940,6 +2968,15 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     .badge-trend { background: #E0F2FE; color: #0369A1; }
     .badge-niche { background: #F1F5F9; color: #64748B; }
     .badge-starter { background: #FEF3C7; color: #92400E; }
+    .set-row { display: flex; align-items: center; gap: 16px; width: 100%; padding: 18px 20px; background: #fff; border: 1.5px solid #E2E8F0; border-radius: 28px; margin-bottom: 12px; text-align: left; text-decoration: none; color: inherit; transition: transform 0.1s ease, border-color 0.15s ease; }
+    .set-row:active { transform: scale(0.98); }
+    .set-row:hover { border-color: #93C5FD; }
+    .set-row svg { width: 26px; height: 26px; flex-shrink: 0; color: #64748B; }
+    .set-row .set-title { font-size: 17px; font-weight: 600; }
+    .set-row .set-sub { font-size: 14px; color: #64748B; margin-top: 2px; }
+    .set-sep { height: 1px; background: #E2E8F0; margin: 18px 12px 22px; }
+    .sheet-option { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 16px 4px; font-size: 16px; font-weight: 600; border-bottom: 1px solid #F1F5F9; text-align: left; text-decoration: none; color: inherit; }
+    .sheet-option:last-child { border-bottom: none; }
     .disc-card { position: absolute; left: 0; right: 0; top: 0; background: #fff; border: 1.5px solid #E2E8F0; border-radius: 28px; padding: 22px; box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08); transition: transform 0.3s ease, opacity 0.3s ease; touch-action: pan-y; user-select: none; }
     .disc-card[data-depth="0"] { cursor: grab; }
     .disc-btn { width: 68px; height: 68px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 26px; transition: transform 0.1s ease; }
@@ -3024,11 +3061,19 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
 
     <!-- PROFIL -->
     <section id="tab-profile" class="app-tab hidden">
-      <h1 class="text-2xl font-extrabold mb-5">__T_app_tab_profile__</h1>
+      <h1 class="text-2xl font-extrabold mb-5">__T_set_title__</h1>
       <div id="profile-content"></div>
     </section>
 
   </div>
+
+  <div id="sheet" class="hidden fixed inset-0 z-50">
+    <div id="sheet-backdrop" class="absolute inset-0" style="background: rgba(15, 23, 42, 0.45);"></div>
+    <div class="absolute inset-x-0 bottom-0">
+      <div id="sheet-panel" class="max-w-md mx-auto bg-white rounded-t-3xl px-6 pt-6" style="padding-bottom: calc(24px + env(safe-area-inset-bottom));"></div>
+    </div>
+  </div>
+  <div id="toast" class="hidden fixed left-1/2 z-50 bg-slate-900 text-white text-sm font-semibold px-4 py-2 rounded-full" style="bottom: 32px; transform: translateX(-50%);"></div>
 
   <nav id="app-topbar">
     <div class="max-w-md mx-auto flex px-2">
@@ -3244,29 +3289,147 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       });
     }
 
+    // ---------- PROFIL / PARAMÈTRES ----------
+    const CFG = __CFG__;
+    const SET_ICONS = {
+      appearance: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18z" fill="currentColor"/>',
+      language: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+      share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
+      subscription: '<rect x="4" y="5" width="16" height="12" rx="2"/><path d="M8 3h8M6 20h12M10 9l5 3-5 3z"/>',
+      close: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
+      contact: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7M12 17h.01"/>',
+      terms: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
+      privacy: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 11v5M12 8h.01"/>',
+      redo: '<path d="M4 12a8 8 0 1 1 3 6.2M4 19v-5h5"/>'
+    };
+
+    function currentTheme() { try { return localStorage.getItem('wilTheme') || 'light'; } catch (e) { return 'light'; } }
+    function themeLabel(mode) { return mode === 'dark' ? I18N.setAppearanceDark : (mode === 'system' ? I18N.setAppearanceSystem : I18N.setAppearanceLight); }
+    function applyTheme(mode) {
+      try { localStorage.setItem('wilTheme', mode); } catch (e) {}
+      const dark = mode === 'dark' || (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.classList.toggle('wil-dark', dark);
+    }
+
+    function openSheet(html) {
+      document.getElementById('sheet-panel').innerHTML = html;
+      document.getElementById('sheet').classList.remove('hidden');
+    }
+    function closeSheet() { document.getElementById('sheet').classList.add('hidden'); }
+    document.getElementById('sheet-backdrop').addEventListener('click', closeSheet);
+
+    function showToast(text) {
+      const el = document.getElementById('toast');
+      el.textContent = text;
+      el.classList.remove('hidden');
+      setTimeout(function () { el.classList.add('hidden'); }, 1800);
+    }
+
+    function setRowHtml(icon, title, sub, attrs, tag) {
+      const open = tag === 'a' ? '<a ' + attrs : '<button type="button" ' + attrs;
+      const close = tag === 'a' ? '</a>' : '</button>';
+      return open + ' class="set-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + SET_ICONS[icon] + '</svg>' +
+        '<span class="flex-1"><span class="block set-title">' + esc(title) + '</span>' + (sub ? '<span class="block set-sub">' + esc(sub) + '</span>' : '') + '</span>' +
+        '<span class="text-slate-400 text-xl">›</span>' + close;
+    }
+
+    function shareUrl() {
+      const ua = navigator.userAgent || '';
+      const isIos = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isIos && CFG.appStore) return CFG.appStore;
+      if (/Android/i.test(ua) && CFG.playStore) return CFG.playStore;
+      return CFG.site;
+    }
+    function shareApp() {
+      const url = shareUrl();
+      if (navigator.share) {
+        navigator.share({title: 'Wil App', text: I18N.setShareText, url: url}).catch(function () {});
+        return;
+      }
+      if (navigator.clipboard) { navigator.clipboard.writeText(url).then(function () { showToast(I18N.setLinkCopied); }).catch(function () {}); }
+    }
+
+    function openAppearanceSheet() {
+      const modes = ['system', 'light', 'dark'];
+      openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setAppearance) + '</p>' + modes.map(function (m) {
+        return '<button type="button" class="sheet-option" data-theme="' + m + '"><span>' + esc(themeLabel(m)) + '</span><span class="text-blue-600">' + (m === currentTheme() ? '✓' : '') + '</span></button>';
+      }).join(''));
+      document.querySelectorAll('#sheet-panel [data-theme]').forEach(function (b) {
+        b.addEventListener('click', function () { applyTheme(b.dataset.theme); closeSheet(); renderProfile(); });
+      });
+    }
+    function openLanguageSheet() {
+      openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setLanguage) + '</p>' + I18N.languages.map(function (l) {
+        return '<a class="sheet-option" href="/set-language?lang=' + l.code + '&to=' + encodeURIComponent('/app#profile') + '"><span>' + l.flag + ' ' + esc(l.name) + '</span><span class="text-blue-600">' + (l.code === LANG ? '✓' : '') + '</span></a>';
+      }).join(''));
+    }
+    function openSubscriptionSheet() {
+      openSheet('<p class="font-extrabold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
+        '<p class="font-semibold text-blue-600 mb-2">' + esc(I18N.setSubPlan) + '</p>' +
+        '<p class="text-sm text-slate-500 leading-relaxed mb-5">' + esc(I18N.setSubDesc) + '</p>' +
+        '<a href="/pricing" class="block w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm text-center">' + esc(I18N.setSubOffers) + '</a>');
+    }
+    function openCloseAccountSheet() {
+      openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setCloseTitle) + '</p>' +
+        '<p class="text-sm text-slate-500 leading-relaxed mb-4">' + esc(I18N.setCloseDesc) + '</p>' +
+        '<p id="close-error" class="text-sm text-red-600 mb-3 hidden">' + esc(I18N.setCloseError) + '</p>' +
+        '<button type="button" id="close-confirm" class="block w-full py-3.5 rounded-xl bg-red-600 text-white font-bold text-sm mb-3">' + esc(I18N.setCloseConfirm) + '</button>' +
+        '<button type="button" id="close-cancel" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm">' + esc(I18N.setCancel) + '</button>');
+      document.getElementById('close-cancel').addEventListener('click', closeSheet);
+      document.getElementById('close-confirm').addEventListener('click', closeAccount);
+    }
+    function closeAccount() {
+      const sid = (function () { try { return localStorage.getItem('wilSession'); } catch (e) { return null; } })();
+      const wipe = function () {
+        ['wilOnboarding', 'wilHistory', 'wilSaved', 'wilTikTok', 'wilSession', 'wilDiscover', 'wilTheme'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+        location.href = '/';
+      };
+      if (!sid) { wipe(); return; }
+      // Compte TikTok connecté : on supprime d'abord côté serveur, et on ne vide l'appareil qu'en cas de succès.
+      fetch('/api/close-account', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({session_id: sid})})
+        .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); wipe(); })
+        .catch(function () { document.getElementById('close-error').classList.remove('hidden'); });
+    }
+
     function renderProfile() {
       const tiktok = readJson('wilTikTok', null);
       const account = tiktok
-        ? '<div class="history-item text-center"><img src="' + esc(tiktok.avatar_url) + '" alt="" class="w-24 h-24 rounded-full object-cover mx-auto mb-3" onerror="this.style.display=\\'none\\'">' +
+        ? '<div class="history-item text-center"><img src="' + esc(tiktok.avatar_url) + '" alt="" class="w-20 h-20 rounded-full object-cover mx-auto mb-3" onerror="this.style.display=&quot;none&quot;">' +
           '<p class="font-extrabold text-lg">' + esc(tiktok.display_name) + (tiktok.is_verified ? ' <span style="color:#0EA5E9">✔</span>' : '') + '</p>' +
           '<p class="text-sm text-slate-500">@' + esc(tiktok.username) + '</p>' +
           '<p class="text-xs font-semibold text-green-600 mt-2">✅ ' + esc(I18N.profileConnected) + '</p></div>'
-        : '<div class="history-item text-center"><div class="w-20 h-20 mx-auto rounded-full bg-blue-50 flex items-center justify-center text-3xl mb-3">👤</div>' +
+        : '<div class="history-item text-center"><div class="w-16 h-16 mx-auto rounded-full bg-blue-50 flex items-center justify-center text-2xl mb-3">👤</div>' +
           '<p class="font-extrabold text-lg">' + esc(I18N.profileNotConnected) + '</p>' +
           '<p class="text-sm text-slate-500 mt-1 mb-4">' + esc(I18N.profileNotConnectedDesc) + '</p>' +
           '<a href="/tools/analyze-account" class="block w-full py-3.5 rounded-xl bg-slate-900 text-white font-bold text-sm">' + esc(I18N.profileConnectBtn) + '</a></div>';
 
-      const nicheChips = niches.length
-        ? '<p class="font-extrabold mt-6 mb-2">' + esc(I18N.profileThemes) + '</p><div>' + niches.map(function (n) { return '<span class="chip">' + esc(n) + '</span>'; }).join('') + '</div>'
-        : '';
-      const rows = [];
-      if (onboarding.goal && I18N.goals[onboarding.goal]) rows.push('<div class="row"><span class="text-slate-500">' + esc(I18N.profileGoal) + '</span><span class="font-semibold text-right">' + esc(I18N.goals[onboarding.goal]) + '</span></div>');
-      if (onboarding.challenge && I18N.challenges[onboarding.challenge]) rows.push('<div class="row"><span class="text-slate-500">' + esc(I18N.profileChallenge) + '</span><span class="font-semibold text-right">' + esc(I18N.challenges[onboarding.challenge]) + '</span></div>');
-      const summary = rows.length ? '<div class="history-item mt-4">' + rows.join('') + '</div>' : '';
+      const lang = I18N.languages.filter(function (l) { return l.code === LANG; })[0];
+      const rows =
+        setRowHtml('appearance', I18N.setAppearance, themeLabel(currentTheme()), 'data-set="appearance"', 'button') +
+        setRowHtml('language', I18N.setLanguage, lang ? lang.name : '', 'data-set="language"', 'button') +
+        '<div class="set-sep"></div>' +
+        setRowHtml('share', I18N.setShare, '', 'data-set="share"', 'button') +
+        setRowHtml('subscription', I18N.setManageSub, '', 'data-set="subscription"', 'button') +
+        setRowHtml('close', I18N.setCloseAccount, '', 'data-set="close"', 'button') +
+        setRowHtml('contact', I18N.setContact, '', 'href="' + esc(CFG.whatsapp) + '" target="_blank" rel="noopener"', 'a') +
+        setRowHtml('terms', I18N.setTerms, '', 'href="/terms"', 'a') +
+        setRowHtml('privacy', I18N.setPrivacy, '', 'href="/privacy"', 'a') +
+        setRowHtml('redo', I18N.profileRedo, '', 'href="/onboarding"', 'a');
 
-      document.getElementById('profile-content').innerHTML = account + nicheChips + summary +
-        '<a href="/onboarding" class="tool-card mt-6"><div class="tool-icon">🔄</div><div class="flex-1 font-bold">' + esc(I18N.profileRedo) + '</div><span class="text-slate-400">›</span></a>';
+      document.getElementById('profile-content').innerHTML = account + '<div class="mt-5">' + rows + '</div>' +
+        '<p class="text-center text-sm text-slate-400 mt-6">' + esc(I18N.setVersion) + ' : ' + esc(CFG.version) + '</p>';
     }
+
+    document.getElementById('profile-content').addEventListener('click', function (event) {
+      const btn = event.target.closest('button[data-set]');
+      if (!btn) return;
+      const action = btn.dataset.set;
+      if (action === 'appearance') openAppearanceSheet();
+      else if (action === 'language') openLanguageSheet();
+      else if (action === 'share') shareApp();
+      else if (action === 'subscription') openSubscriptionSheet();
+      else if (action === 'close') openCloseAccountSheet();
+    });
 
     // ---------- BIBLIOTHÈQUE ----------
     const LIB_CATS = [
@@ -3509,6 +3672,29 @@ def app_shell_page(request: Request):
         "discGoSaved": tt("disc_go_saved"),
         "discEstimate": tt("disc_estimate"),
         "discSkip": tt("disc_skip"),
+        "setAppearance": tt("set_appearance"),
+        "setAppearanceSystem": tt("set_appearance_system"),
+        "setAppearanceLight": tt("set_appearance_light"),
+        "setAppearanceDark": tt("set_appearance_dark"),
+        "setLanguage": tt("set_language"),
+        "setShare": tt("set_share"),
+        "setShareText": tt("set_share_text"),
+        "setLinkCopied": tt("set_link_copied"),
+        "setManageSub": tt("set_manage_sub"),
+        "setSubPlan": tt("set_sub_plan"),
+        "setSubDesc": tt("set_sub_desc"),
+        "setSubOffers": tt("set_sub_offers"),
+        "setCloseAccount": tt("set_close_account"),
+        "setCloseTitle": tt("set_close_title"),
+        "setCloseDesc": tt("set_close_desc"),
+        "setCloseConfirm": tt("set_close_confirm"),
+        "setCloseError": tt("set_close_error"),
+        "setCancel": tt("set_cancel"),
+        "setContact": tt("set_contact"),
+        "setTerms": tt("set_terms"),
+        "setPrivacy": tt("set_privacy"),
+        "setVersion": tt("set_version"),
+        "languages": [{"code": c, "name": LANG_NAMES[c], "flag": LANG_FLAGS[c]} for c in SUPPORTED_LANGS],
         "libBadge": tt("lib_badge"),
         "libBadgeStarter": tt("lib_badge_starter"),
         "libBanner": tt("lib_banner"),
@@ -3537,7 +3723,14 @@ def app_shell_page(request: Request):
 
     html = (
         _APP_SHELL_HTML.replace("__HEAD_ASSETS__", _ONBOARDING_HEAD_ASSETS)
-        .replace("__NAV_CSS__", _NAV_POSITION_CSS)
+        .replace("__NAV_CSS__", _NAV_POSITION_CSS + _THEME_CSS)
+        .replace("__CFG__", _js_json({
+            "site": SITE_URL,
+            "appStore": APP_STORE_URL,
+            "playStore": PLAY_STORE_URL,
+            "whatsapp": WHATSAPP_URL,
+            "version": APP_VERSION,
+        }))
         .replace("__I18N__", _js_json(i18n))
         .replace("__LANG_JS__", _js_json(lang))
         .replace("__LANG__", lang)
@@ -3547,7 +3740,7 @@ def app_shell_page(request: Request):
         "app_tool_script_title", "app_tool_script_desc", "app_tool_account_title",
         "app_tool_account_desc", "app_history_title", "app_see_all", "app_tab_home",
         "app_tab_library", "app_tab_discover", "app_tab_profile", "app_discover_subtitle",
-        "lib_banner", "disc_new_today", "disc_banner",
+        "lib_banner", "disc_new_today", "disc_banner", "set_title",
     ):
         html = html.replace(f"__T_{key}__", tt(key))
     return html
@@ -4715,6 +4908,55 @@ async def discover(niche_category: str, lang: str = DEFAULT_LANG):
             ],
         }
     return JSONResponse(content=result)
+
+
+class CloseAccountRequest(BaseModel):
+    session_id: str
+
+
+def _delete_user_data(open_id: str) -> None:
+    """Supprime côté serveur tout ce qui est rattaché à ce compte TikTok."""
+    supabase = get_supabase()
+    if supabase:
+        supabase.table("account_snapshots").delete().eq("open_id", open_id).execute()
+        supabase.table("sessions").delete().eq("open_id", open_id).execute()
+    for sid in [k for k, v in _sessions.items() if v.get("open_id") == open_id]:
+        _sessions.pop(sid, None)
+
+
+@app.post("/api/close-account", response_class=JSONResponse)
+async def close_account(body: CloseAccountRequest):
+    """
+    Paramètres > Fermer le compte, pour un utilisateur connecté à TikTok :
+    révoque le jeton TikTok (au mieux : un échec n'empêche pas la suppression)
+    puis supprime ses sessions et ses historiques d'analyse. Une session
+    inconnue ou déjà supprimée est traitée comme un succès (rien à supprimer).
+    Le session_id sert ici de preuve d'identité, comme pour /api/analyze-account.
+    """
+    session = await asyncio.to_thread(_get_session, body.session_id)
+    if not session:
+        return JSONResponse(content={"ok": True, "deleted": False})
+
+    if TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET:
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                await client.post(
+                    "https://open.tiktokapis.com/v2/oauth/revoke/",
+                    data={
+                        "client_key": TIKTOK_CLIENT_KEY,
+                        "client_secret": TIKTOK_CLIENT_SECRET,
+                        "token": session["access_token"],
+                    },
+                )
+        except httpx.HTTPError as exc:
+            print(f"[close-account] révocation TikTok impossible : {exc!r}")
+
+    try:
+        await asyncio.to_thread(_delete_user_data, session["open_id"])
+    except Exception as exc:
+        print(f"[close-account] suppression impossible : {exc!r}")
+        raise HTTPException(status_code=503, detail="Suppression impossible pour le moment.")
+    return JSONResponse(content={"ok": True, "deleted": True})
 
 
 @app.get("/api/analyze-account", response_class=JSONResponse)
