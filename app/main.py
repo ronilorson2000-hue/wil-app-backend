@@ -3829,7 +3829,7 @@ def terms_of_service(from_app: str = Query("", alias="from")):
     <body>
     <p>{'<a href="/app#profile">← Retour aux paramètres</a>' if from_app == "app" else '<a href="/">← Retour à l\'accueil</a>'}</p>
     <h1>Terms of Service</h1>
-    <p><em>Dernière mise à jour : septembre 2026</em></p>
+    <p><em>Dernière mise à jour : octobre 2026</em></p>
 
     <p>Les présentes Terms of Service (« Conditions ») régissent l'accès et l'utilisation de l'application Wil App (le « Service »), accessible à l'adresse wilapp.tech. En utilisant le Service, vous acceptez sans réserve les présentes Conditions. Elles couvrent aussi bien les règles d'usage du Service que, le cas échéant, les conditions applicables à l'offre payante Pro.</p>
 
@@ -3837,10 +3837,11 @@ def terms_of_service(from_app: str = Query("", alias="from")):
     <p>Wil App est un outil d'analyse propulsé par l'intelligence artificielle destiné aux créateurs de contenu TikTok. Le Service permet notamment de :</p>
     <ul>
       <li>connecter son compte TikTok pour obtenir un diagnostic automatique (score de viralité, taux d'engagement, points forts, points à améliorer, hashtags suggérés) ;</li>
-      <li>analyser une vidéo (déjà publiée ou non) importée manuellement par l'utilisateur, avec transcription du contenu parlé ;</li>
-      <li>analyser le script d'une vidéo pas encore tournée.</li>
+      <li>analyser une vidéo (déjà publiée ou non) importée manuellement par l'utilisateur, à partir de son contenu visuel et sonore ;</li>
+      <li>analyser le script d'une vidéo pas encore tournée ;</li>
+      <li>consulter une bibliothèque et des idées du jour (hooks, idées de vidéos, hashtags) issues de recherches web réalisées par intelligence artificielle, et enregistrer celles qui vous intéressent.</li>
     </ul>
-    <p>Les rapports sont générés par un modèle d'intelligence artificielle (Claude, développé par Anthropic) à partir des données que vous fournissez ou des données réellement récupérées via l'API officielle de TikTok.</p>
+    <p>Les rapports et contenus sont générés par des modèles d'intelligence artificielle fournis par des prestataires tiers : Claude (Anthropic) pour l'analyse de compte, l'analyse de script et la bibliothèque, et Gemini (Google) pour l'analyse de vidéo. Ils s'appuient sur les données que vous fournissez, sur les données réellement récupérées via l'API officielle de TikTok, ou sur des recherches web.</p>
 
     <h2>2. Connexion et accès au compte</h2>
     <p>L'accès aux fonctionnalités liées à l'analyse de compte nécessite une connexion via le Login Kit officiel de TikTok (protocole OAuth). Wil App n'a et ne demande jamais accès à votre mot de passe TikTok. Vous pouvez révoquer l'autorisation donnée à Wil App à tout moment depuis les paramètres de connexions tierces de votre compte TikTok.</p>
@@ -3852,6 +3853,7 @@ def terms_of_service(from_app: str = Query("", alias="from")):
       <li>que ce contenu ne viole aucune loi, aucun droit de tiers, ni les règles de la communauté TikTok.</li>
     </ul>
     <p>Wil App ne collecte, ne télécharge et ne scrape aucune vidéo directement depuis TikTok à l'insu de l'utilisateur : chaque fichier ou texte analysé est fourni volontairement par vous.</p>
+    <p>Pour être analysé, le fichier vidéo est transmis à Google (API Gemini), qui en analyse les images et le son ; le texte d'un script est transmis à Anthropic (Claude). Wil App ne conserve pas votre fichier vidéo après l'analyse. Ces prestataires traitent les données selon leurs propres conditions. Vos vidéos et vos scripts ne sont pas utilisés pour alimenter les contenus montrés aux autres utilisateurs.</p>
 
     <h2>4. Usage autorisé</h2>
     <p>Vous vous engagez à utiliser le Service à des fins strictement personnelles et légales, et à ne pas :</p>
@@ -3865,7 +3867,7 @@ def terms_of_service(from_app: str = Query("", alias="from")):
     <p>Le Service propose actuellement une offre gratuite (« Free ») donnant accès à la connexion du compte et à un aperçu de profil de base. Une offre payante (« Pro »), avec des analyses avancées et un support prioritaire, sera proposée ultérieurement ; ses conditions tarifaires seront communiquées avant sa mise en disponibilité.</p>
 
     <h2>6. Nature des analyses fournies</h2>
-    <p>Les scores, diagnostics et conseils fournis par Wil App sont générés automatiquement par une intelligence artificielle à partir des données disponibles. Ils constituent une aide à la décision et ne garantissent en aucun cas un résultat (augmentation de vues, d'abonnés ou de revenus). Wil App ne peut être tenu responsable des décisions prises sur la base de ces analyses.</p>
+    <p>Les scores, diagnostics, conseils et estimations fournis par Wil App (y compris le score de viralité, les fourchettes de vues, de likes ou de commentaires et le « potentiel de viralité » des idées du jour) sont générés automatiquement par une intelligence artificielle à partir des données disponibles. Ce sont des estimations et non des prédictions : ils constituent une aide à la décision et ne garantissent en aucun cas un résultat (augmentation de vues, d'abonnés ou de revenus). Wil App ne peut être tenu responsable des décisions prises sur la base de ces analyses.</p>
 
     <h2>7. Propriété intellectuelle</h2>
     <p>L'application, sa marque, son design et son code restent la propriété exclusive de Wil App. Les rapports générés pour votre compte vous sont fournis pour votre usage personnel ; vous en conservez le contenu, sans que cela ne vous transfère de droit sur la plateforme elle-même.</p>
@@ -3877,7 +3879,7 @@ def terms_of_service(from_app: str = Query("", alias="from")):
     <p>Le Service est fourni « en l'état ». Wil App n'est ni affilié, ni sponsorisé, ni approuvé par TikTok ou ByteDance Ltd. Dans les limites permises par la loi, Wil App décline toute responsabilité pour les dommages indirects résultant de l'utilisation du Service.</p>
 
     <h2>10. Résiliation</h2>
-    <p>Vous pouvez cesser d'utiliser le Service à tout moment en révoquant l'accès depuis les paramètres de votre compte TikTok. Wil App se réserve le droit de suspendre l'accès d'un utilisateur en cas d'usage abusif ou de non-respect des présentes Conditions.</p>
+    <p>Vous pouvez cesser d'utiliser le Service à tout moment, en révoquant l'accès depuis les paramètres de votre compte TikTok ou en fermant votre compte depuis Paramètres &gt; Fermer le compte (ce qui supprime vos données, comme décrit dans notre Politique de confidentialité). Wil App se réserve le droit de suspendre l'accès d'un utilisateur en cas d'usage abusif ou de non-respect des présentes Conditions.</p>
 
     <h2>11. Modification des présentes Conditions</h2>
     <p>Les présentes Terms of Service peuvent être mises à jour à tout moment. La poursuite de l'utilisation du Service après une modification vaut acceptation des nouvelles conditions.</p>
@@ -3910,29 +3912,44 @@ def privacy_policy(from_app: str = Query("", alias="from")):
     <body>
     <p>{'<a href="/app#profile">← Back to settings</a>' if from_app == "app" else '<a href="/">← Back to home</a>'}</p>
     <h1>Wil App Privacy Policy</h1>
-    <p><em>Last updated: July 2026</em></p>
+    <p><em>Last updated: October 2026</em></p>
 
     <p>This Privacy Policy explains how Wil App ("we", "us") collects, uses, and protects information when you use our Service.</p>
 
     <h2>1. Information We Collect</h2>
-    <p>When you connect your TikTok account through TikTok's official Login Kit, we may receive, only with your explicit authorization:</p>
+    <p><strong>TikTok account.</strong> When you connect your TikTok account through TikTok's official Login Kit, we may receive, only with your explicit authorization:</p>
     <ul>
       <li>Basic profile information (username, display name, profile picture)</li>
       <li>Public content and video metadata associated with your account</li>
     </ul>
-    <p>We do not access private messages, payment information, or any data beyond what is explicitly permitted by the scopes you authorize.</p>
+    <p>We do not access private messages, payment information, or any data beyond what is explicitly permitted by the scopes you authorize. From your connected account we keep an access session and periodic snapshots of your account statistics (such as engagement and viral rates), so that we can compare your account with itself over time.</p>
+    <p><strong>Videos and scripts you provide.</strong> When you upload a video or paste a script for analysis, it is sent to our AI providers (see section 4) to generate your report. We do not keep your video file after the analysis. We do not use your videos or scripts to build the content shown to other users.</p>
+    <p><strong>Estimates feedback.</strong> If you tell us a video was already published and answer whether our estimate was close to the real results, we record that answer anonymously (niche, score, estimated level and your answer), without the video and without any identifier.</p>
+    <p><strong>Data kept on your device.</strong> Your onboarding answers, analysis history, saved items, language and appearance choices are stored in your browser (local storage) on your device, not on our servers. If you connect TikTok, your browser also keeps your public profile (name, username, picture) and a session identifier so you can use the connection and close your account.</p>
 
     <h2>2. How We Use Your Information</h2>
-    <p>We use the information solely to provide account insights within the Service and improve its reliability. We do not sell your personal data to third parties.</p>
+    <p>We use the information solely to provide the Service (account insights, video and script analysis, trends) and to improve its reliability and the accuracy of our estimates. We do not sell your personal data to third parties.</p>
 
-    <h2>3. Data Storage and Security</h2>
-    <p>We take reasonable technical measures to protect the information we store. Access tokens are stored securely and are never shared publicly.</p>
+    <h2>3. Data Storage, Retention and Security</h2>
+    <p>We take reasonable technical measures to protect the information we store. Access tokens are stored securely and are never shared publicly. Sessions and account statistics snapshots are kept until you disconnect or close your account.</p>
 
     <h2>4. Third-Party Services</h2>
-    <p>Our Service integrates with TikTok's official APIs. Your use of TikTok remains subject to TikTok's own Privacy Policy and Terms of Service.</p>
+    <p>Our Service relies on the following providers, each subject to its own terms and privacy policy:</p>
+    <ul>
+      <li>TikTok (official APIs and Login Kit);</li>
+      <li>Anthropic (Claude), which processes account data, scripts and web searches used to generate reports and trends;</li>
+      <li>Google (Gemini API), which processes the videos you upload to analyze their images and sound;</li>
+      <li>our hosting and database providers, which store the data described in section 3.</li>
+    </ul>
+    <p>Your use of TikTok remains subject to TikTok's own Privacy Policy and Terms of Service.</p>
 
     <h2>5. Your Rights</h2>
-    <p>You may revoke Wil App's access to your TikTok account at any time via your TikTok account settings. You may also request deletion of any data we hold by contacting us.</p>
+    <p>You can, at any time and from the Settings screen of the app:</p>
+    <ul>
+      <li><strong>Disconnect TikTok</strong>: we revoke the access token and delete your session, and keep your history;</li>
+      <li><strong>Close your account</strong>: we delete the data stored on your device and, if TikTok was connected, we revoke access and delete your sessions and statistics history from our servers. This action is permanent.</li>
+    </ul>
+    <p>You may also revoke Wil App's access via your TikTok account settings, and request access to or deletion of any data we hold by contacting us.</p>
 
     <h2>6. Changes to This Policy</h2>
     <p>We may update this Privacy Policy from time to time. Continued use of the Service after changes constitutes acceptance of the updated policy.</p>
