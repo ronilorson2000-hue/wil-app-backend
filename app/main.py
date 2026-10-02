@@ -3300,7 +3300,8 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       contact: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7M12 17h.01"/>',
       terms: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
       privacy: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 11v5M12 8h.01"/>',
-      redo: '<path d="M4 12a8 8 0 1 1 3 6.2M4 19v-5h5"/>'
+      redo: '<path d="M4 12a8 8 0 1 1 3 6.2M4 19v-5h5"/>',
+      restore: '<path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/>'
     };
 
     function currentTheme() { try { return localStorage.getItem('wilTheme') || 'light'; } catch (e) { return 'light'; } }
@@ -3367,7 +3368,18 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       openSheet('<p class="font-extrabold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
         '<p class="font-semibold text-blue-600 mb-2">' + esc(I18N.setSubPlan) + '</p>' +
         '<p class="text-sm text-slate-500 leading-relaxed mb-5">' + esc(I18N.setSubDesc) + '</p>' +
-        '<a href="/pricing" class="block w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm text-center">' + esc(I18N.setSubOffers) + '</a>');
+        '<button type="button" disabled class="block w-full py-3.5 rounded-xl bg-blue-200 text-white font-bold text-sm text-center mb-3 cursor-not-allowed">' + esc(I18N.setSubActivate) + ' · ' + esc(I18N.setSoon) + '</button>' +
+        '<a href="/pricing" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm text-center">' + esc(I18N.setSubOffers) + '</a>');
+    }
+    function openRestoreSheet() {
+      // La restauration passe par l'App Store / Google Play : disponible dans l'application mobile.
+      const store = shareUrl();
+      const hasStore = store !== CFG.site;
+      openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setRestore) + '</p>' +
+        '<p class="text-sm text-slate-500 leading-relaxed mb-5">' + esc(I18N.setRestoreDesc) + '</p>' +
+        (hasStore ? '<a href="' + esc(store) + '" target="_blank" rel="noopener" class="block w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm text-center mb-3">' + esc(I18N.setGetApp) + '</a>' : '') +
+        '<button type="button" id="restore-close" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm">' + esc(I18N.setCancel) + '</button>');
+      document.getElementById('restore-close').addEventListener('click', closeSheet);
     }
     function openCloseAccountSheet() {
       openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setCloseTitle) + '</p>' +
@@ -3409,6 +3421,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         setRowHtml('language', I18N.setLanguage, lang ? lang.name : '', 'data-set="language"', 'button') +
         '<div class="set-sep"></div>' +
         setRowHtml('share', I18N.setShare, '', 'data-set="share"', 'button') +
+        setRowHtml('restore', I18N.setRestore, '', 'data-set="restore"', 'button') +
         setRowHtml('subscription', I18N.setManageSub, '', 'data-set="subscription"', 'button') +
         setRowHtml('close', I18N.setCloseAccount, '', 'data-set="close"', 'button') +
         setRowHtml('contact', I18N.setContact, '', 'href="' + esc(CFG.whatsapp) + '" target="_blank" rel="noopener"', 'a') +
@@ -3427,6 +3440,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       if (action === 'appearance') openAppearanceSheet();
       else if (action === 'language') openLanguageSheet();
       else if (action === 'share') shareApp();
+      else if (action === 'restore') openRestoreSheet();
       else if (action === 'subscription') openSubscriptionSheet();
       else if (action === 'close') openCloseAccountSheet();
     });
@@ -3684,6 +3698,11 @@ def app_shell_page(request: Request):
         "setSubPlan": tt("set_sub_plan"),
         "setSubDesc": tt("set_sub_desc"),
         "setSubOffers": tt("set_sub_offers"),
+        "setSubActivate": tt("set_sub_activate"),
+        "setSoon": tt("set_soon"),
+        "setRestore": tt("set_restore"),
+        "setRestoreDesc": tt("set_restore_desc"),
+        "setGetApp": tt("set_get_app"),
         "setCloseAccount": tt("set_close_account"),
         "setCloseTitle": tt("set_close_title"),
         "setCloseDesc": tt("set_close_desc"),
