@@ -1415,6 +1415,18 @@ _TOOL_PAGE_STYLE = """
 """
 
 
+# Position de la barre des 4 onglets (Accueil, Bibliothèque, Découvrir, Profil),
+# en haut ou en bas selon <html data-nav="top|bottom"> — posé très tôt par un
+# script dans le <head> (voir _ONBOARDING_HEAD_ASSETS) à partir de ?nav=top|bottom
+# puis mémorisé (localStorage "wilNavPos"), pour comparer les deux rendus.
+_NAV_POSITION_CSS = """
+  #app-topbar { position: fixed; left: 0; right: 0; z-index: 40; background: #fff; }
+  html[data-nav="top"] #app-topbar { top: 0; padding-top: env(safe-area-inset-top); box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06); }
+  html[data-nav="bottom"] #app-topbar { bottom: 0; padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid #E5E7EB; box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.05); }
+  html[data-nav="top"] body.nav-visible { padding-top: 76px; }
+  html[data-nav="bottom"] body.nav-visible { padding-bottom: 84px; }
+"""
+
 # Onboarding partagé entre "Analyser la vidéo" et "Analyser le script" :
 # même structure en 9 écrans (objectif -> défi -> niche -> audience ->
 # provenance -> vues moyennes -> expérience -> configuration ->
@@ -1475,12 +1487,22 @@ _ONBOARDING_STYLE = """
   .sparkle-3 { bottom: 2px; right: -22px; animation-delay: 0.55s; }
   #mute-toggle-btn { transition: transform 0.15s ease, top 0.2s ease; }
   #mute-toggle-btn:active { transform: scale(0.9); }
-  .nav-item { color: #6B7280; font-size: 12px; font-weight: 500; border-bottom: 3px solid transparent; text-decoration: none; }
-  .nav-item.active { color: #2563EB; font-weight: 700; border-bottom-color: #2563EB; }
-  .nav-item svg { width: 28px; height: 28px; }
-"""
+  .nav-item { color: #6B7280; font-size: 11.5px; font-weight: 500; text-decoration: none; border-radius: 14px; margin: 8px 3px; transition: background 0.15s ease, color 0.15s ease; }
+  .nav-item:hover { background: #F8FAFC; }
+  .nav-item.active { color: #2563EB; font-weight: 700; background: #EFF6FF; }
+  .nav-item svg { width: 24px; height: 24px; }
+""" + _NAV_POSITION_CSS
 
 _ONBOARDING_HEAD_ASSETS = """
+    <script>
+      (function () {
+        try {
+          var q = new URLSearchParams(location.search).get('nav');
+          if (q === 'top' || q === 'bottom') { localStorage.setItem('wilNavPos', q); }
+          document.documentElement.dataset.nav = localStorage.getItem('wilNavPos') === 'top' ? 'top' : 'bottom';
+        } catch (e) { document.documentElement.dataset.nav = 'bottom'; }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1517,14 +1539,14 @@ def _app_topbar_html(tt, active: str = "home") -> str:
         "profile": tt("app_tab_profile"),
     }
     items = "".join(
-        f'''<a href="/app#{key}" class="nav-item{" active" if key == active else ""} flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
+        f'''<a href="/app#{key}" class="nav-item{" active" if key == active else ""} flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{_TOPBAR_ICONS[key]}</svg>
           <span>{labels[key]}</span></a>'''
         for key in ("home", "library", "discover", "profile")
     )
     return (
-        '<nav id="app-topbar" class="hidden sticky top-0 z-40 bg-white border-b border-slate-200">'
-        f'<div class="max-w-md mx-auto flex">{items}</div></nav>'
+        '<nav id="app-topbar" class="hidden">'
+        f'<div class="max-w-md mx-auto flex px-2">{items}</div></nav>'
     )
 
 
@@ -1909,8 +1931,9 @@ def _onboarding_js_core(
             document.getElementById('progress-fill').style.width = progressPct + '%';
             const topbar = document.getElementById('app-topbar');
             if (topbar) {{ topbar.classList.toggle('hidden', !inTool); }}
+            document.body.classList.toggle('nav-visible', inTool && !!topbar);
             const muteBtn = document.getElementById('mute-toggle-btn');
-            if (muteBtn) {{ muteBtn.style.top = inTool && topbar ? '84px' : '16px'; }}
+            if (muteBtn) {{ muteBtn.style.top = (inTool && topbar && document.documentElement.dataset.nav === 'top') ? '84px' : '16px'; }}
             window.scrollTo(0, 0);
           }}
 
@@ -2931,17 +2954,19 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     .chip { display: inline-block; padding: 6px 12px; border-radius: 999px; background: #EFF6FF; color: #1D4ED8; font-size: 12px; font-weight: 600; margin: 0 6px 6px 0; }
     .niche-pill { padding: 8px 14px; border-radius: 999px; border: 2px solid #E2E8F0; background: #fff; font-size: 13px; font-weight: 600; color: #334155; white-space: nowrap; cursor: pointer; }
     .niche-pill.active { background: #2563EB; border-color: #2563EB; color: #fff; }
-    .nav-item { color: #6B7280; font-size: 12px; font-weight: 500; border-bottom: 3px solid transparent; }
-    .nav-item.active { color: #2563EB; font-weight: 700; border-bottom-color: #2563EB; }
-    .nav-item svg { width: 28px; height: 28px; }
+    .nav-item { color: #6B7280; font-size: 11.5px; font-weight: 500; border-radius: 14px; margin: 8px 3px; transition: background 0.15s ease, color 0.15s ease; }
+    .nav-item:hover { background: #F8FAFC; }
+    .nav-item.active { color: #2563EB; font-weight: 700; background: #EFF6FF; }
+    .nav-item svg { width: 24px; height: 24px; }
+    __NAV_CSS__
     .app-tab { animation: tabIn 0.25s ease; }
     @keyframes tabIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     .row { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #F1F5F9; font-size: 14px; }
     .row:last-child { border-bottom: none; }
   </style>
 </head>
-<body class="text-slate-900">
-  <div class="max-w-md mx-auto px-5" style="padding-top: 96px; padding-bottom: 40px;">
+<body class="text-slate-900 nav-visible">
+  <div class="max-w-md mx-auto px-5 pt-6 pb-10">
 
     <!-- ACCUEIL -->
     <section id="tab-home" class="app-tab">
@@ -2997,21 +3022,21 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
 
   </div>
 
-  <nav class="fixed top-0 inset-x-0 z-40 bg-white border-b border-slate-200" style="padding-top: env(safe-area-inset-top);">
-    <div class="max-w-md mx-auto flex">
-      <button type="button" data-tab="home" onclick="showTab('home')" class="nav-item flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
+  <nav id="app-topbar">
+    <div class="max-w-md mx-auto flex px-2">
+      <button type="button" data-tab="home" onclick="showTab('home')" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5L12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5h4v5"/></svg>
         <span>__T_app_tab_home__</span>
       </button>
-      <button type="button" data-tab="library" onclick="showTab('library')" class="nav-item flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
+      <button type="button" data-tab="library" onclick="showTab('library')" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/></svg>
         <span>__T_app_tab_library__</span>
       </button>
-      <button type="button" data-tab="discover" onclick="showTab('discover')" class="nav-item flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
+      <button type="button" data-tab="discover" onclick="showTab('discover')" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2 5.2-5.2 2 2-5.2z"/></svg>
         <span>__T_app_tab_discover__</span>
       </button>
-      <button type="button" data-tab="profile" onclick="showTab('profile')" class="nav-item flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
+      <button type="button" data-tab="profile" onclick="showTab('profile')" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4 3.4-6 7.5-6s7.5 2 7.5 6"/></svg>
         <span>__T_app_tab_profile__</span>
       </button>
@@ -3206,6 +3231,7 @@ def app_shell_page(request: Request):
 
     html = (
         _APP_SHELL_HTML.replace("__HEAD_ASSETS__", _ONBOARDING_HEAD_ASSETS)
+        .replace("__NAV_CSS__", _NAV_POSITION_CSS)
         .replace("__I18N__", _js_json(i18n))
         .replace("__LANG_JS__", _js_json(lang))
         .replace("__LANG__", lang)
