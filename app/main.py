@@ -3301,7 +3301,8 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       terms: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
       privacy: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 11v5M12 8h.01"/>',
       redo: '<path d="M4 12a8 8 0 1 1 3 6.2M4 19v-5h5"/>',
-      restore: '<path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/>'
+      restore: '<path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/>',
+      unlink: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1M4 4l16 16"/>'
     };
 
     function currentTheme() { try { return localStorage.getItem('wilTheme') || 'light'; } catch (e) { return 'light'; } }
@@ -3381,6 +3382,27 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         '<button type="button" id="restore-close" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm">' + esc(I18N.setDismiss) + '</button>');
       document.getElementById('restore-close').addEventListener('click', closeSheet);
     }
+    function openDisconnectSheet() {
+      openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setDisconnect) + '</p>' +
+        '<p class="text-sm text-slate-500 leading-relaxed mb-4">' + esc(I18N.setDisconnectDesc) + '</p>' +
+        '<p id="disconnect-error" class="text-sm text-red-600 mb-3 hidden">' + esc(I18N.setActionError) + '</p>' +
+        '<button type="button" id="disconnect-confirm" class="block w-full py-3.5 rounded-xl bg-slate-900 text-white font-bold text-sm mb-3">' + esc(I18N.setDisconnectConfirm) + '</button>' +
+        '<button type="button" id="disconnect-cancel" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm">' + esc(I18N.setCancel) + '</button>');
+      document.getElementById('disconnect-cancel').addEventListener('click', closeSheet);
+      document.getElementById('disconnect-confirm').addEventListener('click', disconnectTikTok);
+    }
+    function disconnectTikTok() {
+      const sid = (function () { try { return localStorage.getItem('wilSession'); } catch (e) { return null; } })();
+      const done = function () {
+        ['wilTikTok', 'wilSession'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+        closeSheet();
+        renderProfile();
+      };
+      if (!sid) { done(); return; }
+      fetch('/api/disconnect-tiktok', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({session_id: sid})})
+        .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); done(); })
+        .catch(function () { document.getElementById('disconnect-error').classList.remove('hidden'); });
+    }
     function openCloseAccountSheet() {
       openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setCloseTitle) + '</p>' +
         '<p class="text-sm text-slate-500 leading-relaxed mb-4">' + esc(I18N.setCloseDesc) + '</p>' +
@@ -3423,6 +3445,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         setRowHtml('share', I18N.setShare, '', 'data-set="share"', 'button') +
         setRowHtml('restore', I18N.setRestore, '', 'data-set="restore"', 'button') +
         setRowHtml('subscription', I18N.setManageSub, '', 'data-set="subscription"', 'button') +
+        (tiktok ? setRowHtml('unlink', I18N.setDisconnect, '', 'data-set="disconnect"', 'button') : '') +
         setRowHtml('close', I18N.setCloseAccount, '', 'data-set="close"', 'button') +
         setRowHtml('contact', I18N.setContact, '', 'href="' + esc(CFG.whatsapp) + '" target="_blank" rel="noopener"', 'a') +
         setRowHtml('terms', I18N.setTerms, '', 'href="/terms?from=app"', 'a') +
@@ -3442,6 +3465,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       else if (action === 'share') shareApp();
       else if (action === 'restore') openRestoreSheet();
       else if (action === 'subscription') openSubscriptionSheet();
+      else if (action === 'disconnect') openDisconnectSheet();
       else if (action === 'close') openCloseAccountSheet();
     });
 
@@ -3709,6 +3733,10 @@ def app_shell_page(request: Request):
         "setCloseConfirm": tt("set_close_confirm"),
         "setCloseError": tt("set_close_error"),
         "setCancel": tt("set_cancel"),
+        "setDisconnect": tt("set_disconnect"),
+        "setDisconnectDesc": tt("set_disconnect_desc"),
+        "setDisconnectConfirm": tt("set_disconnect_confirm"),
+        "setActionError": tt("set_action_error"),
         "setDismiss": tt("set_dismiss"),
         "setContact": tt("set_contact"),
         "setTerms": tt("set_terms"),
@@ -4945,6 +4973,51 @@ def _delete_user_data(open_id: str) -> None:
         _sessions.pop(sid, None)
 
 
+async def _revoke_tiktok_token(access_token: str) -> None:
+    """Révoque le jeton TikTok (au mieux : un échec n'empêche jamais la suite)."""
+    if not (TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET):
+        return
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            await client.post(
+                "https://open.tiktokapis.com/v2/oauth/revoke/",
+                data={
+                    "client_key": TIKTOK_CLIENT_KEY,
+                    "client_secret": TIKTOK_CLIENT_SECRET,
+                    "token": access_token,
+                },
+            )
+    except httpx.HTTPError as exc:
+        print(f"[tiktok-revoke] révocation impossible : {exc!r}")
+
+
+def _delete_sessions(open_id: str) -> None:
+    supabase = get_supabase()
+    if supabase:
+        supabase.table("sessions").delete().eq("open_id", open_id).execute()
+    for sid in [k for k, v in _sessions.items() if v.get("open_id") == open_id]:
+        _sessions.pop(sid, None)
+
+
+@app.post("/api/disconnect-tiktok", response_class=JSONResponse)
+async def disconnect_tiktok(body: CloseAccountRequest):
+    """
+    Paramètres > Déconnecter TikTok : révoque le jeton et supprime les
+    sessions du compte, mais CONSERVE l'historique d'analyse (contrairement à
+    /api/close-account). Session inconnue = déjà déconnecté = succès.
+    """
+    session = await asyncio.to_thread(_get_session, body.session_id)
+    if not session:
+        return JSONResponse(content={"ok": True, "disconnected": False})
+    await _revoke_tiktok_token(session["access_token"])
+    try:
+        await asyncio.to_thread(_delete_sessions, session["open_id"])
+    except Exception as exc:
+        print(f"[disconnect-tiktok] suppression impossible : {exc!r}")
+        raise HTTPException(status_code=503, detail="Déconnexion impossible pour le moment.")
+    return JSONResponse(content={"ok": True, "disconnected": True})
+
+
 @app.post("/api/close-account", response_class=JSONResponse)
 async def close_account(body: CloseAccountRequest):
     """
@@ -4958,19 +5031,7 @@ async def close_account(body: CloseAccountRequest):
     if not session:
         return JSONResponse(content={"ok": True, "deleted": False})
 
-    if TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET:
-        try:
-            async with httpx.AsyncClient(timeout=15) as client:
-                await client.post(
-                    "https://open.tiktokapis.com/v2/oauth/revoke/",
-                    data={
-                        "client_key": TIKTOK_CLIENT_KEY,
-                        "client_secret": TIKTOK_CLIENT_SECRET,
-                        "token": session["access_token"],
-                    },
-                )
-        except httpx.HTTPError as exc:
-            print(f"[close-account] révocation TikTok impossible : {exc!r}")
+    await _revoke_tiktok_token(session["access_token"])
 
     try:
         await asyncio.to_thread(_delete_user_data, session["open_id"])
