@@ -2941,6 +2941,12 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     .chip { display: inline-block; padding: 6px 12px; border-radius: 999px; background: #EFF6FF; color: #1D4ED8; font-size: 12px; font-weight: 600; margin: 0 6px 6px 0; }
     .niche-pill { padding: 8px 14px; border-radius: 999px; border: 2px solid #E2E8F0; background: #fff; font-size: 13px; font-weight: 600; color: #334155; white-space: nowrap; cursor: pointer; }
     .niche-pill.active { background: #2563EB; border-color: #2563EB; color: #fff; }
+    .hscroll { scrollbar-width: none; -ms-overflow-style: none; }
+    .hscroll::-webkit-scrollbar { display: none; }
+    .lib-cat { padding: 10px 0 12px; font-size: 16px; font-weight: 700; color: #94A3B8; white-space: nowrap; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+    .lib-cat.active { color: #0F172A; border-bottom-color: #2563EB; }
+    .lib-action { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #64748B; }
+    .lib-action.on { color: #2563EB; }
     .nav-item { color: #6B7280; font-size: 11.5px; font-weight: 500; border-radius: 14px; margin: 8px 3px; transition: background 0.15s ease, color 0.15s ease; }
     .nav-item:hover { background: #F8FAFC; }
     .nav-item.active { color: #2563EB; font-weight: 700; background: #EFF6FF; }
@@ -2982,22 +2988,27 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
 
       <div class="flex items-center justify-between mt-8 mb-3">
         <h2 class="text-xl font-extrabold">__T_app_history_title__</h2>
-        <button type="button" onclick="showTab('library')" class="text-sm font-semibold text-blue-600">__T_app_see_all__ ›</button>
+        <button type="button" onclick="openHistory()" class="text-sm font-semibold text-blue-600">__T_app_see_all__ ›</button>
       </div>
       <div id="home-history"></div>
     </section>
 
     <!-- BIBLIOTHÈQUE -->
     <section id="tab-library" class="app-tab hidden">
-      <h1 class="text-2xl font-extrabold mb-5">__T_app_tab_library__</h1>
-      <div id="library-list"></div>
+      <h1 class="text-2xl font-extrabold text-center mb-5">__T_app_tab_library__</h1>
+      <div id="lib-cats" class="hscroll flex gap-6 overflow-x-auto border-b border-slate-200 mb-4"></div>
+      <div id="lib-niches" class="hscroll flex gap-2 overflow-x-auto pb-3"></div>
+      <div id="lib-banner" class="flex items-start gap-3 rounded-2xl bg-sky-50 text-sky-800 text-sm font-medium leading-snug p-4 my-3">
+        <span>🔥</span><span>__T_lib_banner__</span>
+      </div>
+      <div id="lib-content"></div>
     </section>
 
     <!-- DÉCOUVRIR -->
     <section id="tab-discover" class="app-tab hidden">
       <h1 class="text-2xl font-extrabold">__T_app_tab_discover__</h1>
       <p class="text-sm text-slate-500 mt-1 mb-4">__T_app_discover_subtitle__</p>
-      <div id="discover-niches" class="flex gap-2 overflow-x-auto pb-3 mb-2"></div>
+      <div id="discover-niches" class="hscroll flex gap-2 overflow-x-auto pb-3 mb-2"></div>
       <div id="discover-content"></div>
     </section>
 
@@ -3068,12 +3079,6 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         ? history.slice(0, 3).map(historyItemHtml).join('')
         : '<p class="text-sm text-slate-500">' + esc(I18N.historyEmpty) + '</p>';
 
-      const library = document.getElementById('library-list');
-      library.innerHTML = history.length
-        ? history.map(historyItemHtml).join('')
-        : '<div class="text-center py-16"><div class="w-20 h-20 mx-auto rounded-full bg-blue-50 flex items-center justify-center text-3xl mb-5">🗂️</div>' +
-          '<p class="font-extrabold text-lg mb-2">' + esc(I18N.libraryEmptyTitle) + '</p>' +
-          '<p class="text-sm text-slate-500 leading-relaxed px-6">' + esc(I18N.libraryEmptyDesc) + '</p></div>';
     }
 
     let discoverNiche = niches[0] || '';
@@ -3146,6 +3151,164 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         '<a href="/onboarding" class="tool-card mt-6"><div class="tool-icon">🔄</div><div class="flex-1 font-bold">' + esc(I18N.profileRedo) + '</div><span class="text-slate-400">›</span></a>';
     }
 
+    // ---------- BIBLIOTHÈQUE ----------
+    const LIB_CATS = [
+      {id: 'hooks', label: I18N.libCatHooks, key: 'hooks'},
+      {id: 'ideas', label: I18N.libCatIdeas, key: 'video_ideas'},
+      {id: 'hashtags', label: I18N.libCatHashtags, key: 'hashtags'},
+      {id: 'saved', label: I18N.libCatSaved},
+      {id: 'history', label: I18N.libCatHistory}
+    ];
+    let libCat = 'hooks';
+    let libNiche = 'mine';
+    let libItems = [];
+    const libData = {};
+
+    function readSaved() { return readJson('wilSaved', []); }
+    function writeSaved(list) { try { localStorage.setItem('wilSaved', JSON.stringify(list)); } catch (e) {} }
+    function itemId(cat, niche, text) { return cat + '|' + niche + '|' + text; }
+    function itemDisplay(item) { return item.category === 'hashtags' ? '#' + item.text : item.text; }
+
+    function setLibCat(id) {
+      libCat = id;
+      // 'mine' n'a de sens que pour les rubriques web ; Enregistrés/Historique utilisent 'all'.
+      if (id === 'saved' || id === 'history') { if (libNiche === 'mine') libNiche = 'all'; }
+      else if (libNiche === 'all') { libNiche = 'mine'; }
+      renderLibrary();
+    }
+    function openHistory() { libCat = 'history'; showTab('library'); }
+
+    function renderLibCats() {
+      document.getElementById('lib-cats').innerHTML = LIB_CATS.map(function (c) {
+        return '<button type="button" class="lib-cat' + (c.id === libCat ? ' active' : '') + '" data-cat="' + c.id + '">' + esc(c.label) + '</button>';
+      }).join('');
+      document.querySelectorAll('#lib-cats .lib-cat').forEach(function (b) {
+        b.addEventListener('click', function () { setLibCat(b.dataset.cat); });
+      });
+    }
+
+    function renderLibNiches() {
+      const wrap = document.getElementById('lib-niches');
+      if (libCat === 'history') { wrap.innerHTML = ''; return; }
+      const first = (libCat === 'saved') ? {id: 'all', label: I18N.libPillAll} : {id: 'mine', label: I18N.libPillMine};
+      const pills = [first].concat(I18N.niches.map(function (n) { return {id: n, label: n}; }));
+      wrap.innerHTML = pills.map(function (p, i) {
+        return '<button type="button" class="niche-pill' + (p.id === libNiche ? ' active' : '') + '" data-i="' + i + '">' + esc(p.label) + '</button>';
+      }).join('');
+      wrap.querySelectorAll('.niche-pill').forEach(function (b) {
+        b.addEventListener('click', function () { libNiche = pills[Number(b.dataset.i)].id; renderLibrary(); });
+      });
+      const active = wrap.querySelector('.niche-pill.active');
+      if (active) { wrap.scrollLeft = Math.max(0, active.offsetLeft - 20); }
+    }
+
+    function fetchLibrary(niche) {
+      if (libData[niche]) return Promise.resolve(libData[niche]);
+      return fetch('/api/library?niche_category=' + encodeURIComponent(niche) + '&lang=' + encodeURIComponent(LANG))
+        .then(function (r) { return r.json().then(function (data) { return {ok: r.ok, status: r.status, data: data}; }); })
+        .then(function (res) {
+          if (!res.ok) throw new Error((res.data && res.data.detail) || (I18N.errorPrefix + ' ' + res.status));
+          libData[niche] = res.data;
+          return res.data;
+        });
+    }
+
+    function libCardHtml(item, index) {
+      const saved = readSaved().some(function (s) { return s.id === item.id; });
+      return '<div class="idea-card" data-card="' + index + '"><div class="flex items-center justify-between mb-3">' +
+        '<span class="badge badge-trend">🔥 ' + esc(I18N.libBadge) + '</span>' +
+        '<span class="badge badge-niche">' + esc(item.niche) + '</span></div>' +
+        '<p class="font-bold text-lg leading-snug">' + esc(itemDisplay(item)) + '</p>' +
+        '<div class="flex justify-end gap-5 mt-4">' +
+        '<button type="button" class="lib-action" data-act="copy" data-i="' + index + '">⧉ <span>' + esc(I18N.libCopy) + '</span></button>' +
+        '<button type="button" class="lib-action' + (saved ? ' on' : '') + '" data-act="save" data-i="' + index + '">🔖 <span>' + esc(saved ? I18N.libSaved : I18N.libSave) + '</span></button>' +
+        '</div></div>';
+    }
+
+    function showLibItems(items, emptyHtml) {
+      libItems = items;
+      document.getElementById('lib-content').innerHTML = items.length ? items.map(libCardHtml).join('') : emptyHtml;
+    }
+
+    function emptyState(icon, title, desc) {
+      return '<div class="text-center py-14"><div class="w-20 h-20 mx-auto rounded-full bg-blue-50 flex items-center justify-center text-3xl mb-5">' + icon + '</div>' +
+        '<p class="font-extrabold text-lg mb-2">' + esc(title) + '</p>' +
+        (desc ? '<p class="text-sm text-slate-500 leading-relaxed px-6">' + esc(desc) + '</p>' : '') + '</div>';
+    }
+
+    let libRenderToken = 0;
+    function renderLibrary() {
+      renderLibCats();
+      renderLibNiches();
+      const content = document.getElementById('lib-content');
+      document.getElementById('lib-banner').classList.toggle('hidden', libCat === 'saved' || libCat === 'history');
+
+      if (libCat === 'history') {
+        const history = readJson('wilHistory', []);
+        libItems = [];
+        content.innerHTML = history.length
+          ? history.map(historyItemHtml).join('')
+          : emptyState('🗂️', I18N.libraryEmptyTitle, I18N.libraryEmptyDesc);
+        return;
+      }
+
+      if (libCat === 'saved') {
+        const saved = readSaved().filter(function (s) { return libNiche === 'all' || s.niche === libNiche; });
+        showLibItems(saved, emptyState('🔖', I18N.libSavedEmptyTitle, I18N.libSavedEmptyDesc));
+        return;
+      }
+
+      const cat = LIB_CATS.filter(function (c) { return c.id === libCat; })[0];
+      const targets = libNiche === 'mine' ? niches : [libNiche];
+      if (targets.length === 0) { content.innerHTML = '<p class="text-sm text-slate-500">' + esc(I18N.discoverNoNiche) + '</p>'; return; }
+
+      const token = ++libRenderToken;
+      content.innerHTML = '<p class="text-sm text-slate-500 py-4">⏳ ' + esc(I18N.searching) + '</p>';
+      Promise.all(targets.map(function (n) {
+        return fetchLibrary(n).then(function (data) { return {niche: n, data: data}; });
+      })).then(function (results) {
+        if (token !== libRenderToken) return;
+        const items = [];
+        results.forEach(function (r) {
+          (r.data[cat.key] || []).forEach(function (text) {
+            items.push({id: itemId(cat.id, r.niche, text), category: cat.id, niche: r.niche, text: text});
+          });
+        });
+        showLibItems(items, emptyState('🗂️', I18N.libEmptyCategory, ''));
+      }).catch(function (e) {
+        if (token !== libRenderToken) return;
+        content.innerHTML = '<p class="text-sm text-red-600 mb-3">' + esc(e && e.message ? e.message : e) + '</p>' +
+          '<button type="button" id="lib-retry" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold">' + esc(I18N.libRetry) + '</button>';
+        document.getElementById('lib-retry').addEventListener('click', renderLibrary);
+      });
+    }
+
+    document.getElementById('lib-content').addEventListener('click', function (event) {
+      const btn = event.target.closest('button[data-act]');
+      if (!btn) return;
+      const item = libItems[Number(btn.dataset.i)];
+      if (!item) return;
+      if (btn.dataset.act === 'copy') {
+        if (navigator.clipboard) { navigator.clipboard.writeText(itemDisplay(item)).catch(function () {}); }
+        const label = btn.querySelector('span');
+        label.textContent = I18N.libCopied;
+        setTimeout(function () { label.textContent = I18N.libCopy; }, 1500);
+        return;
+      }
+      let saved = readSaved();
+      if (saved.some(function (s) { return s.id === item.id; })) {
+        saved = saved.filter(function (s) { return s.id !== item.id; });
+      } else {
+        saved.unshift({id: item.id, category: item.category, niche: item.niche, text: item.text});
+      }
+      writeSaved(saved);
+      // Retirer une carte depuis Enregistrés la fait disparaître ; ailleurs on met à jour son bouton.
+      if (libCat === 'saved') { renderLibrary(); return; }
+      const isSaved = saved.some(function (s) { return s.id === item.id; });
+      btn.classList.toggle('on', isSaved);
+      btn.querySelector('span').textContent = isSaved ? I18N.libSaved : I18N.libSave;
+    });
+
     let discoverLoaded = false;
     function showTab(name) {
       if (TABS.indexOf(name) === -1) name = 'home';
@@ -3154,6 +3317,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       });
       document.querySelectorAll('.nav-item').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
       if (name === 'discover' && !discoverLoaded) { discoverLoaded = true; renderDiscoverNiches(); loadDiscover(); }
+      if (name === 'library') { renderLibrary(); }
       try { history.replaceState(null, '', '#' + name); } catch (e) {}
       window.scrollTo(0, 0);
     }
@@ -3202,6 +3366,23 @@ def app_shell_page(request: Request):
         "profileGoal": tt("app_profile_goal"),
         "profileChallenge": tt("app_profile_challenge"),
         "profileRedo": tt("app_profile_redo"),
+        "niches": NICHE_CATEGORIES,
+        "libCatHooks": tt("lib_cat_hooks"),
+        "libCatIdeas": tt("lib_cat_ideas"),
+        "libCatHashtags": tt("lib_cat_hashtags"),
+        "libCatSaved": tt("lib_cat_saved"),
+        "libCatHistory": tt("lib_cat_history"),
+        "libPillMine": tt("lib_pill_mine"),
+        "libPillAll": tt("lib_pill_all"),
+        "libBadge": tt("lib_badge"),
+        "libCopy": tt("lib_copy"),
+        "libCopied": tt("lib_copied"),
+        "libSave": tt("lib_save"),
+        "libSaved": tt("lib_saved"),
+        "libSavedEmptyTitle": tt("lib_saved_empty_title"),
+        "libSavedEmptyDesc": tt("lib_saved_empty_desc"),
+        "libRetry": tt("lib_retry"),
+        "libEmptyCategory": tt("lib_empty_category"),
         "goals": {
             "views": tt("onboarding_goal_views"),
             "engagement": tt("onboarding_goal_engagement"),
@@ -3228,6 +3409,7 @@ def app_shell_page(request: Request):
         "app_tool_script_title", "app_tool_script_desc", "app_tool_account_title",
         "app_tool_account_desc", "app_history_title", "app_see_all", "app_tab_home",
         "app_tab_library", "app_tab_discover", "app_tab_profile", "app_discover_subtitle",
+        "lib_banner",
     ):
         html = html.replace(f"__T_{key}__", tt(key))
     return html
@@ -4032,6 +4214,186 @@ async def trending_ideas(niche_category: str, lang: str = "fr"):
     if niche_category not in NICHE_CATEGORIES:
         niche_category = "Autre"
     result = await _get_trending_content_ideas(niche_category, lang)
+    if not result:
+        raise HTTPException(
+            status_code=502,
+            detail="Impossible de récupérer les tendances pour le moment. Réessaie plus tard.",
+        )
+    return JSONResponse(content=result)
+
+
+_library_memory_cache: dict[str, dict] = {}
+_library_locks: dict[str, asyncio.Lock] = {}
+LIBRARY_MAX_ITEMS = 12
+
+
+def _current_week_key() -> str:
+    iso = datetime.now(timezone.utc).isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
+
+
+def _library_cache_get(cache_key: str) -> dict | None:
+    supabase = get_supabase()
+    if supabase:
+        res = (
+            supabase.table("trending_cache")
+            .select("data")
+            .eq("cache_key", cache_key)
+            .eq("cache_type", "ideas")
+            .limit(1)
+            .execute()
+        )
+        return res.data[0]["data"] if res.data else None
+    return _library_memory_cache.get(cache_key)
+
+
+def _library_cache_set(cache_key: str, data: dict) -> None:
+    supabase = get_supabase()
+    if supabase:
+        # Même table que les autres caches de tendances (cache_type "ideas") ; la
+        # clé contient la semaine ISO, donc le contenu est renouvelé chaque semaine.
+        supabase.table("trending_cache").upsert({
+            "cache_key": cache_key,
+            "cache_type": "ideas",
+            "data": data,
+            "cached_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    else:
+        _library_memory_cache[cache_key] = data
+
+
+def _clean_library_list(values, *, strip_hash: bool = False) -> list[str]:
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for value in values or []:
+        if not isinstance(value, str):
+            continue
+        text = value.strip()
+        if strip_hash:
+            text = text.lstrip("#").strip()
+        key = text.lower()
+        if text and key not in seen:
+            seen.add(key)
+            cleaned.append(text[:300])
+    return cleaned[:LIBRARY_MAX_ITEMS]
+
+
+async def _fetch_library_from_web(niche_category: str, lang: str, week: str) -> dict | None:
+    """
+    Une recherche web Claude par (niche, langue, semaine) qui alimente les 3
+    rubriques de la Bibliothèque (hooks, idées de vidéos, hashtags). Seules
+    des tendances trouvées sur le web sont renvoyées, jamais de statistique.
+    """
+    if not ANTHROPIC_API_KEY:
+        return None
+
+    lang_instruction = (
+        "RÉDIGÉ EN FRANÇAIS" if lang == "fr"
+        else f'rédigé dans la langue de code ISO 639-1 "{lang}"'
+    )
+    prompt = f"""Cherche sur le web les tendances TikTok actuelles pour la catégorie
+de niche suivante : "{niche_category}" (public dont la langue a le code ISO
+639-1 "{lang}"). Tu alimentes une bibliothèque mise à jour chaque semaine.
+
+Réponds UNIQUEMENT avec un objet JSON (pas de markdown, pas de balises de
+code), {lang_instruction}, avec exactement ces champs :
+{{
+  "hooks": ["8 phrases d'ouverture (hooks) concrètes, prêtes à adapter, d'UNE phrase chacune, qui fonctionnent bien en ce moment dans cette niche"],
+  "video_ideas": ["8 idées de vidéos concrètes et actuelles pour cette niche, d'une phrase chacune"],
+  "hashtags": ["10 hashtags réellement tendance pour cette niche, sans le symbole #"]
+}}
+
+RÈGLES : appuie-toi sur ce que tes recherches montrent vraiment ; si tu
+manques de sources fiables, donne MOINS d'éléments plutôt que d'en
+inventer. Ne donne aucune statistique chiffrée."""
+
+    try:
+        async with httpx.AsyncClient(timeout=90) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-sonnet-5",
+                    "max_tokens": 2500,
+                    "output_config": {"effort": "low"},
+                    "tools": [
+                        {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+                    ],
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+        if response.status_code != 200:
+            return None
+
+        raw_text = _extract_text_block(response.json())
+        cleaned = raw_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.strip("`")
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+            cleaned = cleaned.strip()
+        parsed = json.loads(cleaned)
+
+        hooks = _clean_library_list(parsed.get("hooks"))
+        ideas = _clean_library_list(parsed.get("video_ideas"))
+        hashtags = _clean_library_list(parsed.get("hashtags"), strip_hash=True)
+        if not (hooks or ideas or hashtags):
+            return None
+        return {
+            "week": week,
+            "niche_category": niche_category,
+            "lang": lang,
+            "hooks": hooks,
+            "video_ideas": ideas,
+            "hashtags": hashtags,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception:
+        return None
+
+
+async def _get_library(niche_category: str, lang: str) -> dict | None:
+    """
+    Contenu de la Bibliothèque pour une niche : lu depuis le cache de la
+    semaine en cours, sinon généré UNE fois (recherche web) puis partagé par
+    tous les utilisateurs jusqu'à la semaine suivante. Un verrou par clé évite
+    de lancer plusieurs recherches identiques en parallèle.
+    """
+    week = _current_week_key()
+    cache_key = f"library:{week}:{_niche_cache_key(niche_category, lang)}"
+    cached = await asyncio.to_thread(_library_cache_get, cache_key)
+    if cached:
+        return cached
+
+    lock = _library_locks.setdefault(cache_key, asyncio.Lock())
+    async with lock:
+        cached = await asyncio.to_thread(_library_cache_get, cache_key)
+        if cached:
+            return cached
+        data = await _fetch_library_from_web(niche_category, lang, week)
+        if data:
+            await asyncio.to_thread(_library_cache_set, cache_key, data)
+        return data
+
+
+@app.get("/api/library", response_class=JSONResponse)
+async def library(niche_category: str, lang: str = DEFAULT_LANG):
+    """
+    Bibliothèque (onglet "Bibliothèque" de /app) : hooks, idées de vidéos et
+    hashtags tendance d'une niche, renouvelés chaque semaine à partir de
+    recherches web de Claude. Première version : uniquement le web ; les
+    vidéos des utilisateurs ne servent PAS à l'alimenter (pas de
+    consentement recueilli pour le moment).
+    """
+    if niche_category not in NICHE_CATEGORIES:
+        raise HTTPException(status_code=422, detail="Niche inconnue.")
+    if lang not in SUPPORTED_LANGS:
+        lang = DEFAULT_LANG
+    result = await _get_library(niche_category, lang)
     if not result:
         raise HTTPException(
             status_code=502,
