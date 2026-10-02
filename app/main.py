@@ -1415,16 +1415,12 @@ _TOOL_PAGE_STYLE = """
 """
 
 
-# Position de la barre des 4 onglets (Accueil, Bibliothèque, Découvrir, Profil),
-# en haut ou en bas selon <html data-nav="top|bottom"> — posé très tôt par un
-# script dans le <head> (voir _ONBOARDING_HEAD_ASSETS) à partir de ?nav=top|bottom
-# puis mémorisé (localStorage "wilNavPos"), pour comparer les deux rendus.
+# Barre des 4 onglets (Accueil, Bibliothèque, Découvrir, Profil) : EN HAUT sur
+# le web (choix validé après comparaison haut/bas) ; l'app mobile Flutter aura
+# la sienne en bas. Fixée en haut ; body.nav-visible réserve sa hauteur.
 _NAV_POSITION_CSS = """
-  #app-topbar { position: fixed; left: 0; right: 0; z-index: 40; background: #fff; }
-  html[data-nav="top"] #app-topbar { top: 0; padding-top: env(safe-area-inset-top); box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06); }
-  html[data-nav="bottom"] #app-topbar { bottom: 0; padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid #E5E7EB; box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.05); }
-  html[data-nav="top"] body.nav-visible { padding-top: 76px; }
-  html[data-nav="bottom"] body.nav-visible { padding-bottom: 84px; }
+  #app-topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 40; background: #fff; padding-top: env(safe-area-inset-top); box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06); }
+  body.nav-visible { padding-top: 76px; }
 """
 
 # Onboarding partagé entre "Analyser la vidéo" et "Analyser le script" :
@@ -1494,15 +1490,6 @@ _ONBOARDING_STYLE = """
 """ + _NAV_POSITION_CSS
 
 _ONBOARDING_HEAD_ASSETS = """
-    <script>
-      (function () {
-        try {
-          var q = new URLSearchParams(location.search).get('nav');
-          if (q === 'top' || q === 'bottom') { localStorage.setItem('wilNavPos', q); }
-          document.documentElement.dataset.nav = localStorage.getItem('wilNavPos') === 'top' ? 'top' : 'bottom';
-        } catch (e) { document.documentElement.dataset.nav = 'bottom'; }
-      })();
-    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1933,7 +1920,7 @@ def _onboarding_js_core(
             if (topbar) {{ topbar.classList.toggle('hidden', !inTool); }}
             document.body.classList.toggle('nav-visible', inTool && !!topbar);
             const muteBtn = document.getElementById('mute-toggle-btn');
-            if (muteBtn) {{ muteBtn.style.top = (inTool && topbar && document.documentElement.dataset.nav === 'top') ? '84px' : '16px'; }}
+            if (muteBtn) {{ muteBtn.style.top = (inTool && topbar) ? '84px' : '16px'; }}
             window.scrollTo(0, 0);
           }}
 
