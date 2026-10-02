@@ -29,7 +29,7 @@ from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from langdetect import LangDetectException, detect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import (
@@ -3378,7 +3378,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setRestore) + '</p>' +
         '<p class="text-sm text-slate-500 leading-relaxed mb-5">' + esc(I18N.setRestoreDesc) + '</p>' +
         (hasStore ? '<a href="' + esc(store) + '" target="_blank" rel="noopener" class="block w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm text-center mb-3">' + esc(I18N.setGetApp) + '</a>' : '') +
-        '<button type="button" id="restore-close" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm">' + esc(I18N.setCancel) + '</button>');
+        '<button type="button" id="restore-close" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm">' + esc(I18N.setDismiss) + '</button>');
       document.getElementById('restore-close').addEventListener('click', closeSheet);
     }
     function openCloseAccountSheet() {
@@ -3425,8 +3425,8 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         setRowHtml('subscription', I18N.setManageSub, '', 'data-set="subscription"', 'button') +
         setRowHtml('close', I18N.setCloseAccount, '', 'data-set="close"', 'button') +
         setRowHtml('contact', I18N.setContact, '', 'href="' + esc(CFG.whatsapp) + '" target="_blank" rel="noopener"', 'a') +
-        setRowHtml('terms', I18N.setTerms, '', 'href="/terms"', 'a') +
-        setRowHtml('privacy', I18N.setPrivacy, '', 'href="/privacy"', 'a') +
+        setRowHtml('terms', I18N.setTerms, '', 'href="/terms?from=app"', 'a') +
+        setRowHtml('privacy', I18N.setPrivacy, '', 'href="/privacy?from=app"', 'a') +
         setRowHtml('redo', I18N.profileRedo, '', 'href="/onboarding"', 'a');
 
       document.getElementById('profile-content').innerHTML = account + '<div class="mt-5">' + rows + '</div>' +
@@ -3709,6 +3709,7 @@ def app_shell_page(request: Request):
         "setCloseConfirm": tt("set_close_confirm"),
         "setCloseError": tt("set_close_error"),
         "setCancel": tt("set_cancel"),
+        "setDismiss": tt("set_dismiss"),
         "setContact": tt("set_contact"),
         "setTerms": tt("set_terms"),
         "setPrivacy": tt("set_privacy"),
@@ -3775,7 +3776,7 @@ _LEGAL_STYLE = """
 
 
 @app.get("/terms", response_class=HTMLResponse)
-def terms_of_service():
+def terms_of_service(from_app: str = Query("", alias="from")):
     """
     Page des Terms of Service (tout regroupé dans un seul document, y
     compris les futures conditions de vente du plan Pro, plutôt que des
@@ -3798,7 +3799,7 @@ def terms_of_service():
       <style>{_LEGAL_STYLE}</style>
     </head>
     <body>
-    <p><a href="/">← Retour à l'accueil</a></p>
+    <p>{'<a href="/app#profile">← Retour aux paramètres</a>' if from_app == "app" else '<a href="/">← Retour à l\'accueil</a>'}</p>
     <h1>Terms of Service</h1>
     <p><em>Dernière mise à jour : septembre 2026</em></p>
 
@@ -3868,7 +3869,7 @@ def terms_of_service():
 
 
 @app.get("/privacy", response_class=HTMLResponse)
-def privacy_policy():
+def privacy_policy(from_app: str = Query("", alias="from")):
     """Page de Politique de confidentialité, hébergée directement sur ce domaine."""
     return f"""
     <html>
@@ -3879,6 +3880,7 @@ def privacy_policy():
       <style>{_LEGAL_STYLE}</style>
     </head>
     <body>
+    <p>{'<a href="/app#profile">← Back to settings</a>' if from_app == "app" else '<a href="/">← Back to home</a>'}</p>
     <h1>Wil App Privacy Policy</h1>
     <p><em>Last updated: July 2026</em></p>
 
