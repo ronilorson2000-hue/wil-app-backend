@@ -498,20 +498,12 @@ def home(request: Request):
             <p class="text-sm sm:text-lg text-slate-500 mb-10 leading-relaxed">
               {tt("hero_subtitle")}
             </p>
-            <div class="flex flex-col items-center gap-4">
-              <a href="/app?open=account"
-                 class="w-full max-w-sm sm:max-w-[19.2rem] mx-auto flex items-center justify-center gap-2 px-[1.875rem] sm:px-[1.2rem] py-[1.243125rem] sm:py-[1.5912rem] rounded-[0.690625rem] sm:rounded-[0.7956rem] text-white font-bold text-[1.0359375rem] sm:text-[1.1934rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
-                {tt("hero_cta")}
+            <div class="flex flex-col items-center gap-3">
+              <a href="/app"
+                 class="inline-flex w-full max-w-xs sm:w-auto items-center justify-center px-8 py-3 rounded-xl bg-blue-100 text-blue-700 border border-blue-200 text-base font-semibold hover:bg-blue-200 transition">
+                {tt("hero_cta_start")}
               </a>
-              <p class="text-xs text-slate-400 -mt-1">{tt("trust_line")}</p>
-              <a href="/app?open=video"
-                 class="w-full max-w-sm sm:max-w-[19.2rem] mx-auto flex items-center justify-center gap-2 px-[1.875rem] sm:px-[1.2rem] py-[1.243125rem] sm:py-[1.5912rem] rounded-[0.690625rem] sm:rounded-[0.7956rem] text-white font-bold text-[1.0359375rem] sm:text-[1.1934rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
-                🎬 {tt("hero_cta_video")}
-              </a>
-              <a href="/app?open=script"
-                 class="w-full max-w-sm sm:max-w-[19.2rem] mx-auto flex items-center justify-center gap-2 px-[1.875rem] sm:px-[1.2rem] py-[1.243125rem] sm:py-[1.5912rem] rounded-[0.690625rem] sm:rounded-[0.7956rem] text-white font-bold text-[1.0359375rem] sm:text-[1.1934rem] shadow-lg shadow-blue-600/25 bg-gradient-to-br from-blue-600 to-sky-400 hover:opacity-90 transition">
-                📝 {tt("hero_cta_script")}
-              </a>
+              <p class="text-xs text-slate-400">{tt("trust_line")}</p>
             </div>
           </header>
         </div>
