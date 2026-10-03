@@ -500,7 +500,7 @@ def home(request: Request):
             </p>
             <div class="flex flex-col items-center gap-3">
               <a href="/app"
-                 class="inline-flex w-full max-w-xs sm:w-auto items-center justify-center px-8 py-3 rounded-xl bg-blue-100 text-blue-700 border border-blue-200 text-base font-semibold hover:bg-blue-200 transition">
+                 class="inline-flex w-full max-w-xs sm:w-auto items-center justify-center px-8 py-3 rounded-xl bg-blue-600 text-white text-base font-semibold shadow-sm hover:bg-blue-700 transition">
                 {tt("hero_cta_start")}
               </a>
               <p class="text-xs text-slate-400">{tt("trust_line")}</p>
