@@ -2329,6 +2329,24 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                   </div>
                 </div>
               </div>
+              <div id="rewrites-card" class="insight-card hidden">
+                <div class="flex items-start gap-3">
+                  <div class="improve-icon">✍️</div>
+                  <div class="flex-1">
+                    <p class="font-bold text-sm mb-2">{tt("res_rewrites_title")}</p>
+                    <div id="result-rewrites-value" class="space-y-2"></div>
+                  </div>
+                </div>
+              </div>
+              <div id="plan-card" class="insight-card hidden">
+                <div class="flex items-start gap-3">
+                  <div class="improve-icon">🎬</div>
+                  <div class="flex-1">
+                    <p class="font-bold text-sm mb-1">{tt("res_plan_title")}</p>
+                    <ol id="result-plan-value" class="text-sm text-slate-600 list-decimal pl-4 space-y-1"></ol>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div id="tab-stats" class="hidden">
@@ -2339,7 +2357,11 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               </div>
               <div class="insight-card">
                 <p class="font-semibold text-sm mb-3">{tt("results_categories_title")}</p>
-                <div id="stats-categories" class="space-y-3"></div>
+                <div id="stats-categories" class="space-y-4"></div>
+              </div>
+              <div id="timeline-card" class="insight-card hidden">
+                <p class="font-semibold text-sm mb-3">{tt("res_timeline_title")}</p>
+                <div id="stats-timeline" class="space-y-4"></div>
               </div>
               <div id="policy-card" class="insight-card hidden">
                 <p class="font-bold text-sm mb-1">⚠️ {tt("results_policy_title")}</p>
@@ -2387,6 +2409,11 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             above: "{tt("est_band_above")}",
             well_above: "{tt("est_band_well_above")}"
           }};
+          const PHASE_LABELS = {{ opening: "{tt("res_phase_opening")}", middle: "{tt("res_phase_middle")}", ending: "{tt("res_phase_ending")}" }};
+          const VERDICT_LABELS = {{ strong: "{tt("res_verdict_strong")}", ok: "{tt("res_verdict_ok")}", weak: "{tt("res_verdict_weak")}" }};
+          const VERDICT_COLORS = {{ strong: "#16A34A", ok: "#F59E0B", weak: "#DC2626" }};
+          const TIP_LABEL = "{tt("res_tip_label")}";
+          const EXAMPLE_LABEL = "{tt("res_example_label")}";
           const EST_LABELS = {{ views: "{tt("est_views")}", likes: "{tt("est_likes")}", comments: "{tt("est_comments")}" }};
           let selectedFile = null;
           let thumbDataUrl = '';
@@ -2534,8 +2561,35 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               return '<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-medium">' + CAT_LABELS[key] +
                 '</span><span class="text-sm font-extrabold" style="color:' + scoreColor(c.score) + '">' + c.score + '</span></div>' +
                 '<div class="score-track"><div class="score-fill" style="width:' + c.score + '%;background:' + scoreColor(c.score) + '"></div></div>' +
-                '<p class="text-xs text-slate-500 mt-1">' + escapeHtml(c.comment) + '</p></div>';
+                '<p class="text-xs text-slate-500 mt-1">' + escapeHtml(c.comment) + '</p>' +
+                (c.tip ? '<p class="text-xs text-slate-700 mt-1"><b>' + TIP_LABEL + ' :</b> ' + escapeHtml(c.tip) + '</p>' : '') +
+                (c.example ? '<p class="text-xs text-slate-500 italic mt-0.5">' + EXAMPLE_LABEL + ' : ' + escapeHtml(c.example) + '</p>' : '') + '</div>';
             }}).join('');
+
+            const timeline = data.timeline || [];
+            document.getElementById('timeline-card').classList.toggle('hidden', timeline.length === 0);
+            document.getElementById('stats-timeline').innerHTML = timeline.map(function (t) {{
+              const color = VERDICT_COLORS[t.verdict] || '#64748B';
+              return '<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-bold">' + escapeHtml(PHASE_LABELS[t.phase] || t.phase) +
+                (t.moment ? ' <span class="text-xs font-normal text-slate-400">· ' + escapeHtml(t.moment) + '</span>' : '') + '</span>' +
+                '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="color:' + color + ';background:' + color + '1A">' + escapeHtml(VERDICT_LABELS[t.verdict] || '') + '</span></div>' +
+                '<p class="text-sm text-slate-600">' + escapeHtml(t.what_happens) + '</p>' +
+                (t.advice ? '<p class="text-sm text-slate-800 mt-1">→ ' + escapeHtml(t.advice) + '</p>' : '') + '</div>';
+            }}).join('');
+
+            const rewrites = data.hook_rewrites || [];
+            document.getElementById('rewrites-card').classList.toggle('hidden', rewrites.length === 0);
+            document.getElementById('result-rewrites-value').innerHTML = rewrites.map(function (r, i) {{
+              return '<div class="flex items-start justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2"><p class="text-sm text-slate-700" data-rewrite="' + i + '">« ' + escapeHtml(r) + ' »</p>' +
+                '<span class="copy-btn text-xs" data-copy="' + i + '">📋</span></div>';
+            }}).join('');
+            document.querySelectorAll('#result-rewrites-value [data-copy]').forEach(function (el) {{
+              el.addEventListener('click', function () {{ copyText(rewrites[Number(el.dataset.copy)]); }});
+            }});
+
+            const plan = data.shooting_plan || [];
+            document.getElementById('plan-card').classList.toggle('hidden', plan.length === 0);
+            document.getElementById('result-plan-value').innerHTML = plan.map(function (step) {{ return '<li>' + escapeHtml(step) + '</li>'; }}).join('');
 
             const issues = (data.policy_check && data.policy_check.status === 'risk') ? (data.policy_check.issues || []) : [];
             document.getElementById('policy-card').classList.toggle('hidden', issues.length === 0);
@@ -5984,6 +6038,8 @@ ESTIMATED_COMMENT_RATE = (0.001, 0.004)
 
 VIDEO_FEEDBACK_VERDICTS = {"yes", "no", "roughly"}
 VIDEO_CATEGORY_KEYS = ("hook", "visual_engagement", "storytelling", "call_to_action")
+VIDEO_TIMELINE_PHASES = ("opening", "middle", "ending")
+VIDEO_TIMELINE_VERDICTS = ("strong", "ok", "weak")
 
 
 def _gemini_headers() -> dict:
@@ -6043,13 +6099,27 @@ async def _gemini_upload_video(client: httpx.AsyncClient, video_bytes: bytes, mi
 
 
 def _video_analysis_schema(already_published: bool) -> dict:
+    str_list = {"type": "array", "items": {"type": "string"}}
     category = {
         "type": "object",
         "properties": {
             "score": {"type": "integer", "description": "0 à 100"},
-            "comment": {"type": "string", "description": "1 phrase simple qui justifie ce score"},
+            "comment": {"type": "string", "description": "1 à 2 phrases simples qui justifient ce score"},
+            "tip": {"type": "string", "description": "UNE instruction à l'impératif pour améliorer cette catégorie"},
+            "example": {"type": "string", "description": "un exemple concret adapté à cette vidéo : phrase à dire, plan à filmer ou texte à afficher"},
         },
-        "required": ["score", "comment"],
+        "required": ["score", "comment", "tip", "example"],
+    }
+    timeline_item = {
+        "type": "object",
+        "properties": {
+            "phase": {"type": "string", "enum": list(VIDEO_TIMELINE_PHASES)},
+            "moment": {"type": "string", "description": "où cela se situe, de façon approximative"},
+            "what_happens": {"type": "string", "description": "ce qui est vu et entendu à ce moment, en 1-2 phrases"},
+            "verdict": {"type": "string", "enum": list(VIDEO_TIMELINE_VERDICTS)},
+            "advice": {"type": "string", "description": "UNE instruction à l'impératif pour ce passage"},
+        },
+        "required": ["phase", "moment", "what_happens", "verdict", "advice"],
     }
     properties = {
         "virality_score": {"type": "integer", "description": "0 à 100, cohérent avec category_scores"},
@@ -6059,27 +6129,30 @@ def _video_analysis_schema(already_published: bool) -> dict:
             "properties": {key: category for key in VIDEO_CATEGORY_KEYS},
             "required": list(VIDEO_CATEGORY_KEYS),
         },
+        "timeline": {"type": "array", "items": timeline_item},
         "niche": {"type": "string"},
         "hook_excerpt": {"type": "string"},
         "hook_type": {"type": "string"},
-        "strengths": {"type": "array", "items": {"type": "string"}},
-        "weaknesses": {"type": "array", "items": {"type": "string"}},
-        "action_plan": {"type": "array", "items": {"type": "string"}},
-        "suggested_hashtags": {"type": "array", "items": {"type": "string"}},
+        "hook_rewrites": str_list,
+        "strengths": str_list,
+        "weaknesses": str_list,
+        "action_plan": str_list,
+        "shooting_plan": str_list,
+        "suggested_hashtags": str_list,
         "suggested_caption": {"type": "string"},
         "policy_check": {
             "type": "object",
             "properties": {
                 "status": {"type": "string", "enum": ["ok", "risk"]},
-                "issues": {"type": "array", "items": {"type": "string"}},
+                "issues": str_list,
             },
             "required": ["status", "issues"],
         },
     }
     required = [
-        "virality_score", "score_basis", "category_scores", "niche", "hook_excerpt",
-        "hook_type", "strengths", "weaknesses", "action_plan", "suggested_hashtags",
-        "suggested_caption", "policy_check",
+        "virality_score", "score_basis", "category_scores", "timeline", "niche", "hook_excerpt",
+        "hook_type", "hook_rewrites", "strengths", "weaknesses", "action_plan", "shooting_plan",
+        "suggested_hashtags", "suggested_caption", "policy_check",
     ]
     if already_published:
         properties["performance_band"] = {"type": "string", "enum": list(PERFORMANCE_BAND_MULTIPLIERS)}
@@ -6125,15 +6198,23 @@ NOTE GLOBALE : "virality_score" (0-100) résume ces 4 catégories. Elle doit êt
 
 {publication_text}
 
+DÉROULÉ ("timeline") : EXACTEMENT 3 éléments, dans l'ordre : "opening" (les premières secondes), "middle" (le milieu), "ending" (la fin). Pour chacun : "moment" = où cela se situe, de façon APPROXIMATIVE ("tout au début", "vers le milieu", "dans les dernières secondes") ; "what_happens" = ce qui se passe réellement à ce moment (ce qui est vu ET entendu), en 1-2 phrases ; "verdict" = "strong", "ok" ou "weak" ; "advice" = UNE instruction à l'impératif pour ce passage.
+
+CONSEILS PAR CATÉGORIE : pour chaque catégorie de "category_scores", en plus de "score" et "comment", donne "tip" (UNE instruction à l'impératif) et "example" (un exemple concret adapté à CETTE vidéo : une phrase à dire, un plan à filmer ou un texte à afficher).
+
+RÉÉCRITURES DE L'ACCROCHE ("hook_rewrites") : EXACTEMENT 3 phrases d'ouverture différentes, prêtes à dire, qui gardent le VRAI sujet de cette vidéo mais changent l'angle (par exemple : un danger à éviter, quelque chose que le spectateur reconnaît tout de suite, une idée qui surprend). Une phrase chacune.
+
+PLAN DE TOURNAGE ET DE MONTAGE ("shooting_plan") : 3 à 5 étapes concrètes et dans l'ordre pour refaire ou remonter CETTE vidéo avec les corrections. Chaque étape commence par un verbe à l'impératif ("Tournez...", "Coupez...", "Ajoutez...").
+
 Analyse le HOOK réel (les toutes premières secondes : ce qui est dit, écrit à l'écran ou montré) en t'appuyant EN INTERNE sur les "TYPES D'ACCROCHES RÉELLES" du guide de style pour comprendre ce qui se joue — mais dans ta réponse, décris ce que fait ce hook en mots simples (ex : "le spectateur se reconnaît tout de suite dans ce que vous dites"), JAMAIS avec un nom technique de catégorie. Si aucun type ne correspond clairement, dis simplement qu'il n'y a pas vraiment d'accroche identifiable. "hook_excerpt" : ce qui est réellement dit ou écrit dans ces premières secondes, cité tel quel (chaîne vide s'il n'y a ni parole ni texte).
 
 CONFORMITÉ ("policy_check") : vérifie aussi que la vidéo respecte les règles de modération de TikTok, Instagram, YouTube et Facebook (violence, nudité, discours haineux, propos trompeurs, contenu manifestement protégé, produits réglementés...). "status" = "ok" si rien de problématique n'est VISIBLE ou AUDIBLE ; "risk" seulement si tu vois ou entends un vrai problème, décrit en 1-3 phrases simples dans "issues" (sinon liste vide). Jamais un risque supposé.
 
 MOMENTS DANS LA VIDÉO : tu estimes, tu ne mesures pas. Si tu situes un passage, reste approximatif ("vers le début", "autour de la dixième seconde"), jamais une seconde exacte.
 
-RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2 du guide de style) : "strengths" PEUT citer LE chiffre le plus marquant SEULEMENT si une vraie donnée chiffrée est fournie ci-dessus (ex: la moyenne du compte) et qu'elle prouve une réussite — sinon reste en mots simples, n'invente jamais un chiffre. "hook_type", "weaknesses" et "action_plan" restent SANS AUCUN CHIFFRE. VOUVOIEMENT OBLIGATOIRE ("vous", "votre", "vos" — jamais "tu"/"ton"/"tes") et mots simples, niveau CM2 : phrases courtes, une idée par phrase, aucun nom technique de catégorie d'accroche. "weaknesses" et "action_plan" doivent être des INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de style), pas des observations : "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrêtez de..."), "action_plan" = ce qu'il FAUT faire à la place ("Faites...", "Commencez par...").
+RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2 du guide de style) : "strengths" PEUT citer LE chiffre le plus marquant SEULEMENT si une vraie donnée chiffrée est fournie ci-dessus (ex: la moyenne du compte) et qu'elle prouve une réussite — sinon reste en mots simples, n'invente jamais un chiffre. "hook_type", "weaknesses", "action_plan", "shooting_plan", "hook_rewrites" et tous les "tip", "advice" et "example" restent SANS AUCUN CHIFFRE de statistique. VOUVOIEMENT OBLIGATOIRE ("vous", "votre", "vos" — jamais "tu"/"ton"/"tes") et mots simples, niveau CM2 : phrases courtes, une idée par phrase, aucun nom technique de catégorie d'accroche. "weaknesses", "action_plan", "shooting_plan", "tip" et "advice" doivent être des INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de style), pas des observations : "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrêtez de..."), "action_plan" = ce qu'il FAUT faire à la place ("Faites...", "Commencez par...").
 
-BRIÈVETÉ (important) : 1-2 éléments MAXIMUM dans "strengths", "weaknesses" et "action_plan", 3-5 hashtags sans le #, une légende TikTok courte et accrocheuse cohérente avec le vrai contenu. Réponse courte et directe, lisible en 15 secondes."""
+PRÉCISION (important) : sois concret et propre à CETTE vidéo. Chaque conseil doit pouvoir être appliqué dès demain ; aucun remplissage, aucun conseil qui irait à n'importe quelle vidéo. 2 à 4 éléments dans "strengths" et "weaknesses", 3 à 5 dans "action_plan" (du plus important au moins important), 3-5 hashtags sans le #, une légende TikTok courte et accrocheuse cohérente avec le vrai contenu. Les phrases restent courtes et simples."""
 
 
 async def _analyze_video_with_gemini(
@@ -6167,7 +6248,7 @@ async def _analyze_video_with_gemini(
                     "contents": [{"role": "user", "parts": [video_part, {"text": prompt}]}],
                     "generationConfig": {
                         "temperature": 0.4,
-                        "maxOutputTokens": 4000,
+                        "maxOutputTokens": 8000,
                         "responseMimeType": "application/json",
                         "responseSchema": response_schema,
                         "mediaResolution": "MEDIA_RESOLUTION_LOW",
@@ -6231,6 +6312,28 @@ def _build_estimate(band: str, avg_views: int, basis: str) -> dict:
     comments_high = max(_round_sig(views[1] * ESTIMATED_COMMENT_RATE[1]), comments_low, 1)
     estimate["comments"] = [comments_low, comments_high]
     return estimate
+
+
+def _clean_text_list(values, limit: int) -> list[str]:
+    cleaned = [str(v).strip() for v in (values or []) if isinstance(v, str) and v.strip()]
+    return cleaned[:limit]
+
+
+def _clean_timeline(raw) -> list[dict]:
+    """Garde au plus un élément par phase (début, milieu, fin), dans l'ordre, valeurs validées."""
+    by_phase: dict[str, dict] = {}
+    for item in raw or []:
+        if not isinstance(item, dict) or item.get("phase") not in VIDEO_TIMELINE_PHASES:
+            continue
+        verdict = item.get("verdict") if item.get("verdict") in VIDEO_TIMELINE_VERDICTS else "ok"
+        by_phase.setdefault(item["phase"], {
+            "phase": item["phase"],
+            "moment": str(item.get("moment") or "").strip(),
+            "what_happens": str(item.get("what_happens") or "").strip(),
+            "verdict": verdict,
+            "advice": str(item.get("advice") or "").strip(),
+        })
+    return [by_phase[ph] for ph in VIDEO_TIMELINE_PHASES if ph in by_phase]
 
 
 def _clamp_score(value, default: int = 0) -> int:
@@ -6313,12 +6416,17 @@ async def analyze_video_upload(
         cleaned_categories[key] = {
             "score": _clamp_score(entry.get("score")),
             "comment": entry.get("comment") or "",
+            "tip": str(entry.get("tip") or "").strip(),
+            "example": str(entry.get("example") or "").strip(),
         }
     category_values = [c["score"] for c in cleaned_categories.values()]
     score = _clamp_score(result.get("virality_score"))
     score = max(min(category_values), min(max(category_values), score))
     result["category_scores"] = cleaned_categories
     result["virality_score"] = score
+    result["hook_rewrites"] = _clean_text_list(result.get("hook_rewrites"), 3)
+    result["shooting_plan"] = _clean_text_list(result.get("shooting_plan"), 5)
+    result["timeline"] = _clean_timeline(result.get("timeline"))
 
     band = result.pop("performance_band", None)
     basis = result.pop("estimation_basis", "")
