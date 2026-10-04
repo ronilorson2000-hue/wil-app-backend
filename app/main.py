@@ -3081,12 +3081,12 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
 
       <a class="tool-card" href="/tools/analyze-video">
         <div class="tool-icon">🎬</div>
-        <div class="flex-1"><p class="font-bold">__T_app_tool_video_title__</p><p class="text-sm text-slate-500 leading-snug">__T_app_tool_video_desc__</p></div>
+        <div class="flex-1"><p class="font-bold">__T_app_tool_video_title__</p></div>
         <span class="text-slate-400">›</span>
       </a>
       <a class="tool-card" href="/tools/analyze-account">
         <div class="tool-icon">🔗</div>
-        <div class="flex-1"><p class="font-bold">__T_app_tool_account_title__</p><p class="text-sm text-slate-500 leading-snug">__T_app_tool_account_desc__</p></div>
+        <div class="flex-1"><p class="font-bold">__T_app_tool_account_title__</p></div>
         <span class="text-slate-400">›</span>
       </a>
 
