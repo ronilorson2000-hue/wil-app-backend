@@ -1193,6 +1193,14 @@ async def tiktok_callback(request: Request):
         </div>
         <div id="analysis-result"></div>
 
+        <div id="next-step" style="display:none; max-width:480px; margin:8px auto 0;">
+          <button type="button"
+                  onclick="location.href='/tools/analyze-video?niche_category='+encodeURIComponent(window.__wilNicheCategory||'')+'&account_avg_views='+encodeURIComponent(window.__wilAvgViews||'')"
+                  class="w-full py-4 rounded-xl bg-blue-600 text-white font-bold text-lg shadow-md hover:bg-violet-600 transition">
+            🎬 {tt("hero_cta_video")}
+          </button>
+        </div>
+
         <a href="/app" class="home">{tt("dash_back")}</a>
 
         <script>
@@ -1214,6 +1222,7 @@ async def tiktok_callback(request: Request):
             .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
             .then(({{ok, status, data}}) => {{
               document.getElementById('analysis-loading').style.display = 'none';
+              document.getElementById('next-step').style.display = 'block';
               // Si le serveur a répondu avec une erreur (401 session expirée,
               // 502 API TikTok/Anthropic indisponible...), on affiche la
               // VRAIE raison (data.detail, fournie par FastAPI) au lieu d'un
@@ -2382,6 +2391,11 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 <p id="stats-niche-value" class="text-sm text-slate-600"></p>
               </div>
             </div>
+
+            <a href="/tools/analyze-account"
+               class="block w-full mt-6 py-4 rounded-xl bg-blue-600 text-white text-center font-bold text-lg shadow-md hover:bg-violet-600 transition">
+              🔗 {tt("hero_cta")}
+            </a>
           </div>
 
         </div>
