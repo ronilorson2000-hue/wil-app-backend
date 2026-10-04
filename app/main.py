@@ -1530,29 +1530,29 @@ _ONBOARDING_MUTE_BUTTON_HTML = """
 _TOPBAR_ICONS = {
     "home": '<path d="M3 11.5L12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5h4v5"/>',
     "library": '<rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/>',
-    "discover": '<circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2 5.2-5.2 2 2-5.2z"/>',
+    "script": '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/>',
     "profile": '<circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4 3.4-6 7.5-6s7.5 2 7.5 6"/>',
 }
 
 
 def _app_topbar_html(tt, active: str = "home") -> str:
     """
-    Barre des 4 onglets (Accueil, Bibliothèque, Découvrir, Profil) pour les
+    Barre des 4 onglets (Accueil, Bibliothèque, Script, Profil) pour les
     pages d'outils : même rendu que sur /app, mais en liens vers
-    /app#<onglet>. Masquée tant que l'onboarding est en cours (le JS du
+    /app#<onglet> (« Script » ouvre directement l'outil d'analyse de script). Masquée tant que l'onboarding est en cours (le JS du
     coeur d'onboarding la montre dès qu'on atteint le contenu de l'outil).
     """
     labels = {
         "home": tt("app_tab_home"),
         "library": tt("app_tab_library"),
-        "discover": tt("app_tab_discover"),
+        "script": tt("app_tab_script"),
         "profile": tt("app_tab_profile"),
     }
     items = "".join(
-        f'''<a href="/app#{key}" class="nav-item{" active" if key == active else ""} flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
+        f'''<a href="{"/tools/analyze-script" if key == "script" else f"/app#{key}"}" class="nav-item{" active" if key == active else ""} flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{_TOPBAR_ICONS[key]}</svg>
           <span>{labels[key]}</span></a>'''
-        for key in ("home", "library", "discover", "profile")
+        for key in ("home", "library", "script", "profile")
     )
     return (
         '<nav id="app-topbar" class="hidden">'
@@ -2671,7 +2671,7 @@ def tool_analyze_script_page(request: Request):
         <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
         <style>{_ONBOARDING_STYLE}</style>
       </head>
-      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}{_app_topbar_html(tt)}
+      <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}{_app_topbar_html(tt, "script")}
         <div class="max-w-md mx-auto px-5 py-6">
 {_onboarding_steps_html(tt, niche_buttons, "step-script")}
 
@@ -3082,11 +3082,6 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         <div class="flex-1"><p class="font-bold">__T_app_tool_video_title__</p><p class="text-sm text-slate-500 leading-snug">__T_app_tool_video_desc__</p></div>
         <span class="text-slate-400">›</span>
       </a>
-      <a class="tool-card" href="/tools/analyze-script">
-        <div class="tool-icon">📝</div>
-        <div class="flex-1"><p class="font-bold">__T_app_tool_script_title__</p><p class="text-sm text-slate-500 leading-snug">__T_app_tool_script_desc__</p></div>
-        <span class="text-slate-400">›</span>
-      </a>
       <a class="tool-card" href="/tools/analyze-account">
         <div class="tool-icon">🔗</div>
         <div class="flex-1"><p class="font-bold">__T_app_tool_account_title__</p><p class="text-sm text-slate-500 leading-snug">__T_app_tool_account_desc__</p></div>
@@ -3149,10 +3144,10 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/></svg>
         <span>__T_app_tab_library__</span>
       </button>
-      <button type="button" data-tab="discover" onclick="showTab('discover')" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2 5.2-5.2 2 2-5.2z"/></svg>
-        <span>__T_app_tab_discover__</span>
-      </button>
+      <a href="/tools/analyze-script" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/></svg>
+        <span>__T_app_tab_script__</span>
+      </a>
       <button type="button" data-tab="profile" onclick="showTab('profile')" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4 3.4-6 7.5-6s7.5 2 7.5 6"/></svg>
         <span>__T_app_tab_profile__</span>
@@ -3163,7 +3158,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
   <script>
     const I18N = __I18N__;
     const LANG = __LANG_JS__;
-    const TABS = ['home', 'library', 'discover', 'profile'];
+    const TABS = ['home', 'library', 'profile'];
 
     function esc(text) {
       return String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {
@@ -3851,7 +3846,7 @@ def app_shell_page(request: Request):
         "app_welcome", "app_home_subtitle", "app_tool_video_title", "app_tool_video_desc",
         "app_tool_script_title", "app_tool_script_desc", "app_tool_account_title",
         "app_tool_account_desc", "app_history_title", "app_see_all", "app_tab_home",
-        "app_tab_library", "app_tab_discover", "app_tab_profile", "app_discover_subtitle",
+        "app_tab_library", "app_tab_discover", "app_tab_script", "app_tab_profile", "app_discover_subtitle",
         "lib_banner", "disc_new_today", "disc_banner", "set_title",
     ):
         html = html.replace(f"__T_{key}__", tt(key))
