@@ -3025,9 +3025,13 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     .tool-card { display: flex; align-items: center; gap: 14px; padding: 16px; background: #2563EB; border: 1.5px solid transparent; border-radius: 20px; margin-bottom: 12px; text-decoration: none; color: #fff; box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25); transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease; }
     .tool-card:hover { background: #7C3AED; box-shadow: 0 8px 20px rgba(124, 58, 237, 0.35); transform: translateY(-2px); }
     .tool-card:active { transform: scale(0.98); }
+    .tool-card { padding: 20px 18px; gap: 16px; }
+    .tool-card .font-bold { font-size: 21px; line-height: 1.25; }
+    .tool-card .text-slate-400 { font-size: 28px; line-height: 1; }
+    @media (min-width: 640px) { .tool-card .font-bold { font-size: 23px; } }
     .tool-card .text-slate-500 { color: rgba(255, 255, 255, 0.88); }
     .tool-card .text-slate-400 { color: rgba(255, 255, 255, 0.85); }
-    .tool-icon { width: 48px; height: 48px; border-radius: 14px; background: rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .tool-icon { width: 56px; height: 56px; border-radius: 16px; background: rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
     .history-item { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 20px; padding: 16px 18px; margin-bottom: 10px; }
     .idea-card { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 20px; padding: 18px; margin-bottom: 12px; }
     .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
