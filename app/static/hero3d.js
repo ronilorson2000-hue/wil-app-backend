@@ -17,7 +17,9 @@
 
     var DEPTH = 60;
     var SPEED = 8;
-    var CARD_COUNT = small ? 26 : 46;
+    // ?cards=less|more permet de comparer plusieurs densités de cartes (par défaut : normal).
+    var density = new URLSearchParams(location.search).get('cards');
+    var CARD_COUNT = density === 'less' ? (small ? 12 : 20) : density === 'more' ? (small ? 44 : 80) : (small ? 26 : 46);
     var PALETTES = [['#1D4ED8', '#38BDF8'], ['#1E3A8A', '#3B82F6'], ['#0E7490', '#22D3EE'], ['#312E81', '#60A5FA'], ['#0F172A', '#2563EB']];
 
     function roundRect(g, x, y, w, h, r) {
