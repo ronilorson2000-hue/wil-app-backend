@@ -12,13 +12,13 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, small ? 1.25 : 1.75));
 
     var scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0b1220, 0.038);
+    scene.fog = new THREE.FogExp2(0x0d0a18, 0.038);
     var camera = new THREE.PerspectiveCamera(72, 1, 0.1, 120);
 
     var DEPTH = 60;
     var SPEED = 8;
     var CARD_COUNT = small ? 34 : 62;
-    var PALETTES = [['#1D4ED8', '#38BDF8'], ['#1E3A8A', '#3B82F6'], ['#0E7490', '#22D3EE'], ['#312E81', '#60A5FA'], ['#0F172A', '#2563EB']];
+    var PALETTES = [['#BE185D', '#F472B6'], ['#7E22CE', '#EC4899'], ['#9D174D', '#FB7185'], ['#4C1D95', '#C084FC'], ['#1F1235', '#DB2777']];
 
     function roundRect(g, x, y, w, h, r) {
       g.beginPath();
@@ -118,7 +118,7 @@
 
     var rings = [];
     var ringGeo = new THREE.TorusGeometry(8, 0.025, 8, 96);
-    var ringMat = new THREE.MeshBasicMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.4 });
+    var ringMat = new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.4 });
     for (var r = 0; r < 12; r++) {
       var ring = new THREE.Mesh(ringGeo, ringMat);
       ring.position.z = -(r / 12) * DEPTH;
@@ -136,7 +136,7 @@
     }
     var pGeo = new THREE.BufferGeometry();
     pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    var points = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x93c5fd, size: 0.07, transparent: true, opacity: 0.75, sizeAttenuation: true }));
+    var points = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xfbcfe8, size: 0.07, transparent: true, opacity: 0.75, sizeAttenuation: true }));
     scene.add(points);
 
     var tx = 0, ty = 0, elapsed = 0;

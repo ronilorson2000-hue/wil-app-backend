@@ -455,9 +455,9 @@ def home(request: Request):
       </head>
       <body class="bg-white text-slate-900 antialiased overflow-x-hidden">
 
-        <div class="relative overflow-hidden" style="background: radial-gradient(ellipse at 50% 0%, #1D4ED8 0%, #0B1220 62%);">
+        <div class="relative overflow-hidden" style="background: radial-gradient(ellipse at 50% 0%, #701A4D 0%, #0D0A18 62%);">
           <canvas id="hero-3d" class="absolute inset-0 w-full h-full" aria-hidden="true"></canvas>
-          <div class="pointer-events-none absolute inset-0" style="background: radial-gradient(ellipse at center, rgba(11,18,32,0.66) 0%, rgba(11,18,32,0.28) 55%, rgba(11,18,32,0.5) 100%);"></div>
+          <div class="pointer-events-none absolute inset-0" style="background: radial-gradient(ellipse at center, rgba(13,10,24,0.66) 0%, rgba(13,10,24,0.28) 55%, rgba(13,10,24,0.5) 100%);"></div>
 
           <nav class="flex items-center justify-between max-w-6xl mx-auto px-6 py-5 relative z-10">
             <div class="flex items-center gap-2">
