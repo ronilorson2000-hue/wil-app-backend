@@ -433,9 +433,13 @@ def home(request: Request):
         <script>
           tailwind.config = {{ theme: {{ extend: {{ fontFamily: {{ sans: ['Inter', 'system-ui', 'sans-serif'] }} }} }} }};
         </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+        <script src="/static/hero3d.js" defer></script>
         <style>
           html {{ overflow-x: hidden; }}
           body {{ font-family: 'Inter', system-ui, sans-serif; }}
+          #hero-3d {{ opacity: 0; transition: opacity 1.2s ease; }}
+          #hero-3d.ready {{ opacity: 1; }}
           .reveal {{ opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }}
           .reveal.is-visible {{ opacity: 1; transform: translateY(0); }}
           @media (prefers-reduced-motion: reduce) {{
@@ -451,56 +455,54 @@ def home(request: Request):
       </head>
       <body class="bg-white text-slate-900 antialiased overflow-x-hidden">
 
-        <nav class="flex items-center justify-between max-w-6xl mx-auto px-6 py-5 relative z-10">
-          <div class="flex items-center gap-2">
-            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white font-bold text-sm">W</div>
-            <span class="font-bold text-lg">Wil App</span>
-          </div>
-          <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <a href="/services" class="hover:text-slate-900">{tt("nav_services")}</a>
-            <a href="#how-it-works" class="hover:text-slate-900">{tt("nav_how_it_works")}</a>
-            <a href="/pricing" class="hover:text-slate-900">{tt("nav_pricing")}</a>
-            {lang_menu}
-          </div>
-          <div class="flex items-center gap-2">
-            <details class="md:hidden relative">
-              <summary class="list-none cursor-pointer p-2 -mr-1 text-slate-700">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
-                </svg>
-              </summary>
-              <div class="fixed right-4 top-20 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-30 text-sm font-medium text-slate-600">
-                <a href="/services" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_services")}</a>
-                <a href="#how-it-works" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_how_it_works")}</a>
-                <a href="/pricing" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_pricing")}</a>
-                <div class="border-t border-slate-100 mt-2 pt-2">
-                  {lang_menu}
-                </div>
-              </div>
-            </details>
-            <a href="/app" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">{tt("nav_login")}</a>
-          </div>
-        </nav>
+        <div class="relative overflow-hidden" style="background: radial-gradient(ellipse at 50% 0%, #1D4ED8 0%, #0B1220 62%);">
+          <canvas id="hero-3d" class="absolute inset-0 w-full h-full" aria-hidden="true"></canvas>
+          <div class="pointer-events-none absolute inset-0" style="background: radial-gradient(ellipse at center, rgba(11,18,32,0.66) 0%, rgba(11,18,32,0.28) 55%, rgba(11,18,32,0.5) 100%);"></div>
 
-        <div class="relative overflow-hidden">
-          <div class="pointer-events-none absolute inset-0 -z-0">
-            <div class="absolute -top-24 left-1/4 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-40"></div>
-            <div class="absolute top-10 right-1/4 w-96 h-96 bg-sky-100 rounded-full blur-3xl opacity-40"></div>
-            <div class="absolute top-40 left-1/3 w-72 h-72 bg-blue-50 rounded-full blur-3xl opacity-60"></div>
-          </div>
-          <header class="relative max-w-3xl mx-auto text-center px-6 pt-20 pb-6 sm:pb-8">
-            <div class="inline-block px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold mb-6">
+          <nav class="flex items-center justify-between max-w-6xl mx-auto px-6 py-5 relative z-10">
+            <div class="flex items-center gap-2">
+              <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white font-bold text-sm">W</div>
+              <span class="font-bold text-lg text-white">Wil App</span>
+            </div>
+            <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-200">
+              <a href="/services" class="hover:text-white">{tt("nav_services")}</a>
+              <a href="#how-it-works" class="hover:text-white">{tt("nav_how_it_works")}</a>
+              <a href="/pricing" class="hover:text-white">{tt("nav_pricing")}</a>
+              {lang_menu}
+            </div>
+            <div class="flex items-center gap-2">
+              <details class="md:hidden relative">
+                <summary class="list-none cursor-pointer p-2 -mr-1 text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+                  </svg>
+                </summary>
+                <div class="fixed right-4 top-20 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-30 text-sm font-medium text-slate-600">
+                  <a href="/services" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_services")}</a>
+                  <a href="#how-it-works" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_how_it_works")}</a>
+                  <a href="/pricing" class="block px-4 py-2 hover:bg-slate-50 hover:text-slate-900">{tt("nav_pricing")}</a>
+                  <div class="border-t border-slate-100 mt-2 pt-2">
+                    {lang_menu}
+                  </div>
+                </div>
+              </details>
+              <a href="/app" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">{tt("nav_login")}</a>
+            </div>
+          </nav>
+
+          <header class="relative z-10 max-w-3xl mx-auto text-center px-6 pt-16 pb-16 sm:pt-24 sm:pb-24">
+            <div class="inline-block px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-sky-200 text-xs font-semibold mb-6">
               {tt("hero_badge")}
             </div>
-            <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight mb-5">
-              {tt("hero_title_1")}<span class="italic bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{tt("hero_title_2")}</span>
+            <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight mb-5 text-white">
+              {tt("hero_title_1")}<span class="italic bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">{tt("hero_title_2")}</span>
             </h1>
-            <p class="text-sm sm:text-lg text-slate-500 mb-10 leading-relaxed">
+            <p class="text-sm sm:text-lg text-slate-300 mb-10 leading-relaxed">
               {tt("hero_subtitle")}
             </p>
             <div class="flex flex-col items-center gap-3">
               <a href="/app"
-                 class="inline-flex w-full max-w-xs sm:w-auto sm:max-w-none whitespace-nowrap items-center justify-center px-8 py-3 sm:px-20 sm:py-5 rounded-xl bg-blue-600 text-white text-base sm:text-2xl font-bold shadow-md hover:bg-blue-700 transition">
+                 class="inline-flex w-full max-w-xs sm:w-auto sm:max-w-none whitespace-nowrap items-center justify-center px-8 py-3 sm:px-20 sm:py-5 rounded-xl bg-blue-600 text-white text-base sm:text-2xl font-bold shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition">
                 {tt("hero_cta_start")}
               </a>
               <p class="text-xs text-slate-400">{tt("trust_line")}</p>
@@ -510,7 +512,7 @@ def home(request: Request):
 
         <div class="max-w-5xl mx-auto px-6">
 
-          <section id="how-it-works" class="pt-6 pb-10 sm:pt-8 sm:pb-20">
+          <section id="how-it-works" class="pt-12 pb-10 sm:pt-16 sm:pb-20">
             <h2 class="text-2xl sm:text-3xl font-bold text-center mb-14">{tt("hiw_title")}</h2>
             <div class="grid sm:grid-cols-3 gap-3 sm:gap-6">
               <div class="reveal bg-blue-50 border border-blue-100 rounded-2xl p-4 sm:p-7" style="transition-delay:0s">
