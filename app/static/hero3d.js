@@ -18,7 +18,8 @@
     var DEPTH = 60;
     var SPEED = 8;
     var CARD_COUNT = small ? 34 : 62;
-    var PALETTES = [['#F2552C', '#FFA477'], ['#6D28D9', '#A78BFA'], ['#FF6B3D', '#FFB68A'], ['#4C1D95', '#8B5CF6'], ['#F4623A', '#FF9F7A']];
+    // 5 teintes de violet pour 2 de corail orangé (les 10 cartes-types tournent sur ces 7 palettes : ~70 % violet).
+    var PALETTES = [['#4C1D95', '#8B5CF6'], ['#F2552C', '#FFA477'], ['#6D28D9', '#A78BFA'], ['#5B21B6', '#7C3AED'], ['#FF6B3D', '#FFB68A'], ['#7E22CE', '#C084FC'], ['#3B0764', '#9333EA']];
 
     function roundRect(g, x, y, w, h, r) {
       g.beginPath();
@@ -118,7 +119,7 @@
 
     var rings = [];
     var ringGeo = new THREE.TorusGeometry(8, 0.025, 8, 96);
-    var ringMat = new THREE.MeshBasicMaterial({ color: 0xff9166, transparent: true, opacity: 0.4 });
+    var ringMat = new THREE.MeshBasicMaterial({ color: 0xa78bfa, transparent: true, opacity: 0.4 });
     for (var r = 0; r < 12; r++) {
       var ring = new THREE.Mesh(ringGeo, ringMat);
       ring.position.z = -(r / 12) * DEPTH;
