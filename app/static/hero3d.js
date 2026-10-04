@@ -18,7 +18,7 @@
     var DEPTH = 60;
     var SPEED = 8;
     var CARD_COUNT = small ? 34 : 62;
-    var PALETTES = [['#BE185D', '#F472B6'], ['#7E22CE', '#EC4899'], ['#9D174D', '#FB7185'], ['#4C1D95', '#C084FC'], ['#1F1235', '#DB2777']];
+    var PALETTES = [['#F0506E', '#FF9A8B'], ['#6D28D9', '#A78BFA'], ['#E94F6B', '#FFB199'], ['#4C1D95', '#8B5CF6'], ['#FF6B6B', '#FF8E9E']];
 
     function roundRect(g, x, y, w, h, r) {
       g.beginPath();
@@ -118,7 +118,7 @@
 
     var rings = [];
     var ringGeo = new THREE.TorusGeometry(8, 0.025, 8, 96);
-    var ringMat = new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.4 });
+    var ringMat = new THREE.MeshBasicMaterial({ color: 0xff8a80, transparent: true, opacity: 0.4 });
     for (var r = 0; r < 12; r++) {
       var ring = new THREE.Mesh(ringGeo, ringMat);
       ring.position.z = -(r / 12) * DEPTH;
@@ -136,7 +136,7 @@
     }
     var pGeo = new THREE.BufferGeometry();
     pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    var points = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xfbcfe8, size: 0.07, transparent: true, opacity: 0.75, sizeAttenuation: true }));
+    var points = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xddd6fe, size: 0.07, transparent: true, opacity: 0.75, sizeAttenuation: true }));
     scene.add(points);
 
     var tx = 0, ty = 0, elapsed = 0;
