@@ -1236,12 +1236,6 @@ async def tiktok_callback(request: Request):
               const stats = data.stats;
               const report = data.ai_report;
               let html = '';
-              // Section "Détail par vidéo" construite séparément et ajoutée
-              // TOUT EN BAS (après l'analyse globale) : c'est la partie qui
-              // deviendra la fonctionnalité payante, donc visuellement
-              // secondaire par rapport à l'analyse de compte gratuite.
-              let videoListHtml = '';
-
               if (stats && stats.total_videos_analyzed > 0) {{
                 const scoreIcon = s => s <= 40 ? '🔴' : s <= 60 ? '🟡' : s <= 80 ? '🟠' : '🔵';
                 const ratioLine = (stats.likes_followers_ratio !== null && stats.likes_followers_ratio !== undefined)
@@ -1258,32 +1252,7 @@ async def tiktok_callback(request: Request):
                     ${{ratioLine}}
                   </div>`;
 
-                if (stats.videos && stats.videos.length > 0) {{
-                  window.__wilVideos = stats.videos;
-                  window.__wilAvgViews = stats.average_view_count || '';
-                  const videoRows = stats.videos.map((v, idx) => `
-                    <div style="display:flex; gap:12px; align-items:flex-start; padding:14px 0; border-bottom:1px solid #F1F5F9;">
-                      <div style="width:60px;height:84px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#F1F5F9;">
-                        ${{v.cover_image_url ? `<img src="${{v.cover_image_url}}" style="width:100%;height:100%;object-fit:cover;" />` : ''}}
-                      </div>
-                      <div style="flex:1;min-width:0;">
-                        <p style="font-size:13px;font-weight:700;margin:0;">${{scoreIcon(v.virality_score)}} ${{v.virality_score}}/100</p>
-                        <p style="font-size:12px;color:#64748B;margin:2px 0 8px;">${{v.view_count}} {tt('dash_views_suffix')}</p>
-                        <button onclick="analyzeVideo(${{idx}})" id="analyze-btn-${{idx}}"
-                                style="font-size:12px;padding:7px 14px;border-radius:999px;border:1px solid #E2E8F0;
-                                       background:#fff;color:#1D4ED8;font-weight:600;cursor:pointer;">
-                          {tt('dash_btn_analyze_video')}
-                        </button>
-                        <div id="video-analysis-${{idx}}" style="margin-top:8px;font-size:13px;"></div>
-                      </div>
-                    </div>`).join('');
-                  videoListHtml = `
-                    <div class="card">
-                      <p style="font-weight:700;margin-bottom:4px;">{tt('dash_video_detail_title')}</p>
-                      <p style="font-size:12px;color:#64748B;margin:0 0 8px;">{tt('dash_video_detail_subtitle')}</p>
-                      <div>${{videoRows}}</div>
-                    </div>`;
-                }}
+                window.__wilAvgViews = stats.average_view_count || '';
               }}
 
               if (report) {{
@@ -1319,93 +1288,16 @@ async def tiktok_callback(request: Request):
                 window.__wilBio = "{bio_enc}";
               }}
               window.__wilLang = data.lang || 'fr';
-              // Contexte du compte pour le diagnostic étendu par vidéo
-              // (voir analyzeVideo ci-dessous) : hashtags sur-utilisés/
-              // sous-performants et meilleur créneau, calculés côté serveur.
-              window.__wilBestPostingBucket = (stats && stats.best_posting_bucket) || '';
-              window.__wilOverusedHashtags = (stats && stats.overused_hashtags || []).join(',');
-              window.__wilUnderperformingHashtags = (stats && stats.underperforming_hashtags || []).join(',');
-
               if (!html) {{
                 html = '<div class="card"><p class="loading">{tt('dash_analysis_unavailable')}</p></div>';
               }}
-              // Détail par vidéo tout en bas, après l'analyse globale du compte.
-              html += videoListHtml;
-
               document.getElementById('analysis-result').innerHTML = html;
-
-              // Affiche les sections "Idées tendance" et "Générer un script"
-              // une fois l'analyse principale terminée (on a besoin de la
-              // catégorie de niche pour le bouton "Idées tendance").
-              if (report && report.niche_category) {{
-                document.getElementById('extra-tools').style.display = 'block';
-              }}
             }})
             .catch((e) => {{
               document.getElementById('analysis-loading').innerHTML =
                 `<p class="loading" style="color:#DC2626;">{tt('dash_network_error')} ${{e && e.message ? e.message : e}}</p>`;
             }});
 
-          // --- Analyse IA d'une vidéo précise (bouton sous chaque vignette) ---
-          function analyzeVideo(idx) {{
-            const v = (window.__wilVideos || [])[idx];
-            if (!v) return;
-            const btn = document.getElementById(`analyze-btn-${{idx}}`);
-            const result = document.getElementById(`video-analysis-${{idx}}`);
-            btn.disabled = true;
-            btn.textContent = '{tt('dash_analyzing_short')}';
-            result.innerHTML = '';
-
-            const params = new URLSearchParams({{
-              title: v.title || '',
-              view_count: v.view_count || 0,
-              like_count: v.like_count || 0,
-              comment_count: v.comment_count || 0,
-              share_count: v.share_count || 0,
-              duration: v.duration || '',
-              virality_score: v.virality_score || 0,
-              account_avg_views: window.__wilAvgViews || '',
-              niche_category: window.__wilNicheCategory || '',
-              create_time: v.create_time || 0,
-              best_posting_bucket: window.__wilBestPostingBucket || '',
-              overused_hashtags: window.__wilOverusedHashtags || '',
-              underperforming_hashtags: window.__wilUnderperformingHashtags || '',
-              ui_lang: window.__wilUiLang || 'fr',
-            }});
-
-            fetch(`/api/analyze-video?${{params.toString()}}`)
-              .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
-              .then(({{ok, status, data}}) => {{
-                if (!ok) {{
-                  const reason = (data && data.detail) ? data.detail : `{tt('common_error_prefix')} ${{status}}`;
-                  result.innerHTML = `<p style="color:#DC2626;font-size:12px;">${{reason}}</p>`;
-                  return;
-                }}
-                const diagnosis = data.main_diagnosis
-                  ? `<p style="margin:6px 0 2px;"><strong>🔍 {tt('dash_real_problem')}</strong></p><p style="margin:0 0 8px;">${{data.main_diagnosis}}</p>`
-                  : '';
-                const strengths = (data.strengths || []).map(s => `<li>${{s}}</li>`).join('');
-                const strengthsBlock = strengths
-                  ? `<p style="margin:6px 0 2px;"><strong>✅ {tt('dash_strengths')}</strong></p><ul class="bullets" style="margin:0;">${{strengths}}</ul>`
-                  : '';
-                const weaknesses = (data.weaknesses || []).map(s => `<li>${{s}}</li>`).join('');
-                const actions = (data.action_plan || []).map(s => `<li>${{s}}</li>`).join('');
-                result.innerHTML = `
-                  ${{diagnosis}}
-                  ${{strengthsBlock}}
-                  <p style="margin:6px 0 2px;"><strong>⚠️ {tt('dash_avoid')}</strong></p>
-                  <ul class="bullets" style="margin:0;">${{weaknesses}}</ul>
-                  <p style="margin:6px 0 2px;"><strong>🎯 {tt('dash_todo')}</strong></p>
-                  <ul class="bullets" style="margin:0;">${{actions}}</ul>`;
-              }})
-              .catch((e) => {{
-                result.innerHTML = `<p style="color:#DC2626;font-size:12px;">{tt('common_network_error')} ${{e && e.message ? e.message : e}}</p>`;
-              }})
-              .finally(() => {{
-                btn.disabled = false;
-                btn.textContent = '{tt('dash_btn_analyze_video')}';
-              }});
-          }}
         </script>
       </body>
     </html>
