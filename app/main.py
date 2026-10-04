@@ -6096,9 +6096,9 @@ def _video_analysis_schema(already_published: bool) -> dict:
         "type": "object",
         "properties": {
             "score": {"type": "integer", "description": "0 à 100"},
-            "comment": {"type": "string", "description": "1 à 2 phrases simples qui justifient ce score"},
-            "tip": {"type": "string", "description": "UNE instruction à l'impératif pour améliorer cette catégorie"},
-            "example": {"type": "string", "description": "un exemple concret adapté à cette vidéo : phrase à dire, plan à filmer ou texte à afficher"},
+            "comment": {"type": "string", "description": "UNE phrase courte qui justifie ce score"},
+            "tip": {"type": "string", "description": "UNE instruction à l'impératif, 10 mots maximum"},
+            "example": {"type": "string", "description": "un exemple concret adapté à cette vidéo, 14 mots maximum"},
         },
         "required": ["score", "comment", "tip", "example"],
     }
@@ -6107,9 +6107,9 @@ def _video_analysis_schema(already_published: bool) -> dict:
         "properties": {
             "phase": {"type": "string", "enum": list(VIDEO_TIMELINE_PHASES)},
             "moment": {"type": "string", "description": "où cela se situe, de façon approximative"},
-            "what_happens": {"type": "string", "description": "ce qui est vu et entendu à ce moment, en 1-2 phrases"},
+            "what_happens": {"type": "string", "description": "ce qui est vu et entendu à ce moment, UNE phrase de 12 mots maximum"},
             "verdict": {"type": "string", "enum": list(VIDEO_TIMELINE_VERDICTS)},
-            "advice": {"type": "string", "description": "UNE instruction à l'impératif pour ce passage"},
+            "advice": {"type": "string", "description": "UNE instruction à l'impératif, 10 mots maximum"},
         },
         "required": ["phase", "moment", "what_happens", "verdict", "advice"],
     }
@@ -6125,7 +6125,7 @@ def _video_analysis_schema(already_published: bool) -> dict:
         "niche": {"type": "string"},
         "hook_excerpt": {"type": "string"},
         "hook_type": {"type": "string"},
-        "hook_rewrites": str_list,
+        "hook_rewrites": {"type": "array", "items": {"type": "string", "description": "accroche de 4 à 9 mots, propre à cette vidéo"}},
         "strengths": str_list,
         "weaknesses": str_list,
         "action_plan": str_list,
@@ -6170,7 +6170,7 @@ def _build_video_prompt(
     if already_published:
         publication_text = """Cette vidéo a DÉJÀ été publiée ailleurs. En plus du reste, compare son potentiel à la moyenne habituelle du compte :
 - "performance_band" : "well_below", "below", "around", "above" ou "well_above" (très en dessous / en dessous / proche / au-dessus / très au-dessus de la moyenne de vues habituelle du compte), choisi à partir des éléments réellement observés dans la vidéo.
-- "estimation_basis" : 2 phrases maximum, en mots simples, qui nomment les éléments CONCRETS déjà cités dans "strengths" et "weaknesses" qui tirent le résultat vers le haut ou vers le bas (exemple de forme : "Votre accroche retient l'attention tout de suite et la fin donne envie de réagir, ce qui pousse au-dessus de votre moyenne. Mais le milieu perd le fil, ce qui limite le résultat."). N'écris JAMAIS de chiffre de vues, de likes ou de commentaires, ni dans ce champ ni ailleurs : les chiffres sont calculés séparément."""
+- "estimation_basis" : 1 à 2 phrases COURTES, en mots simples, qui nomment les éléments CONCRETS déjà cités dans "strengths" et "weaknesses" qui tirent le résultat vers le haut ou vers le bas (exemple de forme : "Votre accroche retient l'attention tout de suite et la fin donne envie de réagir, ce qui pousse au-dessus de votre moyenne. Mais le milieu perd le fil, ce qui limite le résultat."). N'écris JAMAIS de chiffre de vues, de likes ou de commentaires, ni dans ce champ ni ailleurs : les chiffres sont calculés séparément."""
     else:
         publication_text = """Cette vidéo n'est PAS encore publiée : aucune vue, aucun like, aucun commentaire n'existe. N'invente aucun chiffre de ce genre nulle part dans ta réponse."""
 
@@ -6186,17 +6186,17 @@ NOTE PAR CATÉGORIE ("category_scores", chaque score de 0 à 100 avec une phrase
 - "storytelling" : structure, clarté du propos, rythme, arc émotionnel jusqu'à la fin.
 - "call_to_action" : y a-t-il un appel à l'action, est-il efficace, pousse-t-il à interagir ?
 
-NOTE GLOBALE : "virality_score" (0-100) résume ces 4 catégories. Elle doit être COHÉRENTE avec elles et avec "strengths"/"weaknesses" : jamais au-dessus de la meilleure catégorie ni au-dessous de la pire, et une note élevée exige de vrais points forts cités. Ne la calcule pas à part. "score_basis" : 1 phrase rappelant que c'est une estimation basée sur la vidéo, PAS une prédiction de vues garantie.
+NOTE GLOBALE : "virality_score" (0-100) résume ces 4 catégories. Elle doit être COHÉRENTE avec elles et avec "strengths"/"weaknesses" : jamais au-dessus de la meilleure catégorie ni au-dessous de la pire, et une note élevée exige de vrais points forts cités. Ne la calcule pas à part. "score_basis" : UNE phrase courte rappelant que c'est une estimation basée sur la vidéo, PAS une prédiction de vues garantie.
 
 {publication_text}
 
-DÉROULÉ ("timeline") : EXACTEMENT 3 éléments, dans l'ordre : "opening" (les premières secondes), "middle" (le milieu), "ending" (la fin). Pour chacun : "moment" = où cela se situe, de façon APPROXIMATIVE ("tout au début", "vers le milieu", "dans les dernières secondes") ; "what_happens" = ce qui se passe réellement à ce moment (ce qui est vu ET entendu), en 1-2 phrases ; "verdict" = "strong", "ok" ou "weak" ; "advice" = UNE instruction à l'impératif pour ce passage.
+DÉROULÉ ("timeline") : EXACTEMENT 3 éléments, dans l'ordre : "opening" (les premières secondes), "middle" (le milieu), "ending" (la fin). Pour chacun : "moment" = où cela se situe, de façon APPROXIMATIVE ("tout au début", "vers le milieu", "dans les dernières secondes") ; "what_happens" = ce qui se passe réellement à ce moment (ce qui est vu ET entendu), en UNE phrase de 12 mots maximum ; "verdict" = "strong", "ok" ou "weak" ; "advice" = UNE instruction à l'impératif de 10 mots maximum.
 
-CONSEILS PAR CATÉGORIE : pour chaque catégorie de "category_scores", en plus de "score" et "comment", donne "tip" (UNE instruction à l'impératif) et "example" (un exemple concret adapté à CETTE vidéo : une phrase à dire, un plan à filmer ou un texte à afficher).
+CONSEILS PAR CATÉGORIE : pour chaque catégorie de "category_scores", en plus de "score" et "comment", donne "comment" (UNE phrase courte), "tip" (UNE instruction à l'impératif de 10 mots maximum) et "example" (un exemple concret adapté à CETTE vidéo, 14 mots maximum : une phrase à dire, un plan à filmer ou un texte à afficher).
 
-RÉÉCRITURES DE L'ACCROCHE ("hook_rewrites") : EXACTEMENT 3 phrases d'ouverture différentes, prêtes à dire, qui gardent le VRAI sujet de cette vidéo mais changent l'angle (par exemple : un danger à éviter, quelque chose que le spectateur reconnaît tout de suite, une idée qui surprend). Une phrase chacune.
+RÉÉCRITURES DE L'ACCROCHE ("hook_rewrites") : EXACTEMENT 3 accroches COURTES : de 4 à 9 mots chacune, une seule phrase qu'on dit en 2 ou 3 secondes. Chaque accroche doit nommer un détail PRÉCIS de CETTE vidéo (son sujet exact, un objet, un lieu, un résultat qu'on voit ou entend). Une accroche qui pourrait servir pour une autre vidéo est INTERDITE (exemple d'accroche vide à éviter : « Vous ne devinerez jamais la suite »). Varie l'angle : danger à éviter, curiosité, défi. Exemple de FORME pour un autre sujet : « Ce réglage double votre précision. »
 
-PLAN DE TOURNAGE ET DE MONTAGE ("shooting_plan") : 3 à 5 étapes concrètes et dans l'ordre pour refaire ou remonter CETTE vidéo avec les corrections. Chaque étape commence par un verbe à l'impératif ("Tournez...", "Coupez...", "Ajoutez...").
+PLAN DE TOURNAGE ET DE MONTAGE ("shooting_plan") : 3 étapes MAXIMUM, dans l'ordre, pour refaire ou remonter CETTE vidéo. Chaque étape : 10 mots maximum, commence par un verbe à l'impératif ("Tournez...", "Coupez...", "Ajoutez..."). Ne répète PAS ce qui est déjà dans "action_plan".
 
 Analyse le HOOK réel (les toutes premières secondes : ce qui est dit, écrit à l'écran ou montré) en t'appuyant EN INTERNE sur les "TYPES D'ACCROCHES RÉELLES" du guide de style pour comprendre ce qui se joue — mais dans ta réponse, décris ce que fait ce hook en mots simples (ex : "le spectateur se reconnaît tout de suite dans ce que vous dites"), JAMAIS avec un nom technique de catégorie. Si aucun type ne correspond clairement, dis simplement qu'il n'y a pas vraiment d'accroche identifiable. "hook_excerpt" : ce qui est réellement dit ou écrit dans ces premières secondes, cité tel quel (chaîne vide s'il n'y a ni parole ni texte).
 
@@ -6206,7 +6206,7 @@ MOMENTS DANS LA VIDÉO : tu estimes, tu ne mesures pas. Si tu situes un passage,
 
 RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2 du guide de style) : "strengths" PEUT citer LE chiffre le plus marquant SEULEMENT si une vraie donnée chiffrée est fournie ci-dessus (ex: la moyenne du compte) et qu'elle prouve une réussite — sinon reste en mots simples, n'invente jamais un chiffre. "hook_type", "weaknesses", "action_plan", "shooting_plan", "hook_rewrites" et tous les "tip", "advice" et "example" restent SANS AUCUN CHIFFRE de statistique. VOUVOIEMENT OBLIGATOIRE ("vous", "votre", "vos" — jamais "tu"/"ton"/"tes") et mots simples, niveau CM2 : phrases courtes, une idée par phrase, aucun nom technique de catégorie d'accroche. "weaknesses", "action_plan", "shooting_plan", "tip" et "advice" doivent être des INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de style), pas des observations : "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrêtez de..."), "action_plan" = ce qu'il FAUT faire à la place ("Faites...", "Commencez par...").
 
-PRÉCISION (important) : sois concret et propre à CETTE vidéo. Chaque conseil doit pouvoir être appliqué dès demain ; aucun remplissage, aucun conseil qui irait à n'importe quelle vidéo. 2 à 4 éléments dans "strengths" et "weaknesses", 3 à 5 dans "action_plan" (du plus important au moins important), 3-5 hashtags sans le #, une légende TikTok courte et accrocheuse cohérente avec le vrai contenu. Les phrases restent courtes et simples."""
+BRIÈVETÉ (essentiel) : le rapport doit se lire en 30 secondes. Phrases COURTES : 12 mots maximum par phrase, une idée par phrase, UNE seule phrase par élément de liste. 2 à 3 éléments dans "strengths" et "weaknesses", 3 dans "action_plan" (du plus important au moins important). Aucune répétition d'une idée entre les listes. Reste concret et propre à CETTE vidéo : aucun conseil qui irait à n'importe quelle vidéo. 3-5 hashtags sans le #, une légende TikTok courte (une phrase) cohérente avec le vrai contenu."""
 
 
 async def _analyze_video_with_gemini(
@@ -6309,6 +6309,26 @@ def _build_estimate(band: str, avg_views: int, basis: str) -> dict:
 def _clean_text_list(values, limit: int) -> list[str]:
     cleaned = [str(v).strip() for v in (values or []) if isinstance(v, str) and v.strip()]
     return cleaned[:limit]
+
+
+MAX_HOOK_WORDS = 12
+
+
+def _clean_hooks(values) -> list[str]:
+    """
+    Garde 3 accroches au plus, de préférence courtes (<= MAX_HOOK_WORDS mots) : le
+    prompt demande 4 à 9 mots, ce filtre rattrape les écarts du modèle. S'il en
+    reste moins de 3, on complète avec les plus courtes des autres.
+    """
+    hooks = []
+    for v in values or []:
+        if isinstance(v, str):
+            text = v.strip().strip('"«»“” ').strip()
+            if text:
+                hooks.append(text)
+    short = [h for h in hooks if len(h.split()) <= MAX_HOOK_WORDS]
+    rest = sorted((h for h in hooks if h not in short), key=lambda h: len(h.split()))
+    return (short + rest)[:3]
 
 
 def _clean_timeline(raw) -> list[dict]:
@@ -6416,8 +6436,11 @@ async def analyze_video_upload(
     score = max(min(category_values), min(max(category_values), score))
     result["category_scores"] = cleaned_categories
     result["virality_score"] = score
-    result["hook_rewrites"] = _clean_text_list(result.get("hook_rewrites"), 3)
-    result["shooting_plan"] = _clean_text_list(result.get("shooting_plan"), 5)
+    result["hook_rewrites"] = _clean_hooks(result.get("hook_rewrites"))
+    result["shooting_plan"] = _clean_text_list(result.get("shooting_plan"), 3)
+    result["strengths"] = _clean_text_list(result.get("strengths"), 3)
+    result["weaknesses"] = _clean_text_list(result.get("weaknesses"), 3)
+    result["action_plan"] = _clean_text_list(result.get("action_plan"), 3)
     result["timeline"] = _clean_timeline(result.get("timeline"))
 
     band = result.pop("performance_band", None)
