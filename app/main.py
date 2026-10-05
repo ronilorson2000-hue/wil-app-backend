@@ -2431,6 +2431,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               <div class="insight-card">
                 <p class="font-semibold text-sm mb-1">{tt("results_niche_label")}</p>
                 <p id="stats-niche-value" class="text-sm text-slate-600"></p>
+                <p id="niche-mismatch-note" class="hidden text-xs text-amber-600 mt-1">{tt("niche_detected_note")}</p>
               </div>
             </div>
 
@@ -2715,6 +2716,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
             document.getElementById('result-niche-value').textContent = data.niche || selectedNiches[0] || '—';
             document.getElementById('stats-niche-value').textContent = data.niche || selectedNiches[0] || '—';
+            document.getElementById('niche-mismatch-note').classList.toggle('hidden', !data.niche_mismatch);
             document.getElementById('result-hashtags-value').textContent = (data.suggested_hashtags || []).map(function (h) {{ return '#' + h; }}).join(' ');
             document.getElementById('result-caption-value').textContent = data.suggested_caption || '';
 
@@ -6397,7 +6399,10 @@ def _video_analysis_schema(already_published: bool) -> dict:
             "required": list(VIDEO_CATEGORY_KEYS),
         },
         "timeline": {"type": "array", "items": timeline_item},
-        "niche": {"type": "string"},
+        # Les hashtags viennent AVANT la niche : c'est à partir d'eux que la niche réelle est déduite.
+        "suggested_hashtags": str_list,
+        "niche": {"type": "string", "description": "courte phrase : la niche RÉELLE de la vidéo, déduite des hashtags"},
+        "niche_category": {"type": "string", "enum": list(NICHE_CATEGORIES), "description": "catégorie RÉELLE de la vidéo, déduite des hashtags"},
         "hook_excerpt": {"type": "string"},
         "hook_type": {"type": "string"},
         "hook_rewrites": {"type": "array", "items": {"type": "string", "description": "accroche de 4 à 9 mots, propre à cette vidéo"}},
@@ -6405,7 +6410,6 @@ def _video_analysis_schema(already_published: bool) -> dict:
         "weaknesses": str_list,
         "action_plan": str_list,
         "shooting_plan": str_list,
-        "suggested_hashtags": str_list,
         "suggested_caption": {"type": "string"},
         "policy_check": {
             "type": "object",
@@ -6417,15 +6421,15 @@ def _video_analysis_schema(already_published: bool) -> dict:
         },
     }
     required = [
-        "virality_score", "score_basis", "category_scores", "timeline", "niche", "hook_excerpt",
-        "hook_type", "hook_rewrites", "strengths", "weaknesses", "action_plan", "shooting_plan",
-        "suggested_hashtags", "suggested_caption", "policy_check",
+        "virality_score", "score_basis", "category_scores", "timeline", "suggested_hashtags", "niche",
+        "niche_category", "hook_excerpt", "hook_type", "hook_rewrites", "strengths", "weaknesses", "action_plan",
+        "shooting_plan", "suggested_caption", "policy_check",
     ]
     if already_published:
         properties["performance_band"] = {"type": "string", "enum": list(PERFORMANCE_BAND_MULTIPLIERS)}
         properties["estimation_basis"] = {"type": "string"}
         required += ["performance_band", "estimation_basis"]
-    return {"type": "object", "properties": properties, "required": required}
+    return {"type": "object", "properties": properties, "required": required, "propertyOrdering": list(properties)}
 
 
 def _build_video_prompt(
@@ -6451,7 +6455,7 @@ def _build_video_prompt(
 
     return f"""Tu reçois la VIDÉO elle-même (images ET son). Regarde-la et écoute-la en entier avant de répondre. Base-toi uniquement sur ce que tu vois et entends réellement, jamais sur une supposition (RÈGLE D'OR N°1 du guide de style). La vidéo peut ne contenir aucune voix : analyse alors le visuel, le texte à l'écran et la musique.
 
-Niche choisie pour cette vidéo : {niche_category or "non précisée"}
+NICHE : à l'inscription, l'utilisateur a indiqué la niche « {niche_category or "non précisée"} ». Cette indication est SOUVENT FAUSSE pour cette vidéo : beaucoup de gens importent une vidéo d'un tout autre sujet. NE TE FIE PAS à elle. Détermine toi-même la niche RÉELLE de CETTE vidéo à partir de ce que tu vois et entends (sujet, objets, décor, paroles, texte à l'écran, légende ou hashtags visibles). Procède dans cet ordre : (1) choisis d'abord les hashtags qui décrivent le vrai sujet de cette vidéo ("suggested_hashtags") ; (2) déduis de ces hashtags la niche réelle : "niche" (une courte phrase) et "niche_category" (UNE valeur EXACTE de la liste fournie). Tout le rapport (conseils, légende, accroches, plan de tournage) doit ensuite coller à cette niche RÉELLE, jamais à celle indiquée à l'inscription si elle est différente.
 {comparison_text}
 {challenge_text}
 
@@ -6481,7 +6485,7 @@ MOMENTS DANS LA VIDÉO : tu estimes, tu ne mesures pas. Si tu situes un passage,
 
 RAPPEL LE PLUS IMPORTANT (règle hybride, RÈGLE D'OR N°2 du guide de style) : "strengths" PEUT citer LE chiffre le plus marquant SEULEMENT si une vraie donnée chiffrée est fournie ci-dessus (ex: la moyenne du compte) et qu'elle prouve une réussite — sinon reste en mots simples, n'invente jamais un chiffre. "hook_type", "weaknesses", "action_plan", "shooting_plan", "hook_rewrites" et tous les "tip", "advice" et "example" restent SANS AUCUN CHIFFRE de statistique. VOUVOIEMENT OBLIGATOIRE ("vous", "votre", "vos" — jamais "tu"/"ton"/"tes") et mots simples, niveau CM2 : phrases courtes, une idée par phrase, aucun nom technique de catégorie d'accroche. "weaknesses", "action_plan", "shooting_plan", "tip" et "advice" doivent être des INSTRUCTIONS à l'impératif (RÈGLE D'OR N°3 du guide de style), pas des observations : "weaknesses" = ce qu'il NE FAUT PAS faire ("Arrêtez de..."), "action_plan" = ce qu'il FAUT faire à la place ("Faites...", "Commencez par...").
 
-BRIÈVETÉ (essentiel) : le rapport doit se lire en 30 secondes. Phrases COURTES : 12 mots maximum par phrase, une idée par phrase, UNE seule phrase par élément de liste. 2 à 3 éléments dans "strengths" et "weaknesses", 3 dans "action_plan" (du plus important au moins important). Aucune répétition d'une idée entre les listes. Reste concret et propre à CETTE vidéo : aucun conseil qui irait à n'importe quelle vidéo. 3-5 hashtags sans le #, une légende TikTok courte (une phrase) cohérente avec le vrai contenu."""
+BRIÈVETÉ (essentiel) : le rapport doit se lire en 30 secondes. Phrases COURTES : 12 mots maximum par phrase, une idée par phrase, UNE seule phrase par élément de liste. 2 à 3 éléments dans "strengths" et "weaknesses", 3 dans "action_plan" (du plus important au moins important). Aucune répétition d'une idée entre les listes. Reste concret et propre à CETTE vidéo : aucun conseil qui irait à n'importe quelle vidéo. 3-5 hashtags sans le # (liés au vrai sujet de CETTE vidéo, pas à la niche indiquée à l'inscription), une légende TikTok courte (une phrase) cohérente avec le vrai contenu."""
 
 
 async def _analyze_video_with_gemini(
@@ -6513,21 +6517,28 @@ async def _analyze_video_with_gemini(
             if on_stage:
                 on_stage("analyzing")
 
-            response = await client.post(
-                f"{GEMINI_API_BASE}/v1beta/models/{GEMINI_MODEL}:generateContent",
-                headers=_gemini_headers(),
-                json={
-                    "systemInstruction": {"parts": [{"text": _CACHED_SYSTEM_BLOCKS[lang]}]},
-                    "contents": [{"role": "user", "parts": [video_part, {"text": prompt}]}],
-                    "generationConfig": {
-                        "temperature": 0.4,
-                        "maxOutputTokens": 8000,
-                        "responseMimeType": "application/json",
-                        "responseSchema": response_schema,
-                        "mediaResolution": "MEDIA_RESOLUTION_LOW",
-                    },
+            request_body = {
+                "systemInstruction": {"parts": [{"text": _CACHED_SYSTEM_BLOCKS[lang]}]},
+                "contents": [{"role": "user", "parts": [video_part, {"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": 0.4,
+                    "maxOutputTokens": 8000,
+                    "responseMimeType": "application/json",
+                    "responseSchema": response_schema,
+                    "mediaResolution": "MEDIA_RESOLUTION_LOW",
                 },
-            )
+            }
+            # Le modèle est parfois saturé (503 « high demand », 429, 500) : on réessaie avec une attente
+            # croissante au lieu d'échouer tout de suite, la vidéo déjà envoyée est réutilisée.
+            for attempt in range(4):
+                response = await client.post(
+                    f"{GEMINI_API_BASE}/v1beta/models/{GEMINI_MODEL}:generateContent",
+                    headers=_gemini_headers(),
+                    json=request_body,
+                )
+                if response.status_code not in (429, 500, 503, 504) or attempt == 3:
+                    break
+                await asyncio.sleep(4 * (attempt + 1))
 
             if uploaded_name:
                 try:
@@ -6689,6 +6700,9 @@ async def _run_video_analysis(
     result["weaknesses"] = _clean_text_list(result.get("weaknesses"), 3)
     result["action_plan"] = _clean_text_list(result.get("action_plan"), 3)
     result["timeline"] = _clean_timeline(result.get("timeline"))
+    detected = result.get("niche_category")
+    result["niche_category"] = detected if detected in NICHE_CATEGORIES else "Autre"
+    result["niche_mismatch"] = bool(niche_category) and niche_category != result["niche_category"]
 
     band = result.pop("performance_band", None)
     basis = result.pop("estimation_basis", "")
