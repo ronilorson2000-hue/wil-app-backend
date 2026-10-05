@@ -1401,8 +1401,9 @@ _ONBOARDING_STYLE = """
   #step-loading .glow-thumb::before { animation: glowPulse 1.8s ease-in-out infinite; }
   @keyframes glowPulse { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
   #loading-status-text { transition: opacity 0.25s ease; }
-  .tab-btn { flex: 1; text-align: center; padding: 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #64748B; cursor: pointer; transition: all 0.15s ease; }
+  .tab-btn { flex: 1; text-align: center; padding: 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: #2563EB; color: #fff; cursor: pointer; transition: all 0.15s ease; }
   .tab-btn.active { background: #0F172A; color: #fff; }
+  .tab-btn:not(.active):hover, .tab-btn:not(.active):active { background: #7C3AED; }
   .insight-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 18px; margin-bottom: 12px; animation: cardIn 0.4s ease both; }
   @keyframes cardIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .copy-btn { cursor: pointer; color: #94A3B8; transition: color 0.15s ease, transform 0.1s ease; }
@@ -2697,6 +2698,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }}
 
           function renderResults(data) {{
+            switchTab('stats');  // le rapport s'ouvre directement sur les statistiques
             document.getElementById('locked-report').classList.add('hidden');
             document.getElementById('full-report').classList.remove('hidden');
             document.querySelector('#step-results .glow-thumb').style.display = thumbDataUrl ? '' : 'none';
