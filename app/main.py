@@ -2333,11 +2333,11 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             </div>
 
             <div class="flex gap-2 bg-slate-100 rounded-full p-1 my-5">
-              <div id="tabbtn-improvements" class="tab-btn active" onclick="switchTab('improvements')">{tt("results_tab_improvements")}</div>
-              <div id="tabbtn-stats" class="tab-btn" onclick="switchTab('stats')">{tt("results_tab_stats")}</div>
+              <div id="tabbtn-stats" class="tab-btn active" onclick="switchTab('stats')">{tt("results_tab_stats")}</div>
+              <div id="tabbtn-improvements" class="tab-btn" onclick="switchTab('improvements')">{tt("results_tab_improvements")}</div>
             </div>
 
-            <div id="tab-improvements">
+            <div id="tab-improvements" class="hidden">
               <div class="insight-card">
                 <div class="flex items-start gap-3">
                   <div class="improve-icon">🎬</div>
@@ -2394,7 +2394,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               </div>
             </div>
 
-            <div id="tab-stats" class="hidden">
+            <div id="tab-stats">
               <div class="insight-card">
                 <p class="font-semibold text-sm mb-2">{tt("results_viral_potential")}</p>
                 <p id="stats-score-value" class="text-3xl font-extrabold text-blue-600 mb-1">—/100</p>
