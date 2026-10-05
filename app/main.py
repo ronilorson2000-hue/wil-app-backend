@@ -1251,6 +1251,12 @@ async def tiktok_callback(request: Request):
                   `<div class="card"><p class="loading" style="color:#DC2626;">${{reason}}</p></div>`;
                 return;
               }}
+              // Rapport gardé + adresse stable : une actualisation de la page le réaffiche (le retour TikTok, lui, ne sert qu'une fois).
+              const reportId = data.locked ? data.unlock_id : data.report_id;
+              if (reportId) {{
+                wilCacheReport(reportId, {{kind: 'account', locked: !!data.locked, payload: data}});
+                try {{ history.replaceState(null, '', '/report/' + reportId); }} catch (e) {{}}
+              }}
               if (data.locked) {{
                 // Non-abonné : seuls les titres du rapport sont affichés, le reste est grisé.
                 document.getElementById('next-step').style.display = 'none';
@@ -1296,6 +1302,7 @@ def report_page(request: Request, analysis_id: str):
         </style>
       </head>
       <body>
+        <div id="profile-card" style="display:none; max-width:480px; margin:0 auto 16px;"></div>
         <div id="report-loading" class="card"><p class="loading">⏳ {tt("pw_unlocking")}</p></div>
         <div id="analysis-result"></div>
         <div id="next-step" style="display:none; max-width:480px; margin:8px auto 0;">
@@ -1310,19 +1317,54 @@ def report_page(request: Request, analysis_id: str):
 {paywall.ui_js(tt)}
 {_account_report_js(tt)}
           const reportPath = {_js_json(return_path)};
-          wilLoadUnlocked({_js_json(analysis_id)})
-            .then(function (data) {{
-              if (data.kind === 'video') {{ location.replace('/tools/analyze-video?unlock=' + encodeURIComponent({_js_json(analysis_id)})); return; }}
-              document.getElementById('report-loading').style.display = 'none';
-              document.getElementById('analysis-result').innerHTML = wilAccountReportHtml(data.report);
+          const reportId = {_js_json(analysis_id)};
+          const ACCOUNT_LOCK_TITLES = {{
+            strengths: "{tt('dash_strengths')}",
+            improvements: "{tt('dash_improvements')}",
+            stats: "{tt('pw_section_stats')}",
+            suggested_hashtags: "{tt('dash_suggested_hashtags')}"
+          }};
+          // Profil TikTok mémorisé sur l'appareil (jamais le jeton) : même en-tête qu'après la connexion.
+          try {{
+            const tiktok = JSON.parse(localStorage.getItem('wilTikTok') || 'null');
+            if (tiktok && tiktok.display_name) {{
+              const box = document.getElementById('profile-card');
+              box.style.display = 'block';
+              box.innerHTML = '<div class="card" style="text-align:center;">' +
+                (tiktok.avatar_url ? '<img src="' + wilPwEsc(tiktok.avatar_url) + '" alt="" style="width:72px;height:72px;border-radius:9999px;object-fit:cover;" onerror="this.style.display=&quot;none&quot;">' : '') +
+                '<p style="font-weight:700;font-size:18px;margin:10px 0 2px;">' + wilPwEsc(tiktok.display_name) + '</p>' +
+                '<p style="color:#64748B;font-size:14px;margin:0;">@' + wilPwEsc(tiktok.username || '') + '</p></div>';
+            }}
+          }} catch (e) {{}}
+          const show = function (entry) {{
+            if (entry.kind === 'video') {{ location.replace('/tools/analyze-video?unlock=' + encodeURIComponent(reportId)); return; }}
+            document.getElementById('report-loading').style.display = 'none';
+            if (entry.locked) {{
+              const titles = (entry.payload.sections || []).map(function (k) {{ return ACCOUNT_LOCK_TITLES[k]; }}).filter(Boolean);
+              document.getElementById('analysis-result').innerHTML = wilLockedReportHtml(titles, reportPath);
+              document.getElementById('next-step').style.display = 'none';
+            }} else {{
+              document.getElementById('analysis-result').innerHTML = wilAccountReportHtml(entry.payload);
               document.getElementById('next-step').style.display = 'block';
-            }})
-            .catch(function (e) {{
-              document.getElementById('report-loading').style.display = 'none';
-              document.getElementById('analysis-result').innerHTML = (e && e.status === 402)
-                ? wilNoticeHtml(WIL_PW.title, WIL_PW.sub, reportPath)
-                : '<div class="card"><p class="loading" style="color:#DC2626;">' + wilPwEsc(WIL_PW.error) + '</p></div>';
-            }});
+            }}
+          }};
+          const cached = wilGetCachedReport(reportId);
+          if (cached) show(cached);
+          if (!cached || cached.locked) {{
+            wilLoadUnlocked(reportId)
+              .then(function (d) {{
+                const entry = d.locked
+                  ? {{kind: d.kind, locked: true, payload: {{locked: true, kind: d.kind, unlock_id: reportId, sections: d.teaser.sections}}}}
+                  : {{kind: d.kind, locked: false, payload: d.report}};
+                wilCacheReport(reportId, entry);
+                show(entry);
+              }})
+              .catch(function () {{
+                if (cached) return;
+                document.getElementById('report-loading').style.display = 'none';
+                document.getElementById('analysis-result').innerHTML = '<div class="card"><p class="loading" style="color:#DC2626;">' + wilPwEsc(WIL_PW.error) + '</p></div>';
+              }});
+          }}
         </script>
       </body>
     </html>
@@ -2525,6 +2567,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }}
 
           function resetFlow() {{
+            try {{ history.replaceState(null, '', location.pathname); }} catch (e) {{}}
             document.getElementById('upload-video-input').value = '';
             selectedFile = null;
             alreadyPublished = null;
@@ -2662,12 +2705,14 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                   return;
                 }}
                 if (res.data && res.data.locked) {{
+                  rememberReport(res.data);
                   renderLockedReport(res.data);
                   setLoadingText('{tt("loading_done")}');
                   setTimeout(function () {{ goToStep('step-results', 100, false); }}, 500);
                   return;
                 }}
                 setLoadingText('{tt("loading_done")}');
+                rememberReport(res.data);
                 renderResults(res.data);
                 setTimeout(function () {{ goToStep('step-results', 100, false); }}, 500);
               }})
@@ -2691,6 +2736,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
           // Non-abonné : le serveur n'envoie que les titres des sections ; tout le contenu reste grisé.
           function renderLockedReport(data) {{
+            document.querySelector('#step-results .glow-thumb').style.display = thumbDataUrl ? '' : 'none';
             document.getElementById('full-report').classList.add('hidden');
             const box = document.getElementById('locked-report');
             box.classList.remove('hidden');
@@ -2698,7 +2744,32 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             box.innerHTML = wilLockedReportHtml(titles, '/tools/analyze-video?unlock=' + data.unlock_id);
           }}
 
-          function renderResults(data) {{
+          // Miniature réduite : gardée avec le rapport pour que la page se réaffiche à l'identique après une actualisation.
+          function shrinkThumb(dataUrl, done) {{
+            if (!dataUrl) {{ done(''); return; }}
+            const img = new Image();
+            img.onload = function () {{
+              const c = document.createElement('canvas');
+              c.width = 160;
+              c.height = Math.round(img.height * 160 / img.width);
+              c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+              done(c.toDataURL('image/jpeg', 0.7));
+            }};
+            img.onerror = function () {{ done(''); }};
+            img.src = dataUrl;
+          }}
+
+          // Garde le rapport (navigateur) et met son identifiant dans l'adresse : une actualisation le réaffiche sans relancer l'analyse.
+          function rememberReport(data) {{
+            const id = data.locked ? data.unlock_id : data.report_id;
+            if (!id) return;
+            shrinkThumb(thumbDataUrl, function (thumb) {{
+              wilCacheReport(id, {{kind: 'video', locked: !!data.locked, payload: data, thumb: thumb}});
+            }});
+            try {{ history.replaceState(null, '', location.pathname + '?unlock=' + id); }} catch (e) {{}}
+          }}
+
+          function renderResults(data, silent) {{
             switchTab('stats');  // le rapport s'ouvre directement sur les statistiques
             document.getElementById('locked-report').classList.add('hidden');
             document.getElementById('full-report').classList.remove('hidden');
@@ -2725,10 +2796,12 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             document.getElementById('result-weaknesses-value').innerHTML = (data.weaknesses || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
             document.getElementById('result-actions-value').innerHTML = (data.action_plan || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
 
-            saveHistoryEntry({{
-              type: 'video', score: score, niche: data.niche || selectedNiches[0] || '',
-              title: data.hook_excerpt || data.niche || selectedNiches[0] || '', ts: Date.now()
-            }});
+            if (!silent) {{
+              saveHistoryEntry({{
+                type: 'video', score: score, niche: data.niche || selectedNiches[0] || '',
+                title: data.hook_excerpt || data.niche || selectedNiches[0] || '', ts: Date.now()
+              }});
+            }}
 
             const cats = data.category_scores || {{}};
             document.getElementById('stats-categories').innerHTML = Object.keys(CAT_LABELS).map(function (key) {{
@@ -2810,24 +2883,39 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               }});
           }}
 
-          // Retour après abonnement (/subscribe -> ?unlock=<id>) : on récupère le rapport complet enregistré côté serveur.
+          // Page rouverte avec ?unlock=<id> (actualisation, ou retour après abonnement) : on réaffiche le rapport,
+          // d'abord depuis le navigateur (instantané), puis on le rafraîchit auprès du serveur si besoin.
           (function () {{
-            const unlockId = wilUnlockId();
-            if (!unlockId) return;
-            document.getElementById('loading-status-text').textContent = WIL_PW.unlocking;
-            goToStep('step-loading', 100, false);
-            wilLoadUnlocked(unlockId)
+            const reportId = wilUnlockId();
+            if (!reportId) return;
+            const cached = wilGetCachedReport(reportId);
+            const show = function (entry, silent) {{
+              thumbDataUrl = entry.thumb || '';
+              const thumbEl = document.getElementById('result-thumb-preview');
+              if (thumbDataUrl) {{ thumbEl.src = thumbDataUrl; }} else {{ thumbEl.removeAttribute('src'); }}
+              if (entry.locked) {{ renderLockedReport(entry.payload); }} else {{ renderResults(entry.payload, silent); }}
+              goToStep('step-results', 100, false);
+            }};
+            if (cached && cached.kind === 'video') {{
+              show(cached, true);
+              if (!cached.locked) return;
+            }} else {{
+              document.getElementById('loading-status-text').textContent = WIL_PW.unlocking;
+              goToStep('step-loading', 100, false);
+            }}
+            wilLoadUnlocked(reportId)
               .then(function (d) {{
                 if (d.kind !== 'video') throw new Error('kind');
-                try {{ history.replaceState(null, '', location.pathname); }} catch (e) {{}}
-                renderResults(d.report);
-                goToStep('step-results', 100, false);
+                const thumb = cached ? cached.thumb : '';
+                const entry = d.locked
+                  ? {{kind: 'video', locked: true, payload: {{locked: true, kind: 'video', unlock_id: reportId, sections: d.teaser.sections}}, thumb: thumb}}
+                  : {{kind: 'video', locked: false, payload: d.report, thumb: thumb}};
+                wilCacheReport(reportId, entry);
+                show(entry, !!(cached && !cached.locked));
               }})
-              .catch(function (e) {{
-                const box = document.getElementById('upload-error');
-                box.innerHTML = (e && e.status === 402)
-                  ? wilNoticeHtml(WIL_PW.title, WIL_PW.sub, '/tools/analyze-video?unlock=' + unlockId)
-                  : wilPwEsc(WIL_PW.error);
+              .catch(function () {{
+                if (cached) return;
+                document.getElementById('upload-error').textContent = WIL_PW.error;
                 goToStep('step-upload', 100, true);
               }});
           }})();
@@ -3713,7 +3801,7 @@ __PW_JS__
     function closeAccount() {
       const sid = (function () { try { return localStorage.getItem('wilSession'); } catch (e) { return null; } })();
       const wipe = function () {
-        ['wilOnboarding', 'wilHistory', 'wilSaved', 'wilTikTok', 'wilSession', 'wilDiscover', 'wilTheme'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+        ['wilOnboarding', 'wilHistory', 'wilSaved', 'wilTikTok', 'wilSession', 'wilDiscover', 'wilTheme', 'wilReports'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
         location.href = '/';
       };
       if (!sid) { wipe(); return; }
@@ -5970,9 +6058,9 @@ contient de toute façon pas)."""
         _save_account_snapshot(open_id, username, niche_category, lang, stats)
 
     result = {"stats": stats, "ai_report": ai_report, "lang": lang}
-    if entitlement["subscribed"]:
-        return JSONResponse(content=result)
     unlock_id = paywall.store_analysis("account", result)
+    if entitlement["subscribed"]:
+        return JSONResponse(content={**result, "report_id": unlock_id})
     response = JSONResponse(content=paywall.build_teaser("account", result, unlock_id))
     paywall.mark_free_used(response, request, "account")
     return response
@@ -6962,10 +7050,11 @@ async def video_job_status(job_id: str, request: Request):
         return JSONResponse(content={"status": "error", "code": job["code"], "detail": job["detail"]}, headers=headers)
     result = job["result"]
     entitlement = await paywall.get_entitlement(request)
-    if entitlement["subscribed"]:
-        return JSONResponse(content={"status": "done", "result": result}, headers=headers)
     if not job["unlock_id"]:
         job["unlock_id"] = paywall.store_analysis("video", result)
+    if entitlement["subscribed"]:
+        # report_id : permet de retrouver ce rapport après une actualisation de la page.
+        return JSONResponse(content={"status": "done", "result": {**result, "report_id": job["unlock_id"]}}, headers=headers)
     response = JSONResponse(
         content={"status": "done", "result": paywall.build_teaser("video", result, job["unlock_id"])}, headers=headers
     )

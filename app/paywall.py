@@ -252,12 +252,18 @@ def build_teaser(kind: str, payload: dict, analysis_id: str) -> dict:
 
 @router.get("/api/analysis/{analysis_id}", response_class=JSONResponse)
 async def get_analysis(analysis_id: str, request: Request):
-    """Rapport complet d'une analyse déjà faite : réservé aux abonnés."""
-    await require_subscription(request)
+    """
+    Rapport d'une analyse déjà faite (rechargement de la page, retour après abonnement).
+    Abonné : rapport complet. Non-abonné : seulement les titres des sections (teaser).
+    """
     stored = load_analysis(analysis_id)
     if not stored:
         raise HTTPException(status_code=404, detail="Rapport introuvable ou expiré.")
-    return JSONResponse(content={"kind": stored["kind"], "report": stored["payload"]})
+    headers = {"Cache-Control": "no-store"}
+    if (await get_entitlement(request))["subscribed"]:
+        return JSONResponse(content={"kind": stored["kind"], "report": stored["payload"]}, headers=headers)
+    teaser = build_teaser(stored["kind"], stored["payload"], analysis_id)
+    return JSONResponse(content={"kind": stored["kind"], "locked": True, "teaser": teaser}, headers=headers)
 
 
 @router.get("/api/me", response_class=JSONResponse)
@@ -431,6 +437,21 @@ function wilLockedReportHtml(titles, returnPath) {
 function wilNoticeHtml(title, text, returnPath) {
   return '<div class="wilpw"><div class="wilpw-head"><div class="wilpw-ic">🔒</div><h2>' + wilPwEsc(title) + '</h2><p>' +
     wilPwEsc(text) + '</p></div>' + wilPwActions(returnPath) + '</div>';
+}
+// Rapports gardés dans le navigateur : une actualisation de la page réaffiche le rapport sans relancer l'analyse.
+const WIL_REPORTS_KEY = 'wilReports';
+function wilReportsRead() {
+  try { return JSON.parse(localStorage.getItem(WIL_REPORTS_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function wilGetCachedReport(id) { return wilReportsRead()[id] || null; }
+function wilCacheReport(id, entry) {
+  try {
+    const all = wilReportsRead();
+    all[id] = Object.assign({ts: Date.now()}, entry);
+    const kept = {};
+    Object.keys(all).sort(function (a, b) { return all[b].ts - all[a].ts; }).slice(0, 8).forEach(function (k) { kept[k] = all[k]; });
+    localStorage.setItem(WIL_REPORTS_KEY, JSON.stringify(kept));
+  } catch (e) {}
 }
 function wilUnlockId() {
   try {
