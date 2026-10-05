@@ -441,6 +441,7 @@ def home(request: Request):
         <style>
           html {{ overflow-x: hidden; }}
           body {{ font-family: 'Inter', system-ui, sans-serif; }}
+          {_VIOLET_BUTTONS_CSS}
           #hero-3d {{ opacity: 0; transition: opacity 1.2s ease; }}
           #hero-3d.ready {{ opacity: 1; }}
           .reveal {{ opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }}
@@ -721,6 +722,16 @@ def home(request: Request):
     """
 
 
+# Tous les boutons bleus de l'application (web + onboarding) passent au violet quand on
+# pointe dessus ou qu'on clique. Règle unique et partagée par toutes les pages, avec
+# !important pour l'emporter sur les classes Tailwind (hover:bg-blue-700, etc.).
+_VIOLET_BUTTONS_CSS = """
+  button.bg-blue-600:hover, a.bg-blue-600:hover, button.bg-blue-600:active, a.bg-blue-600:active,
+  a.bg-blue-800:hover, a.bg-blue-800:active,
+  button.primary:hover, button.primary:active,
+  .btn-pill:hover, .btn-pill:active { background: #7C3AED !important; border-color: #7C3AED !important; }
+"""
+
 # En-tête partagé par les pages secondaires (Services/About/Contact) : accessibles
 # uniquement via un clic depuis le menu de la page d'accueil, plus dans le flux de
 # scroll de la landing page elle-même (contenu identique à l'ancien affichage inline).
@@ -735,6 +746,7 @@ _SECONDARY_PAGE_HEAD = """
     tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } };
   </script>
   <style>body { font-family: 'Inter', system-ui, sans-serif; }</style>
+  <style>""" + _VIOLET_BUTTONS_CSS + """</style>
 """
 
 def _secondary_page_nav_html(lang: str, current_path: str) -> str:
@@ -1138,7 +1150,7 @@ async def tiktok_callback(request: Request):
         <style>
           body {{ font-family: 'Inter', system-ui, sans-serif; text-align: center;
                   margin: 0; padding: 56px 20px; color: #0F172A; background: #EFF6FF; }}
-          {_ACCOUNT_REPORT_CSS}
+          {_ACCOUNT_REPORT_CSS}{_VIOLET_BUTTONS_CSS}
           .card.profile {{ text-align: center; }}
           img.avatar {{ width: 96px; height: 96px; border-radius: 9999px; object-fit: cover; }}
           h2 {{ margin: 16px 0 4px; font-size: 20px; font-weight: 700; }}
@@ -1280,7 +1292,7 @@ def report_page(request: Request, analysis_id: str):
         <style>
           body {{ font-family: 'Inter', system-ui, sans-serif; text-align: center; margin: 0; padding: 40px 20px; color: #0F172A; background: #EFF6FF; }}
           a.home {{ display: block; margin-top: 24px; color: #2563EB; text-decoration: none; font-size: 14px; font-weight: 500; }}
-          {_ACCOUNT_REPORT_CSS}
+          {_ACCOUNT_REPORT_CSS}{_VIOLET_BUTTONS_CSS}
         </style>
       </head>
       <body>
@@ -1332,7 +1344,7 @@ _TOOL_PAGE_STYLE = """
   a.back { display: inline-block; margin-bottom: 20px; color: #1d4ed8; text-decoration: none; font-size: 14px; }
   .bullets { padding-left: 18px; }
   .loading { color: #777; font-size: 14px; }
-"""
+""" + _VIOLET_BUTTONS_CSS
 
 
 # Barre des 4 onglets (Accueil, Bibliothèque, Découvrir, Profil) : EN HAUT sur
@@ -1415,7 +1427,7 @@ _ONBOARDING_STYLE = """
   .nav-item:hover { background: #F8FAFC; }
   .nav-item.active { color: #2563EB; font-weight: 700; background: #EFF6FF; }
   .nav-item svg { width: 24px; height: 24px; }
-""" + _NAV_POSITION_CSS + _THEME_CSS
+""" + _NAV_POSITION_CSS + _THEME_CSS + _VIOLET_BUTTONS_CSS
 
 _ONBOARDING_HEAD_ASSETS = """
     <script>
@@ -4069,7 +4081,7 @@ def app_shell_page(request: Request):
 
     html = (
         _APP_SHELL_HTML.replace("__HEAD_ASSETS__", _ONBOARDING_HEAD_ASSETS)
-        .replace("__NAV_CSS__", _NAV_POSITION_CSS + _THEME_CSS)
+        .replace("__NAV_CSS__", _NAV_POSITION_CSS + _THEME_CSS + _VIOLET_BUTTONS_CSS)
         .replace("__CFG__", _js_json({
             "site": SITE_URL,
             "appStore": APP_STORE_URL,
