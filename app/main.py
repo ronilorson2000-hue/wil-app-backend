@@ -21,6 +21,7 @@ import math
 import os
 import re
 import secrets
+import tempfile
 import time
 import uuid
 from collections import Counter
@@ -2525,30 +2526,116 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             goToStep('step-upload', 100, true);
           }}
 
+          const INTERRUPTED = "{tt("upload_interrupted")}";
+          function sleep(ms) {{ return new Promise(function (resolve) {{ setTimeout(resolve, ms); }}); }}
+          function safeJson(r) {{ return r.json().catch(function () {{ return {{}}; }}); }}
+          function waitOnline() {{
+            if (navigator.onLine !== false) return Promise.resolve();
+            return new Promise(function (resolve) {{
+              const done = function () {{ window.removeEventListener('online', done); resolve(); }};
+              window.addEventListener('online', done);
+              setTimeout(done, 20000);
+            }});
+          }}
+          // Réessaie après une coupure réseau ou une erreur de passerelle (502/503/504), jamais sur une erreur 4xx :
+          // une coupure passagère sur mobile ne doit pas faire échouer toute l'analyse.
+          async function fetchRetry(url, options, tries) {{
+            let lastError = null;
+            for (let attempt = 0; attempt < tries; attempt++) {{
+              if (attempt > 0) await sleep(Math.min(1000 * Math.pow(2, attempt - 1), 8000));
+              await waitOnline();
+              try {{
+                const r = await fetch(url, options);
+                if ([502, 503, 504].indexOf(r.status) === -1) return r;
+                lastError = new Error('http ' + r.status);
+              }} catch (e) {{ lastError = e; }}
+            }}
+            throw lastError;
+          }}
+
+          // 1) envoi de la vidéo par morceaux de 4 Mo (chacun réessayé), 2) analyse lancée en arrière-plan sur le serveur,
+          // 3) petites requêtes toutes les 3 s jusqu'au résultat : plus aucune requête longue qui reste muette pendant des minutes.
+          async function runVideoAnalysis(onProgress, onUploaded) {{
+            const startRes = await fetchRetry('/api/video-upload/start', {{
+              method: 'POST', headers: {{'Content-Type': 'application/json'}},
+              body: JSON.stringify({{size: selectedFile.size, mime: selectedFile.type || 'video/mp4'}})
+            }}, 4);
+            const start = await safeJson(startRes);
+            if (!startRes.ok) return {{ok: false, status: startRes.status, data: start}};
+            const total = Math.max(1, Math.ceil(selectedFile.size / start.chunk_size));
+            for (let i = 0; i < total; i++) {{
+              const blob = selectedFile.slice(i * start.chunk_size, Math.min(selectedFile.size, (i + 1) * start.chunk_size));
+              const r = await fetchRetry('/api/video-upload/' + start.upload_id + '/' + i, {{
+                method: 'PUT', headers: {{'Content-Type': 'application/octet-stream'}}, body: blob
+              }}, 8);
+              if (r.status === 404) return {{ok: false, status: 404, data: {{detail: INTERRUPTED}}}};
+              if (!r.ok) return {{ok: false, status: r.status, data: await safeJson(r)}};
+              onProgress((i + 1) / total);
+            }}
+            const form = new FormData();
+            form.append('account_avg_views', accountAvgViewsFinal);
+            form.append('niche_category', selectedNiches[0] || '');
+            form.append('main_challenge', selectedChallenge);
+            form.append('ui_lang', uiLang);
+            form.append('already_published', alreadyPublished ? 'true' : 'false');
+            const fin = await fetchRetry('/api/video-upload/' + start.upload_id + '/finish', {{method: 'POST', body: form}}, 5);
+            const finData = await safeJson(fin);
+            if (!fin.ok) return {{ok: false, status: fin.status, data: finData}};
+            onUploaded();
+            let misses = 0;
+            for (;;) {{
+              await sleep(3000);
+              let r = null;
+              let data = null;
+              try {{
+                r = await fetch('/api/video-job/' + finData.job_id);
+                data = await safeJson(r);
+              }} catch (e) {{
+                if (++misses > 40) throw e;
+                continue;
+              }}
+              if (r.status === 404) return {{ok: false, status: 404, data: {{detail: INTERRUPTED}}}};
+              if (!data || !data.status) {{
+                if (++misses > 40) throw new Error('http ' + r.status);
+                continue;
+              }}
+              misses = 0;
+              if (data.status === 'done') return {{ok: true, status: 200, data: data.result}};
+              if (data.status === 'error') return {{ok: false, status: data.code || 500, data: {{detail: data.detail}}}};
+            }}
+          }}
+
           function launchAnalysis() {{
             if (!selectedFile) return;
             document.getElementById('loading-thumb-preview').src = thumbDataUrl;
             document.getElementById('result-thumb-preview').src = thumbDataUrl;
             let stageIdx = 0;
-            document.getElementById('loading-status-text').textContent = LOADING_STAGES[0];
+            let uploading = true;
+            const loadingEl = document.getElementById('loading-status-text');
+            loadingEl.textContent = LOADING_STAGES[0] + ' 0%';
             goToStep('step-loading', 100, false);
             const stageInterval = setInterval(function () {{
+              if (uploading) return;
               stageIdx = Math.min(stageIdx + 1, LOADING_STAGES.length - 1);
               setLoadingText(LOADING_STAGES[stageIdx]);
             }}, 4000);
+            // Garde l'écran allumé pendant l'envoi (un téléphone qui se verrouille suspend la page et coupe le réseau).
+            let wakeLock = null;
+            try {{
+              if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) {{ wakeLock = l; }}).catch(function () {{}});
+            }} catch (e) {{}}
+            const releaseWake = function () {{ try {{ if (wakeLock) wakeLock.release(); }} catch (e) {{}} }};
 
-            const formData = new FormData();
-            formData.append('file', selectedFile);
-            formData.append('account_avg_views', accountAvgViewsFinal);
-            formData.append('niche_category', selectedNiches[0] || '');
-            formData.append('main_challenge', selectedChallenge);
-            formData.append('ui_lang', uiLang);
-            formData.append('already_published', alreadyPublished ? 'true' : 'false');
-
-            fetch('/api/analyze-video-upload', {{ method: 'POST', body: formData }})
-              .then(function (r) {{ return r.json().then(function (data) {{ return {{ok: r.ok, status: r.status, data: data}}; }}); }})
+            runVideoAnalysis(function (fraction) {{
+              loadingEl.textContent = LOADING_STAGES[0] + ' ' + Math.round(fraction * 100) + '%';
+            }}, function () {{
+              uploading = false;
+              stageIdx = 1;
+              setLoadingText(LOADING_STAGES[1]);
+            }})
               .then(function (res) {{
                 clearInterval(stageInterval);
+                releaseWake();
                 if (!res.ok) {{
                   if (res.status === 402) {{
                     // Analyse gratuite déjà utilisée : abonnement requis (aucun jeton dépensé).
@@ -2572,7 +2659,8 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               }})
               .catch(function (e) {{
                 clearInterval(stageInterval);
-                document.getElementById('upload-error').textContent = '{tt("common_network_error")} ' + (e && e.message ? e.message : e);
+                releaseWake();
+                document.getElementById('upload-error').textContent = INTERRUPTED;
                 goToStep('step-upload', 100, true);
               }});
           }}
@@ -6199,19 +6287,31 @@ def _gemini_headers() -> dict:
     return {"x-goog-api-key": GEMINI_API_KEY}
 
 
-async def _gemini_upload_video(client: httpx.AsyncClient, video_bytes: bytes, mime_type: str) -> dict:
+async def _iter_file(path: Path, chunk_size: int = 1024 * 1024):
+    """Lit un fichier par blocs de 1 Mo : une grosse vidéo n'est jamais chargée entière en mémoire."""
+    with open(path, "rb") as handle:
+        while True:
+            block = await asyncio.to_thread(handle.read, chunk_size)
+            if not block:
+                return
+            yield block
+
+
+async def _gemini_upload_video(client: httpx.AsyncClient, video_source: "bytes | Path", mime_type: str) -> dict:
     """
     Envoie la vidéo à la Files API de Gemini (upload "resumable" en 2 temps)
     puis attend que le fichier soit traité (état ACTIVE). Renvoie les infos
-    du fichier ({"name", "uri", "mimeType", ...}).
+    du fichier ({"name", "uri", "mimeType", ...}). `video_source` : octets ou
+    chemin d'un fichier (alors envoyé en flux, sans le charger en mémoire).
     """
+    size = video_source.stat().st_size if isinstance(video_source, Path) else len(video_source)
     start = await client.post(
         f"{GEMINI_API_BASE}/upload/v1beta/files",
         headers={
             **_gemini_headers(),
             "X-Goog-Upload-Protocol": "resumable",
             "X-Goog-Upload-Command": "start",
-            "X-Goog-Upload-Header-Content-Length": str(len(video_bytes)),
+            "X-Goog-Upload-Header-Content-Length": str(size),
             "X-Goog-Upload-Header-Content-Type": mime_type,
             "Content-Type": "application/json",
         },
@@ -6226,8 +6326,9 @@ async def _gemini_upload_video(client: httpx.AsyncClient, video_bytes: bytes, mi
         headers={
             "X-Goog-Upload-Offset": "0",
             "X-Goog-Upload-Command": "upload, finalize",
+            "Content-Length": str(size),
         },
-        content=video_bytes,
+        content=_iter_file(video_source) if isinstance(video_source, Path) else video_source,
     )
     if finish.status_code != 200:
         raise HTTPException(status_code=502, detail="Échec de l'envoi de la vidéo au service d'analyse.")
@@ -6370,7 +6471,7 @@ BRIÈVETÉ (essentiel) : le rapport doit se lire en 30 secondes. Phrases COURTES
 
 
 async def _analyze_video_with_gemini(
-    video_bytes: bytes, mime_type: str, prompt: str, ui_lang: str, response_schema: dict
+    video_source: "bytes | Path", mime_type: str, prompt: str, ui_lang: str, response_schema: dict, on_stage=None
 ) -> dict:
     """
     Envoie la vidéo brute (images + son) à Gemini avec le guide de style en
@@ -6383,14 +6484,20 @@ async def _analyze_video_with_gemini(
     try:
         # Timeouts larges : l'envoi d'une grosse vidéo peut durer plusieurs minutes sur une connexion lente.
         async with httpx.AsyncClient(timeout=httpx.Timeout(connect=30, read=300, write=300, pool=30)) as client:
-            if len(video_bytes) <= GEMINI_INLINE_MAX_BYTES:
+            size = video_source.stat().st_size if isinstance(video_source, Path) else len(video_source)
+            if size <= GEMINI_INLINE_MAX_BYTES:
+                video_bytes = await asyncio.to_thread(video_source.read_bytes) if isinstance(video_source, Path) else video_source
                 video_part = {
                     "inline_data": {"mime_type": mime_type, "data": base64.b64encode(video_bytes).decode()}
                 }
             else:
-                file_info = await _gemini_upload_video(client, video_bytes, mime_type)
+                if on_stage:
+                    on_stage("uploading")
+                file_info = await _gemini_upload_video(client, video_source, mime_type)
                 uploaded_name = file_info["name"]
                 video_part = {"file_data": {"mime_type": mime_type, "file_uri": file_info["uri"]}}
+            if on_stage:
+                on_stage("analyzing")
 
             response = await client.post(
                 f"{GEMINI_API_BASE}/v1beta/models/{GEMINI_MODEL}:generateContent",
@@ -6525,6 +6632,74 @@ def _store_video_estimate(row: dict) -> None:
         print(f"[video_estimate_feedback] insertion impossible: {exc}")
 
 
+async def _run_video_analysis(
+    video_source: "bytes | Path",
+    mime_type: str,
+    niche_category: str,
+    avg_views: int,
+    main_challenge: str,
+    published: bool,
+    ui_lang: str,
+    on_stage=None,
+) -> dict:
+    """Analyse complète d'une vidéo : appel Gemini, garde-fous sur les scores, estimation de performance."""
+    result = await _analyze_video_with_gemini(
+        video_source,
+        mime_type,
+        _build_video_prompt(niche_category, avg_views, main_challenge, published),
+        ui_lang,
+        _video_analysis_schema(published),
+        on_stage,
+    )
+
+    # Garde-fous côté serveur : on ne fait jamais confiance aveuglément au
+    # modèle pour la cohérence des scores.
+    categories = result.get("category_scores") or {}
+    cleaned_categories = {}
+    for key in VIDEO_CATEGORY_KEYS:
+        entry = categories.get(key) or {}
+        cleaned_categories[key] = {
+            "score": _clamp_score(entry.get("score")),
+            "comment": entry.get("comment") or "",
+            "tip": str(entry.get("tip") or "").strip(),
+            "example": str(entry.get("example") or "").strip(),
+        }
+    category_values = [c["score"] for c in cleaned_categories.values()]
+    score = _clamp_score(result.get("virality_score"))
+    score = max(min(category_values), min(max(category_values), score))
+    result["category_scores"] = cleaned_categories
+    result["virality_score"] = score
+    result["hook_rewrites"] = _clean_hooks(result.get("hook_rewrites"))
+    result["shooting_plan"] = _clean_text_list(result.get("shooting_plan"), 3)
+    result["strengths"] = _clean_text_list(result.get("strengths"), 3)
+    result["weaknesses"] = _clean_text_list(result.get("weaknesses"), 3)
+    result["action_plan"] = _clean_text_list(result.get("action_plan"), 3)
+    result["timeline"] = _clean_timeline(result.get("timeline"))
+
+    band = result.pop("performance_band", None)
+    basis = result.pop("estimation_basis", "")
+    if published and band in PERFORMANCE_BAND_MULTIPLIERS:
+        estimate = _build_estimate(band, avg_views, basis)
+        analysis_id = str(uuid.uuid4())
+        result["estimate"] = estimate
+        result["analysis_id"] = analysis_id
+        await asyncio.to_thread(
+            _store_video_estimate,
+            {
+                "id": analysis_id,
+                "lang": ui_lang,
+                "niche_category": niche_category or None,
+                "virality_score": score,
+                "performance_band": band,
+                "account_avg_views": avg_views or None,
+                "estimated_views_low": (estimate["views"] or [None, None])[0],
+                "estimated_views_high": (estimate["views"] or [None, None])[1],
+            },
+        )
+
+    return result
+
+
 @app.post("/api/analyze-video-upload", response_class=JSONResponse)
 async def analyze_video_upload(
     request: Request,
@@ -6578,63 +6753,194 @@ async def analyze_video_upload(
         raise HTTPException(status_code=400, detail="Fichier vide.")
     mime_type = file.content_type if (file.content_type or "").startswith("video/") else "video/mp4"
 
-    result = await _analyze_video_with_gemini(
-        video_bytes,
-        mime_type,
-        _build_video_prompt(niche_category, avg_views, main_challenge, published),
-        ui_lang,
-        _video_analysis_schema(published),
+    result = await _run_video_analysis(
+        video_bytes, mime_type, niche_category, avg_views, main_challenge, published, ui_lang
     )
-
-    # Garde-fous côté serveur : on ne fait jamais confiance aveuglément au
-    # modèle pour la cohérence des scores.
-    categories = result.get("category_scores") or {}
-    cleaned_categories = {}
-    for key in VIDEO_CATEGORY_KEYS:
-        entry = categories.get(key) or {}
-        cleaned_categories[key] = {
-            "score": _clamp_score(entry.get("score")),
-            "comment": entry.get("comment") or "",
-            "tip": str(entry.get("tip") or "").strip(),
-            "example": str(entry.get("example") or "").strip(),
-        }
-    category_values = [c["score"] for c in cleaned_categories.values()]
-    score = _clamp_score(result.get("virality_score"))
-    score = max(min(category_values), min(max(category_values), score))
-    result["category_scores"] = cleaned_categories
-    result["virality_score"] = score
-    result["hook_rewrites"] = _clean_hooks(result.get("hook_rewrites"))
-    result["shooting_plan"] = _clean_text_list(result.get("shooting_plan"), 3)
-    result["strengths"] = _clean_text_list(result.get("strengths"), 3)
-    result["weaknesses"] = _clean_text_list(result.get("weaknesses"), 3)
-    result["action_plan"] = _clean_text_list(result.get("action_plan"), 3)
-    result["timeline"] = _clean_timeline(result.get("timeline"))
-
-    band = result.pop("performance_band", None)
-    basis = result.pop("estimation_basis", "")
-    if published and band in PERFORMANCE_BAND_MULTIPLIERS:
-        estimate = _build_estimate(band, avg_views, basis)
-        analysis_id = str(uuid.uuid4())
-        result["estimate"] = estimate
-        result["analysis_id"] = analysis_id
-        await asyncio.to_thread(
-            _store_video_estimate,
-            {
-                "id": analysis_id,
-                "lang": ui_lang,
-                "niche_category": niche_category or None,
-                "virality_score": score,
-                "performance_band": band,
-                "account_avg_views": avg_views or None,
-                "estimated_views_low": (estimate["views"] or [None, None])[0],
-                "estimated_views_high": (estimate["views"] or [None, None])[1],
-            },
-        )
 
     if entitlement["subscribed"]:
         return JSONResponse(content=result)
     unlock_id = paywall.store_analysis("video", result)
     response = JSONResponse(content=paywall.build_teaser("video", result, unlock_id))
+    paywall.mark_free_used(response, request, "video")
+    return response
+
+
+# --------------------------------------------------------------------------
+# Envoi de vidéo robuste (mobile) : au lieu d'UNE requête qui transporte toute la
+# vidéo puis attend 1 à 4 minutes sans un octet de réponse (coupée par les réseaux
+# mobiles, les proxys ou un changement d'application -> « Failed to fetch »), le
+# navigateur envoie la vidéo par morceaux de 4 Mo (chacun réessayé en cas de
+# coupure), puis l'analyse tourne en arrière-plan et l'écran l'interroge par
+# petites requêtes. La vidéo est écrite sur disque, jamais gardée entière en RAM.
+# --------------------------------------------------------------------------
+VIDEO_CHUNK_BYTES = 4 * 1024 * 1024
+UPLOAD_TTL_SECONDS = 3600
+_video_uploads: dict[str, dict] = {}
+_video_jobs: dict[str, dict] = {}
+_background_tasks: set = set()
+
+
+def _upload_dir() -> Path:
+    directory = Path(tempfile.gettempdir()) / "wil_uploads"
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def _purge_stale_uploads() -> None:
+    now = time.time()
+    for upload_id, upload in list(_video_uploads.items()):
+        if now - upload["created"] > UPLOAD_TTL_SECONDS:
+            _video_uploads.pop(upload_id, None)
+            upload["path"].unlink(missing_ok=True)
+    for job_id, job in list(_video_jobs.items()):
+        if now - job["created"] > UPLOAD_TTL_SECONDS:
+            _video_jobs.pop(job_id, None)
+    for leftover in _upload_dir().glob("*.bin"):  # fichiers orphelins (redémarrage du serveur)
+        try:
+            if now - leftover.stat().st_mtime > UPLOAD_TTL_SECONDS:
+                leftover.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+class VideoUploadStart(BaseModel):
+    size: int
+    mime: str = "video/mp4"
+
+
+@app.post("/api/video-upload/start", response_class=JSONResponse)
+async def video_upload_start(body: VideoUploadStart, request: Request):
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY manquant dans .env")
+    # Refus immédiat (avant tout envoi de vidéo) si l'essai gratuit est déjà utilisé.
+    entitlement = await paywall.get_entitlement(request)
+    if not entitlement["subscribed"] and paywall.free_quota_left(request, "video") <= 0:
+        raise HTTPException(status_code=402, detail="Votre analyse gratuite est utilisée. Abonnez-vous pour continuer.")
+    if body.size <= 0:
+        raise HTTPException(status_code=400, detail="Fichier vide.")
+    if body.size > MAX_VIDEO_BYTES:
+        raise HTTPException(status_code=413, detail="Fichier trop volumineux (200 Mo max).")
+    _purge_stale_uploads()
+    upload_id = str(uuid.uuid4())
+    _video_uploads[upload_id] = {
+        "path": _upload_dir() / f"{upload_id}.bin",
+        "size": body.size,
+        "mime": body.mime if body.mime.startswith("video/") else "video/mp4",
+        "received": set(),
+        "created": time.time(),
+        "job_id": None,
+    }
+    return JSONResponse(content={"upload_id": upload_id, "chunk_size": VIDEO_CHUNK_BYTES})
+
+
+def _write_chunk(path: Path, offset: int, data: bytes) -> None:
+    mode = "r+b" if path.exists() else "w+b"
+    with open(path, mode) as handle:
+        handle.seek(offset)
+        handle.write(data)
+
+
+@app.put("/api/video-upload/{upload_id}/{index}", response_class=JSONResponse)
+async def video_upload_chunk(upload_id: str, index: int, request: Request):
+    """Reçoit un morceau (idempotent : renvoyer le même morceau après une coupure est sans danger)."""
+    upload = _video_uploads.get(upload_id)
+    if not upload:
+        raise HTTPException(status_code=404, detail="Envoi introuvable ou expiré.")
+    offset = index * VIDEO_CHUNK_BYTES
+    if index < 0 or offset >= upload["size"]:
+        raise HTTPException(status_code=400, detail="Morceau invalide.")
+    if int(request.headers.get("content-length") or 0) > VIDEO_CHUNK_BYTES:
+        raise HTTPException(status_code=413, detail="Morceau trop volumineux.")
+    expected = min(VIDEO_CHUNK_BYTES, upload["size"] - offset)
+    data = await request.body()
+    if len(data) != expected:
+        raise HTTPException(status_code=400, detail="Morceau incomplet.")
+    await asyncio.to_thread(_write_chunk, upload["path"], offset, data)
+    upload["received"].add(index)
+    return JSONResponse(content={"received": len(upload["received"])})
+
+
+async def _run_video_job(job_id: str, upload: dict, params: dict) -> None:
+    job = _video_jobs[job_id]
+    job["status"] = "running"
+    job["stage"] = "analyzing"
+
+    def on_stage(stage: str) -> None:
+        job["stage"] = stage
+
+    try:
+        job["result"] = await _run_video_analysis(
+            upload["path"], upload["mime"], params["niche_category"], params["avg_views"],
+            params["main_challenge"], params["published"], params["ui_lang"], on_stage,
+        )
+        job["status"] = "done"
+    except HTTPException as exc:
+        job.update(status="error", code=exc.status_code, detail=exc.detail)
+    except Exception as exc:  # une analyse qui plante ne doit jamais laisser l'écran en attente indéfinie
+        print(f"[video-job] erreur inattendue: {exc!r}")
+        job.update(status="error", code=500, detail="Erreur interne pendant l'analyse. Réessaie.")
+    finally:
+        # Le fichier est supprimé ; l'entrée reste (quelques octets) pour qu'un renvoi de « finish » retrouve le même job.
+        upload["path"].unlink(missing_ok=True)
+
+
+@app.post("/api/video-upload/{upload_id}/finish", response_class=JSONResponse)
+async def video_upload_finish(
+    upload_id: str,
+    account_avg_views: str = Form(""),
+    niche_category: str = Form(""),
+    main_challenge: str = Form(""),
+    ui_lang: str = Form(DEFAULT_LANG),
+    already_published: str = Form(""),
+):
+    upload = _video_uploads.get(upload_id)
+    if not upload:
+        raise HTTPException(status_code=404, detail="Envoi introuvable ou expiré.")
+    if upload["job_id"]:  # nouvelle tentative du navigateur : même analyse, pas de doublon
+        return JSONResponse(content={"job_id": upload["job_id"]})
+    total_chunks = -(-upload["size"] // VIDEO_CHUNK_BYTES)
+    if len(upload["received"]) != total_chunks:
+        raise HTTPException(status_code=400, detail="Envoi incomplet.")
+    try:
+        avg_views = max(int(float(account_avg_views)), 0) if account_avg_views.strip() else 0
+    except ValueError:
+        avg_views = 0
+    job_id = str(uuid.uuid4())
+    _video_jobs[job_id] = {"status": "queued", "stage": "queued", "created": time.time(), "unlock_id": None}
+    upload["job_id"] = job_id
+    params = {
+        "niche_category": niche_category,
+        "avg_views": avg_views,
+        "main_challenge": main_challenge,
+        "published": already_published.strip().lower() == "true",
+        "ui_lang": ui_lang,
+    }
+    task = asyncio.create_task(_run_video_job(job_id, upload, params))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return JSONResponse(content={"job_id": job_id})
+
+
+@app.get("/api/video-job/{job_id}", response_class=JSONResponse)
+async def video_job_status(job_id: str, request: Request):
+    """État d'une analyse en cours ; à la fin, le rapport (complet pour un abonné, titres seulement sinon)."""
+    job = _video_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Analyse introuvable (le serveur a redémarré). Relance l'analyse.")
+    headers = {"Cache-Control": "no-store"}
+    if job["status"] in ("queued", "running"):
+        return JSONResponse(content={"status": job["status"], "stage": job["stage"]}, headers=headers)
+    if job["status"] == "error":
+        return JSONResponse(content={"status": "error", "code": job["code"], "detail": job["detail"]}, headers=headers)
+    result = job["result"]
+    entitlement = await paywall.get_entitlement(request)
+    if entitlement["subscribed"]:
+        return JSONResponse(content={"status": "done", "result": result}, headers=headers)
+    if not job["unlock_id"]:
+        job["unlock_id"] = paywall.store_analysis("video", result)
+    response = JSONResponse(
+        content={"status": "done", "result": paywall.build_teaser("video", result, job["unlock_id"])}, headers=headers
+    )
     paywall.mark_free_used(response, request, "video")
     return response
 
