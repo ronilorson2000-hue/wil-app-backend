@@ -42,6 +42,7 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from app import paywall
 from app.db import get_supabase
 from app.library_starter import get_starter_library
 from app.style_guide import get_style_guide
@@ -250,6 +251,7 @@ def _detect_language(bio: str, titles: list[str]) -> str:
 
 
 app = FastAPI(title="Wil App Backend", version="0.1.0")
+app.include_router(paywall.router)
 
 # CORS = permet à l'app Flutter (qui tournera sur une autre adresse)
 # de communiquer avec ce backend sans être bloquée par le navigateur/OS.
@@ -1135,9 +1137,7 @@ async def tiktok_callback(request: Request):
         <style>
           body {{ font-family: 'Inter', system-ui, sans-serif; text-align: center;
                   margin: 0; padding: 56px 20px; color: #0F172A; background: #EFF6FF; }}
-          .card {{ max-width: 480px; margin: 0 auto 16px; background: #FFFFFF; border: 1px solid #E2E8F0;
-                   border-radius: 16px; padding: 28px; box-shadow: 0 1px 3px rgba(15,23,42,0.05);
-                   text-align: left; }}
+          {_ACCOUNT_REPORT_CSS}
           .card.profile {{ text-align: center; }}
           img.avatar {{ width: 96px; height: 96px; border-radius: 9999px; object-fit: cover; }}
           h2 {{ margin: 16px 0 4px; font-size: 20px; font-weight: 700; }}
@@ -1147,15 +1147,6 @@ async def tiktok_callback(request: Request):
           a.home {{ display: block; margin-top: 24px; color: #2563EB; text-decoration: none;
                     font-size: 14px; font-weight: 500; }}
           a.home:hover {{ color: #1D4ED8; }}
-          .loading {{ color: #64748B; font-size: 14px; }}
-          .bar-bg {{ background: #E2E8F0; border-radius: 999px; height: 10px; overflow: hidden; }}
-          .bar-fill {{ background: #2563EB; height: 100%; border-radius: 999px; }}
-          .chip {{ display: inline-block; background: #2563EB; color: white; padding: 6px 14px;
-                   border-radius: 999px; font-size: 13px; font-weight: 600; }}
-          .tag {{ display: inline-block; background: #EFF6FF; color: #1D4ED8; padding: 4px 12px;
-                  border-radius: 999px; font-size: 12px; margin: 3px; font-weight: 500; }}
-          ul.bullets {{ padding-left: 20px; margin: 8px 0; }}
-          ul.bullets li {{ margin-bottom: 6px; line-height: 1.5; font-size: 14px; }}
           .btn-pill {{ padding: 7px 9px; border-radius: 999px; border: 1px solid #2563EB;
                        background: #2563EB; color: #FFFFFF; font-weight: 600; font-size: 11px;
                        cursor: pointer; transition: background 0.15s ease; white-space: nowrap;
@@ -1213,6 +1204,14 @@ async def tiktok_callback(request: Request):
           try {{ localStorage.setItem('wilSession', sessionId); }} catch (e) {{}}
           const uiLang = "{lang}";
           window.__wilUiLang = uiLang;
+{paywall.ui_js(tt)}
+{_account_report_js(tt)}
+          const ACCOUNT_LOCK_TITLES = {{
+            strengths: "{tt('dash_strengths')}",
+            improvements: "{tt('dash_improvements')}",
+            stats: "{tt('pw_section_stats')}",
+            suggested_hashtags: "{tt('dash_suggested_hashtags')}"
+          }};
           // Petit helper i18n : remplace {{cle}} par sa valeur dans un
           // gabarit traduit côté serveur (ex: "{{count}} vidéos...").
           function fmt(template, vars) {{
@@ -1228,76 +1227,89 @@ async def tiktok_callback(request: Request):
               // VRAIE raison (data.detail, fournie par FastAPI) au lieu d'un
               // message générique qui masque le problème.
               if (!ok) {{
+                if (status === 402) {{
+                  // Essai gratuit déjà utilisé : abonnement requis avant de relancer une analyse.
+                  document.getElementById('next-step').style.display = 'none';
+                  document.getElementById('analysis-result').innerHTML = wilNoticeHtml(WIL_PW.featTitle, WIL_PW.trial, '/app');
+                  return;
+                }}
                 const reason = (data && data.detail) ? data.detail : `{tt("common_error_prefix")} ${{status}}`;
                 document.getElementById('analysis-result').innerHTML =
                   `<div class="card"><p class="loading" style="color:#DC2626;">${{reason}}</p></div>`;
                 return;
               }}
-              const stats = data.stats;
-              const report = data.ai_report;
-              let html = '';
-              if (stats && stats.total_videos_analyzed > 0) {{
-                const scoreIcon = s => s <= 40 ? '🔴' : s <= 60 ? '🟡' : s <= 80 ? '🟠' : '🔵';
-                const ratioLine = (stats.likes_followers_ratio !== null && stats.likes_followers_ratio !== undefined)
-                  ? `<p style="font-size:12px;color:#94A3B8;margin:2px 0 0;">${{fmt("{tt('dash_likes_ratio')}", {{ratio: stats.likes_followers_ratio}})}}</p>`
-                  : '';
-                html += `
-                  <div class="card">
-                    <p style="font-size:30px;font-weight:800;margin:0;">${{scoreIcon(stats.account_virality_score)}} ${{stats.account_virality_score}}/100</p>
-                    <p style="font-size:12px;color:#64748B;margin:2px 0 14px;">{tt('dash_virality_score_label')}</p>
-                    <p style="font-size:13px;color:#475569;">${{fmt("{tt('dash_videos_analyzed')}", {{count: stats.total_videos_analyzed, threshold: stats.viral_threshold_views/1000}})}}</p>
-                    <div class="bar-bg" style="margin-top:8px;"><div class="bar-fill" style="width:${{stats.viral_percentage}}%"></div></div>
-                    <p style="margin-top:14px;font-size:14px;"><strong>🚀 ${{fmt("{tt('dash_viral_pct')}", {{pct: stats.viral_percentage}})}}</strong> &nbsp;|&nbsp; <strong>${{fmt("{tt('dash_non_viral_pct')}", {{pct: stats.non_viral_percentage}})}}</strong></p>
-                    <p style="font-size:14px;">${{fmt("{tt('dash_avg_engagement')}", {{pct: stats.average_engagement_rate}})}}</p>
-                    ${{ratioLine}}
-                  </div>`;
-
-                window.__wilAvgViews = stats.average_view_count || '';
+              if (data.locked) {{
+                // Non-abonné : seuls les titres du rapport sont affichés, le reste est grisé.
+                document.getElementById('next-step').style.display = 'none';
+                const titles = (data.sections || []).map(k => ACCOUNT_LOCK_TITLES[k]).filter(Boolean);
+                document.getElementById('analysis-result').innerHTML = wilLockedReportHtml(titles, '/report/' + data.unlock_id);
+                return;
               }}
-
-              if (report) {{
-                const strengths = (report.strengths || []).map(s => `<li>${{s}}</li>`).join('');
-                const improvements = (report.improvements || []).map(s => `<li>${{s}}</li>`).join('');
-                const hashtags = (report.suggested_hashtags || []).map(h => `<span class="tag">#${{h}}</span>`).join('');
-                const hashtagDiag = report.hashtag_diagnosis
-                  ? `<p style="margin-top:16px;"><strong>🏷 {tt('dash_hashtag_diagnosis')}</strong></p><p style="font-size:14px;">${{report.hashtag_diagnosis}}</p>`
-                  : '';
-                const nicheFocus = report.niche_focus_advice
-                  ? `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:16px;margin:16px 0;">
-                       <p style="font-weight:700;margin:0 0 8px;">🧭 {tt('dash_multi_niche_title')}</p>
-                       <div>${{(report.niches_detected || []).map(n => `<span class="tag">${{n}}</span>`).join('')}}</div>
-                       <p style="font-size:14px;margin:10px 0 0;">${{report.niche_focus_advice}}</p>
-                     </div>`
-                  : '';
-                html += `
-                  <div class="card">
-                    <span class="chip">${{report.niche || ''}}</span>
-                    <p style="margin-top:14px;font-size:15px;line-height:1.5;">${{report.summary || ''}}</p>
-                    ${{nicheFocus}}
-                    <p style="margin-top:16px;"><strong>✅ {tt('dash_strengths')}</strong></p>
-                    <ul class="bullets">${{strengths}}</ul>
-                    <p><strong>📈 {tt('dash_improvements')}</strong></p>
-                    <ul class="bullets">${{improvements}}</ul>
-                    ${{hashtagDiag}}
-                    <p style="margin-top:16px;"><strong>{tt('dash_suggested_hashtags')}</strong></p>
-                    <div style="margin-top:6px;">${{hashtags}}</div>
-                  </div>`;
-
-                window.__wilNiche = report.niche || '';
-                window.__wilNicheCategory = report.niche_category || '';
-                window.__wilBio = "{bio_enc}";
-              }}
-              window.__wilLang = data.lang || 'fr';
-              if (!html) {{
-                html = '<div class="card"><p class="loading">{tt('dash_analysis_unavailable')}</p></div>';
-              }}
-              document.getElementById('analysis-result').innerHTML = html;
+              document.getElementById('analysis-result').innerHTML = wilAccountReportHtml(data);
             }})
             .catch((e) => {{
               document.getElementById('analysis-loading').innerHTML =
                 `<p class="loading" style="color:#DC2626;">{tt('dash_network_error')} ${{e && e.message ? e.message : e}}</p>`;
             }});
 
+        </script>
+      </body>
+    </html>
+    """
+
+
+
+@app.get("/report/{analysis_id}", response_class=HTMLResponse)
+def report_page(request: Request, analysis_id: str):
+    """
+    Rapport d'une analyse déjà faite, déverrouillé après l'abonnement (retour
+    de /subscribe). Le contenu vient de /api/analysis/<id>, réservé aux
+    abonnés : sans abonnement actif la page redemande de s'abonner.
+    """
+    lang = _detect_ui_lang(request)
+    tt = lambda key: t(lang, key)  # noqa: E731
+    return_path = f"/report/{analysis_id}"
+    return f"""
+    <html lang="{lang}">
+      <head>
+        <title>Wil App</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
+        <style>
+          body {{ font-family: 'Inter', system-ui, sans-serif; text-align: center; margin: 0; padding: 40px 20px; color: #0F172A; background: #EFF6FF; }}
+          a.home {{ display: block; margin-top: 24px; color: #2563EB; text-decoration: none; font-size: 14px; font-weight: 500; }}
+          {_ACCOUNT_REPORT_CSS}
+        </style>
+      </head>
+      <body>
+        <div id="report-loading" class="card"><p class="loading">⏳ {tt("pw_unlocking")}</p></div>
+        <div id="analysis-result"></div>
+        <div id="next-step" style="display:none; max-width:480px; margin:8px auto 0;">
+          <button type="button"
+                  onclick="location.href='/tools/analyze-video?niche_category='+encodeURIComponent(window.__wilNicheCategory||'')+'&account_avg_views='+encodeURIComponent(window.__wilAvgViews||'')"
+                  class="w-full py-4 rounded-xl bg-blue-600 text-white font-bold text-lg shadow-md hover:bg-violet-600 transition">
+            🎬 {tt("hero_cta_video")}
+          </button>
+        </div>
+        <a href="/app" class="home">{tt("dash_back")}</a>
+        <script>
+{paywall.ui_js(tt)}
+{_account_report_js(tt)}
+          const reportPath = {_js_json(return_path)};
+          wilLoadUnlocked({_js_json(analysis_id)})
+            .then(function (data) {{
+              if (data.kind === 'video') {{ location.replace('/tools/analyze-video?unlock=' + encodeURIComponent({_js_json(analysis_id)})); return; }}
+              document.getElementById('report-loading').style.display = 'none';
+              document.getElementById('analysis-result').innerHTML = wilAccountReportHtml(data.report);
+              document.getElementById('next-step').style.display = 'block';
+            }})
+            .catch(function (e) {{
+              document.getElementById('report-loading').style.display = 'none';
+              document.getElementById('analysis-result').innerHTML = (e && e.status === 402)
+                ? wilNoticeHtml(WIL_PW.title, WIL_PW.sub, reportPath)
+                : '<div class="card"><p class="loading" style="color:#DC2626;">' + wilPwEsc(WIL_PW.error) + '</p></div>';
+            }});
         </script>
       </body>
     </html>
@@ -1449,16 +1461,138 @@ def _app_topbar_html(tt, active: str = "home") -> str:
         "script": tt("app_tab_script"),
         "profile": tt("app_tab_profile"),
     }
+    lock_attr = " data-lock=" + chr(34) + "1" + chr(34)
     items = "".join(
-        f'''<a href="{"/tools/analyze-script" if key == "script" else f"/app#{key}"}" class="nav-item{" active" if key == active else ""} flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
+        f'''<a href="{"/tools/analyze-script" if key == "script" else f"/app#{key}"}"{lock_attr if key in ("library", "script") else ""} class="nav-item{" active" if key == active else ""} flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{_TOPBAR_ICONS[key]}</svg>
           <span>{labels[key]}</span></a>'''
         for key in ("home", "library", "script", "profile")
     )
+    lock_script = (
+        "<script>fetch('/api/me').then(function (r) { return r.json(); }).then(function (me) {"
+        "if (me.paywall && !me.subscribed) { document.querySelectorAll('#app-topbar [data-lock] span').forEach(function (el) { el.textContent += ' 🔒'; }); }"
+        "}).catch(function () {});</script>"
+    )
     return (
         '<nav id="app-topbar" class="hidden">'
-        f'<div class="max-w-md mx-auto flex px-2">{items}</div></nav>'
+        f'<div class="max-w-md mx-auto flex px-2">{items}</div></nav>' + lock_script
     )
+
+
+
+# Rapport d'analyse de compte : même rendu sur le tableau de bord (juste après
+# l'analyse) et sur /report/<id> (retour après abonnement), d'où ce bloc partagé.
+_ACCOUNT_REPORT_CSS = """
+  .card { max-width: 480px; margin: 0 auto 16px; background: #FFFFFF; border: 1px solid #E2E8F0;
+          border-radius: 16px; padding: 28px; box-shadow: 0 1px 3px rgba(15,23,42,0.05);
+          text-align: left; }
+  .loading { color: #64748B; font-size: 14px; }
+  .bar-bg { background: #E2E8F0; border-radius: 999px; height: 10px; overflow: hidden; }
+  .bar-fill { background: #2563EB; height: 100%; border-radius: 999px; }
+  .chip { display: inline-block; background: #2563EB; color: white; padding: 6px 14px;
+          border-radius: 999px; font-size: 13px; font-weight: 600; }
+  .tag { display: inline-block; background: #EFF6FF; color: #1D4ED8; padding: 4px 12px;
+         border-radius: 999px; font-size: 12px; margin: 3px; font-weight: 500; }
+  ul.bullets { padding-left: 20px; margin: 8px 0; }
+  ul.bullets li { margin-bottom: 6px; line-height: 1.5; font-size: 14px; }
+"""
+
+_ACCOUNT_REPORT_JS = r"""
+const WIL_ACC = __L__;
+function wilFmt(template, vars) {
+  return template.replace(/\{(\w+)\}/g, function (_, k) { return (k in vars) ? vars[k] : '{' + k + '}'; });
+}
+function wilAccountReportHtml(data) {
+  const stats = data.stats;
+  const report = data.ai_report;
+  const esc = wilPwEsc;
+  let html = '';
+  if (stats && stats.total_videos_analyzed > 0) {
+    const scoreIcon = function (s) { return s <= 40 ? '🔴' : s <= 60 ? '🟡' : s <= 80 ? '🟠' : '🔵'; };
+    const ratioLine = (stats.likes_followers_ratio !== null && stats.likes_followers_ratio !== undefined)
+      ? '<p style="font-size:12px;color:#94A3B8;margin:2px 0 0;">' + wilFmt(WIL_ACC.likesRatio, {ratio: stats.likes_followers_ratio}) + '</p>'
+      : '';
+    html += '<div class="card">' +
+      '<p style="font-size:30px;font-weight:800;margin:0;">' + scoreIcon(stats.account_virality_score) + ' ' + stats.account_virality_score + '/100</p>' +
+      '<p style="font-size:12px;color:#64748B;margin:2px 0 14px;">' + WIL_ACC.viralityLabel + '</p>' +
+      '<p style="font-size:13px;color:#475569;">' + wilFmt(WIL_ACC.videosAnalyzed, {count: stats.total_videos_analyzed, threshold: stats.viral_threshold_views / 1000}) + '</p>' +
+      '<div class="bar-bg" style="margin-top:8px;"><div class="bar-fill" style="width:' + stats.viral_percentage + '%"></div></div>' +
+      '<p style="margin-top:14px;font-size:14px;"><strong>🚀 ' + wilFmt(WIL_ACC.viralPct, {pct: stats.viral_percentage}) + '</strong> &nbsp;|&nbsp; <strong>' + wilFmt(WIL_ACC.nonViralPct, {pct: stats.non_viral_percentage}) + '</strong></p>' +
+      '<p style="font-size:14px;">' + wilFmt(WIL_ACC.avgEngagement, {pct: stats.average_engagement_rate}) + '</p>' +
+      ratioLine + '</div>';
+    window.__wilAvgViews = stats.average_view_count || '';
+  }
+  if (report) {
+    const strengths = (report.strengths || []).map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('');
+    const improvements = (report.improvements || []).map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('');
+    const hashtags = (report.suggested_hashtags || []).map(function (h) { return '<span class="tag">#' + esc(h) + '</span>'; }).join('');
+    const hashtagDiag = report.hashtag_diagnosis
+      ? '<p style="margin-top:16px;"><strong>🏷 ' + WIL_ACC.hashtagDiagnosis + '</strong></p><p style="font-size:14px;">' + esc(report.hashtag_diagnosis) + '</p>'
+      : '';
+    const nicheFocus = report.niche_focus_advice
+      ? '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:16px;margin:16px 0;">' +
+        '<p style="font-weight:700;margin:0 0 8px;">🧭 ' + WIL_ACC.multiNiche + '</p>' +
+        '<div>' + (report.niches_detected || []).map(function (n) { return '<span class="tag">' + esc(n) + '</span>'; }).join('') + '</div>' +
+        '<p style="font-size:14px;margin:10px 0 0;">' + esc(report.niche_focus_advice) + '</p></div>'
+      : '';
+    html += '<div class="card">' +
+      '<span class="chip">' + esc(report.niche || '') + '</span>' +
+      '<p style="margin-top:14px;font-size:15px;line-height:1.5;">' + esc(report.summary || '') + '</p>' +
+      nicheFocus +
+      '<p style="margin-top:16px;"><strong>✅ ' + WIL_ACC.strengths + '</strong></p><ul class="bullets">' + strengths + '</ul>' +
+      '<p><strong>📈 ' + WIL_ACC.improvements + '</strong></p><ul class="bullets">' + improvements + '</ul>' +
+      hashtagDiag +
+      '<p style="margin-top:16px;"><strong>' + WIL_ACC.suggestedHashtags + '</strong></p>' +
+      '<div style="margin-top:6px;">' + hashtags + '</div></div>';
+    window.__wilNicheCategory = report.niche_category || '';
+  }
+  if (!html) {
+    html = '<div class="card"><p class="loading">' + WIL_ACC.unavailable + '</p></div>';
+  }
+  return html;
+}
+"""
+
+
+def _account_report_js(tt) -> str:
+    labels = {
+        "likesRatio": tt("dash_likes_ratio"),
+        "viralityLabel": tt("dash_virality_score_label"),
+        "videosAnalyzed": tt("dash_videos_analyzed"),
+        "viralPct": tt("dash_viral_pct"),
+        "nonViralPct": tt("dash_non_viral_pct"),
+        "avgEngagement": tt("dash_avg_engagement"),
+        "hashtagDiagnosis": tt("dash_hashtag_diagnosis"),
+        "multiNiche": tt("dash_multi_niche_title"),
+        "strengths": tt("dash_strengths"),
+        "improvements": tt("dash_improvements"),
+        "suggestedHashtags": tt("dash_suggested_hashtags"),
+        "unavailable": tt("dash_analysis_unavailable"),
+    }
+    return _ACCOUNT_REPORT_JS.replace("__L__", _js_json(labels))
+
+
+def _locked_feature_page(tt, lang: str, active: str, return_path: str) -> str:
+    """Page affichée à la place d'un outil réservé aux abonnés (menu gardé, barre d'onglets visible)."""
+    return f"""
+    <html lang="{lang}">
+      <head>
+        <title>Wil App</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
+        <style>{_ONBOARDING_STYLE}</style>
+      </head>
+      <body class="text-slate-900 nav-visible">{_app_topbar_html(tt, active)}
+        <div class="max-w-md mx-auto px-5 py-10"><div id="locked"></div></div>
+        <script>
+{paywall.ui_js(tt)}
+          document.getElementById('app-topbar').classList.remove('hidden');
+          document.getElementById('locked').innerHTML = wilNoticeHtml(WIL_PW.featTitle, WIL_PW.featSub, {_js_json(return_path)});
+        </script>
+      </body>
+    </html>
+    """
 
 
 def _onboarding_steps_html(
@@ -2149,6 +2283,8 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               <img id="result-thumb-preview" alt="" />
             </div>
 
+            <div id="locked-report" class="hidden"></div>
+            <div id="full-report">
             <h2 class="text-lg font-bold mb-4">{tt("results_smart_insights")}</h2>
 
             <div class="insight-card">
@@ -2288,12 +2424,14 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                class="block w-full mt-6 py-4 rounded-xl bg-blue-600 text-white text-center font-bold text-lg shadow-md hover:bg-violet-600 transition">
               🔗 {tt("hero_cta")}
             </a>
+            </div>
           </div>
 
         </div>
 
         <script>
 {_onboarding_js_core(niche_category, account_avg_views, lang, "step-upload")}
+{paywall.ui_js(tt)}
 
           const LOADING_STAGES = ["{tt("loading_upload")}", "{tt("loading_watching")}", "{tt("loading_analyzing")}", "{tt("loading_insights")}"];
           const CAT_LABELS = {{
@@ -2412,9 +2550,20 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               .then(function (res) {{
                 clearInterval(stageInterval);
                 if (!res.ok) {{
-                  const reason = (res.data && res.data.detail) ? res.data.detail : ('{tt("common_error_prefix")} ' + res.status);
-                  document.getElementById('upload-error').textContent = reason;
+                  if (res.status === 402) {{
+                    // Analyse gratuite déjà utilisée : abonnement requis (aucun jeton dépensé).
+                    document.getElementById('upload-error').innerHTML = wilNoticeHtml(WIL_PW.featTitle, WIL_PW.trial, '/tools/analyze-video');
+                  }} else {{
+                    const reason = (res.data && res.data.detail) ? res.data.detail : ('{tt("common_error_prefix")} ' + res.status);
+                    document.getElementById('upload-error').textContent = reason;
+                  }}
                   goToStep('step-upload', 100, true);
+                  return;
+                }}
+                if (res.data && res.data.locked) {{
+                  renderLockedReport(res.data);
+                  setLoadingText('{tt("loading_done")}');
+                  setTimeout(function () {{ goToStep('step-results', 100, false); }}, 500);
                   return;
                 }}
                 setLoadingText('{tt("loading_done")}');
@@ -2428,7 +2577,29 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               }});
           }}
 
+          const LOCK_TITLES = {{
+            strengths: "{tt("dash_strengths")}",
+            weaknesses: "{tt("tool_video_weaknesses")}",
+            action_plan: "{tt("tool_video_to_break_through")}",
+            category_scores: "{tt("results_categories_title")}",
+            timeline: "{tt("res_timeline_title")}",
+            hook_rewrites: "{tt("res_rewrites_title")}",
+            shooting_plan: "{tt("res_plan_title")}"
+          }};
+
+          // Non-abonné : le serveur n'envoie que les titres des sections ; tout le contenu reste grisé.
+          function renderLockedReport(data) {{
+            document.getElementById('full-report').classList.add('hidden');
+            const box = document.getElementById('locked-report');
+            box.classList.remove('hidden');
+            const titles = (data.sections || []).map(function (k) {{ return LOCK_TITLES[k]; }}).filter(Boolean);
+            box.innerHTML = wilLockedReportHtml(titles, '/tools/analyze-video?unlock=' + data.unlock_id);
+          }}
+
           function renderResults(data) {{
+            document.getElementById('locked-report').classList.add('hidden');
+            document.getElementById('full-report').classList.remove('hidden');
+            document.querySelector('#step-results .glow-thumb').style.display = thumbDataUrl ? '' : 'none';
             const score = data.virality_score != null ? data.virality_score : 0;
             const color = scoreColor(score);
             animateNumber(document.getElementById('viral-score-value'), score, 900);
@@ -2534,6 +2705,28 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 msg.textContent = "{tt("est_feedback_error")}";
               }});
           }}
+
+          // Retour après abonnement (/subscribe -> ?unlock=<id>) : on récupère le rapport complet enregistré côté serveur.
+          (function () {{
+            const unlockId = wilUnlockId();
+            if (!unlockId) return;
+            document.getElementById('loading-status-text').textContent = WIL_PW.unlocking;
+            goToStep('step-loading', 100, false);
+            wilLoadUnlocked(unlockId)
+              .then(function (d) {{
+                if (d.kind !== 'video') throw new Error('kind');
+                try {{ history.replaceState(null, '', location.pathname); }} catch (e) {{}}
+                renderResults(d.report);
+                goToStep('step-results', 100, false);
+              }})
+              .catch(function (e) {{
+                const box = document.getElementById('upload-error');
+                box.innerHTML = (e && e.status === 402)
+                  ? wilNoticeHtml(WIL_PW.title, WIL_PW.sub, '/tools/analyze-video?unlock=' + unlockId)
+                  : wilPwEsc(WIL_PW.error);
+                goToStep('step-upload', 100, true);
+              }});
+          }})();
         </script>
       </body>
     </html>
@@ -2541,7 +2734,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
 
 @app.get("/tools/analyze-script", response_class=HTMLResponse)
-def tool_analyze_script_page(request: Request):
+async def tool_analyze_script_page(request: Request):
     """
     Page dédiée pour l'analyse d'un script déjà écrit (avant tournage).
     Réutilise directement /api/analyze-transcript — la même route qui
@@ -2558,6 +2751,8 @@ def tool_analyze_script_page(request: Request):
     """
     lang = _detect_ui_lang(request)
     tt = lambda key: t(lang, key)  # noqa: E731
+    if not (await paywall.get_entitlement(request))["subscribed"]:
+        return HTMLResponse(_locked_feature_page(tt, lang, "script", "/tools/analyze-script"))
     words_suffix = tt("tool_script_words_suffix")
 
     niche_buttons = "".join(
@@ -2781,7 +2976,7 @@ def tool_analyze_script_page(request: Request):
 
 
 @app.get("/tools/trending-ideas", response_class=HTMLResponse)
-def tool_trending_ideas_page(request: Request, niche_category: str = "", lang: str = "fr"):
+async def tool_trending_ideas_page(request: Request, niche_category: str = "", lang: str = "fr"):
     """
     Page dédiée aux idées de vidéos et accroches tendance pour la niche du
     compte. Lance la recherche automatiquement au chargement (le contexte
@@ -2789,6 +2984,8 @@ def tool_trending_ideas_page(request: Request, niche_category: str = "", lang: s
     """
     ui_lang = _detect_ui_lang(request)
     tt = lambda key: t(ui_lang, key)  # noqa: E731
+    if not (await paywall.get_entitlement(request))["subscribed"]:
+        return HTMLResponse(_locked_feature_page(tt, ui_lang, "home", "/tools/trending-ideas"))
     return f"""
     <html lang="{ui_lang}">
       <head>
@@ -3052,11 +3249,11 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5L12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5h4v5"/></svg>
         <span>__T_app_tab_home__</span>
       </button>
-      <button type="button" data-tab="library" onclick="showTab('library')" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
+      <button type="button" data-tab="library" data-lock="1" onclick="showTab('library')" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/></svg>
         <span>__T_app_tab_library__</span>
       </button>
-      <a href="/tools/analyze-script" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
+      <a href="/tools/analyze-script" data-lock="1" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/></svg>
         <span>__T_app_tab_script__</span>
       </a>
@@ -3068,7 +3265,10 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
   </nav>
 
   <script>
+__PW_JS__
     const I18N = __I18N__;
+    // Abonnement (Whop) : { paywall, subscribed, logged_in, email, manage_url } ; sans paywall actif, tout est ouvert.
+    let ME = {paywall: false, subscribed: true};
     const LANG = __LANG_JS__;
     const TABS = ['home', 'library', 'profile'];
 
@@ -3235,7 +3435,11 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         return fetch('/api/discover?niche_category=' + encodeURIComponent(n) + '&lang=' + encodeURIComponent(LANG))
           .then(function (r) { return r.json().then(function (data) { return {ok: r.ok, status: r.status, data: data}; }); })
           .then(function (res) {
-            if (!res.ok) throw new Error((res.data && res.data.detail) || (I18N.errorPrefix + ' ' + res.status));
+            if (!res.ok) {
+              const err = new Error((res.data && res.data.detail) || (I18N.errorPrefix + ' ' + res.status));
+              err.locked = res.status === 402;
+              throw err;
+            }
             return res.data;
           });
       })).then(function (results) {
@@ -3255,6 +3459,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         document.getElementById('disc-banner-text').textContent = allStarter ? I18N.discBannerStarter : I18N.discBanner;
         renderDiscoverStack();
       }).catch(function (e) {
+        if (e && e.locked) { stage.innerHTML = wilNoticeHtml(WIL_PW.featTitle, WIL_PW.featSub, '/app#discover'); return; }
         stage.innerHTML = '<p class="text-sm text-red-600 mb-3">' + esc(e && e.message ? e.message : e) + '</p>' +
           '<button type="button" onclick="loadDiscover()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold">' + esc(I18N.libRetry) + '</button>';
       });
@@ -3337,6 +3542,24 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       }).join(''));
     }
     function openSubscriptionSheet() {
+      if (ME.paywall && ME.subscribed) {
+        const manage = (ME.manage_url && ME.manage_url.indexOf('https://') === 0)
+          ? '<a href="' + esc(ME.manage_url) + '" target="_blank" rel="noopener" class="block w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm text-center mb-3">' + esc(WIL_PW.manage) + '</a>' : '';
+        openSheet('<p class="font-extrabold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
+          '<p class="font-semibold text-green-600 mb-1">✅ ' + esc(WIL_PW.active) + '</p>' +
+          (ME.email ? '<p class="text-sm text-slate-500 mb-5">' + esc(ME.email) + '</p>' : '<div class="mb-5"></div>') + manage +
+          '<a href="/auth/logout" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm text-center">' + esc(WIL_PW.logout) + '</a>');
+        return;
+      }
+      if (ME.paywall) {
+        const back = encodeURIComponent('/app#profile');
+        openSheet('<p class="font-extrabold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
+          '<p class="font-semibold text-blue-600 mb-2">' + esc(I18N.setSubPlan) + '</p>' +
+          '<p class="text-sm text-slate-500 leading-relaxed mb-5">' + esc(WIL_PW.sub) + '</p>' +
+          '<a href="/subscribe?to=' + back + '" class="block w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-base text-center mb-3 hover:bg-violet-600">' + esc(WIL_PW.btn) + '</a>' +
+          '<a href="/subscribe?to=' + back + '" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm text-center">' + esc(WIL_PW.have) + '</a>');
+        return;
+      }
       openSheet('<p class="font-extrabold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
         '<p class="font-semibold text-blue-600 mb-2">' + esc(I18N.setSubPlan) + '</p>' +
         '<p class="text-sm text-slate-500 leading-relaxed mb-5">' + esc(I18N.setSubDesc) + '</p>' +
@@ -3415,7 +3638,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         '<div class="set-sep"></div>' +
         setRowHtml('share', I18N.setShare, '', 'data-set="share"', 'button') +
         setRowHtml('restore', I18N.setRestore, '', 'data-set="restore"', 'button') +
-        setRowHtml('subscription', I18N.setManageSub, '', 'data-set="subscription"', 'button') +
+        setRowHtml('subscription', I18N.setManageSub, ME.paywall ? (ME.subscribed ? WIL_PW.active : WIL_PW.free) : '', 'data-set="subscription"', 'button') +
         (tiktok ? setRowHtml('unlink', I18N.setDisconnect, '', 'data-set="disconnect"', 'button') : '') +
         setRowHtml('close', I18N.setCloseAccount, '', 'data-set="close"', 'button') +
         setRowHtml('contact', I18N.setContact, '', 'href="' + esc(CFG.whatsapp) + '" target="_blank" rel="noopener"', 'a') +
@@ -3496,7 +3719,11 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       return fetch('/api/library?niche_category=' + encodeURIComponent(niche) + '&lang=' + encodeURIComponent(LANG))
         .then(function (r) { return r.json().then(function (data) { return {ok: r.ok, status: r.status, data: data}; }); })
         .then(function (res) {
-          if (!res.ok) throw new Error((res.data && res.data.detail) || (I18N.errorPrefix + ' ' + res.status));
+          if (!res.ok) {
+            const err = new Error((res.data && res.data.detail) || (I18N.errorPrefix + ' ' + res.status));
+            err.locked = res.status === 402;
+            throw err;
+          }
           libData[niche] = res.data;
           return res.data;
         });
@@ -3571,6 +3798,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         showLibItems(items, emptyState('🗂️', I18N.libEmptyCategory, ''));
       }).catch(function (e) {
         if (token !== libRenderToken) return;
+        if (e && e.locked) { content.innerHTML = wilNoticeHtml(WIL_PW.featTitle, WIL_PW.featSub, '/app#library'); return; }
         content.innerHTML = '<p class="text-sm text-red-600 mb-3">' + esc(e && e.message ? e.message : e) + '</p>' +
           '<button type="button" id="lib-retry" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold">' + esc(I18N.libRetry) + '</button>';
         document.getElementById('lib-retry').addEventListener('click', renderLibrary);
@@ -3615,6 +3843,17 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       try { history.replaceState(null, '', '#' + name); } catch (e) {}
       window.scrollTo(0, 0);
     }
+
+    function applyMe(me) {
+      ME = me;
+      if (me.paywall && !me.subscribed) {
+        document.querySelectorAll('.nav-item[data-lock] span').forEach(function (el) {
+          if (el.textContent.indexOf('🔒') === -1) el.textContent += ' 🔒';
+        });
+      }
+      renderProfile();
+    }
+    fetch('/api/me').then(function (r) { return r.json(); }).then(applyMe).catch(function () {});
 
     renderHistory();
     renderProfile();
@@ -3750,6 +3989,7 @@ def app_shell_page(request: Request):
             "whatsapp": WHATSAPP_URL,
             "version": APP_VERSION,
         }))
+        .replace("__PW_JS__", paywall.ui_js(tt))
         .replace("__I18N__", _js_json(i18n))
         .replace("__LANG_JS__", _js_json(lang))
         .replace("__LANG__", lang)
@@ -4575,7 +4815,7 @@ code), {lang_instruction}, avec exactement ces champs :
 
 
 @app.get("/api/trending-ideas", response_class=JSONResponse)
-async def trending_ideas(niche_category: str, lang: str = "fr"):
+async def trending_ideas(request: Request, niche_category: str, lang: str = "fr"):
     """
     Route dédiée : renvoie des idées de vidéos et des hooks tendance pour
     une catégorie de niche et une langue données. Peut être appelée
@@ -4583,6 +4823,7 @@ async def trending_ideas(niche_category: str, lang: str = "fr"):
     tendance" dans l'app), avec le même système de cache 24h par
     catégorie+langue pour limiter le coût.
     """
+    await paywall.require_subscription(request)
     if niche_category not in NICHE_CATEGORIES:
         niche_category = "Autre"
     result = await _get_trending_content_ideas(niche_category, lang)
@@ -4767,7 +5008,7 @@ async def _get_library(niche_category: str, lang: str) -> dict | None:
 
 
 @app.get("/api/library", response_class=JSONResponse)
-async def library(niche_category: str, lang: str = DEFAULT_LANG):
+async def library(request: Request, niche_category: str, lang: str = DEFAULT_LANG):
     """
     Bibliothèque (onglet "Bibliothèque" de /app) : hooks, idées de vidéos et
     hashtags tendance d'une niche, renouvelés chaque semaine à partir de
@@ -4777,6 +5018,7 @@ async def library(niche_category: str, lang: str = DEFAULT_LANG):
     vidéos des utilisateurs ne servent PAS à l'alimenter (pas de
     consentement recueilli pour le moment).
     """
+    await paywall.require_subscription(request)
     if niche_category not in NICHE_CATEGORIES:
         raise HTTPException(status_code=422, detail="Niche inconnue.")
     if lang not in SUPPORTED_LANGS:
@@ -4923,13 +5165,14 @@ async def _get_discover(niche_category: str, lang: str, date: str) -> dict | Non
 
 
 @app.get("/api/discover", response_class=JSONResponse)
-async def discover(niche_category: str, lang: str = DEFAULT_LANG):
+async def discover(request: Request, niche_category: str, lang: str = DEFAULT_LANG):
     """
     Onglet "Découvrir" : idées de vidéos du jour pour une niche, chacune avec
     une estimation du potentiel de viralité ("source": "web"). Si la recherche
     web échoue, des idées de départ SANS score sont renvoyées ("source":
     "starter") : on n'invente jamais un score.
     """
+    await paywall.require_subscription(request)
     if niche_category not in NICHE_CATEGORIES:
         raise HTTPException(status_code=422, detail="Niche inconnue.")
     if lang not in SUPPORTED_LANGS:
@@ -5035,6 +5278,7 @@ async def close_account(body: CloseAccountRequest):
 
 @app.get("/api/analyze-account", response_class=JSONResponse)
 async def analyze_account(
+    request: Request,
     session: str,
     display_name: str = "",
     username: str = "",
@@ -5062,6 +5306,9 @@ async def analyze_account(
             status_code=401,
             detail="Session invalide ou expirée. Reconnecte-toi avec TikTok.",
         )
+    entitlement = await paywall.get_entitlement(request)
+    if not entitlement["subscribed"] and paywall.free_quota_left(request, "account") <= 0:
+        raise HTTPException(status_code=402, detail="Votre analyse gratuite est utilisée. Abonnez-vous pour continuer.")
     access_token = session_data["access_token"]
     open_id = session_data["open_id"]
 
@@ -5618,11 +5865,13 @@ contient de toute façon pas)."""
         niche_category = ai_report.get("niche_category") if ai_report else None
         _save_account_snapshot(open_id, username, niche_category, lang, stats)
 
-    return JSONResponse(content={
-        "stats": stats,
-        "ai_report": ai_report,
-        "lang": lang,
-    })
+    result = {"stats": stats, "ai_report": ai_report, "lang": lang}
+    if entitlement["subscribed"]:
+        return JSONResponse(content=result)
+    unlock_id = paywall.store_analysis("account", result)
+    response = JSONResponse(content=paywall.build_teaser("account", result, unlock_id))
+    paywall.mark_free_used(response, request, "account")
+    return response
 
 
 def _build_underperformance_diagnosis(
@@ -5701,6 +5950,7 @@ def _build_underperformance_diagnosis(
 
 @app.get("/api/analyze-video", response_class=JSONResponse)
 async def analyze_video(
+    request: Request,
     title: str = "",
     view_count: int = 0,
     like_count: int = 0,
@@ -5738,6 +5988,7 @@ async def analyze_video(
     besoin de rappeler l'API TikTok ni de revalider une session — juste
     un appel Claude sur des chiffres déjà en main, rapide et simple.
     """
+    await paywall.require_subscription(request)
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
 
@@ -6276,6 +6527,7 @@ def _store_video_estimate(row: dict) -> None:
 
 @app.post("/api/analyze-video-upload", response_class=JSONResponse)
 async def analyze_video_upload(
+    request: Request,
     file: UploadFile = File(...),
     account_avg_views: str = Form(""),
     niche_category: str = Form(""),
@@ -6304,6 +6556,12 @@ async def analyze_video_upload(
     """
     if not GEMINI_API_KEY:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY manquant dans .env")
+
+    # Non-abonné : une analyse d'essai (le rapport reste verrouillé) ; ensuite, abonnement requis
+    # AVANT de dépenser le moindre jeton.
+    entitlement = await paywall.get_entitlement(request)
+    if not entitlement["subscribed"] and paywall.free_quota_left(request, "video") <= 0:
+        raise HTTPException(status_code=402, detail="Votre analyse gratuite est utilisée. Abonnez-vous pour continuer.")
 
     published = already_published.strip().lower() == "true"
     try:
@@ -6373,7 +6631,12 @@ async def analyze_video_upload(
             },
         )
 
-    return JSONResponse(content=result)
+    if entitlement["subscribed"]:
+        return JSONResponse(content=result)
+    unlock_id = paywall.store_analysis("video", result)
+    response = JSONResponse(content=paywall.build_teaser("video", result, unlock_id))
+    paywall.mark_free_used(response, request, "video")
+    return response
 
 
 class VideoEstimateFeedback(BaseModel):
@@ -6438,6 +6701,7 @@ def _extract_hook_portion(transcript: str, hook_seconds: float = 3.0) -> str:
 
 @app.get("/api/analyze-transcript", response_class=JSONResponse)
 async def analyze_transcript(
+    request: Request,
     transcript: str,
     duration_seconds: float = 0,
     claimed_views: int = 0,
@@ -6469,6 +6733,7 @@ async def analyze_transcript(
     "Analyser la vidéo") : oriente l'angle des instructions données,
     sans jamais inventer de statistique.
     """
+    await paywall.require_subscription(request)
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
     if not transcript or not transcript.strip():
@@ -6614,6 +6879,7 @@ exactement ces champs :
 
 @app.get("/api/generate-script", response_class=JSONResponse)
 async def generate_script(
+    request: Request,
     topic: str,
     tone: str = "",
     limits: str = "",
@@ -6634,6 +6900,7 @@ async def generate_script(
     - niche  : niche de contenu détectée (optionnel, améliore la pertinence)
     - bio    : bio du compte (optionnel, contexte supplémentaire)
     """
+    await paywall.require_subscription(request)
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
 

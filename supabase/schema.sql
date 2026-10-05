@@ -97,6 +97,18 @@ create table if not exists video_estimate_feedback (
 );
 create index if not exists idx_video_estimate_feedback_verdict on video_estimate_feedback (verdict);
 
+-- Rapports d'analyse conservés côté serveur pour le paywall (app/paywall.py) :
+-- un non-abonné ne reçoit que les titres des sections ; le rapport complet est
+-- relu ici par son identifiant (non devinable) après l'abonnement. Aucune
+-- identité stockée : le rapport est juste lié à un uuid.
+create table if not exists analysis_results (
+    id uuid primary key,
+    kind text not null check (kind in ('video', 'account')),
+    payload jsonb not null,
+    created_at timestamptz not null default now()
+);
+create index if not exists idx_analysis_results_created_at on analysis_results (created_at);
+
 -- Note sécurité : ce backend accède à ces tables uniquement via la clé
 -- service_role (jamais exposée au client Flutter/web), donc Row Level
 -- Security n'est pas activé par défaut ici. Si un jour le client accède
