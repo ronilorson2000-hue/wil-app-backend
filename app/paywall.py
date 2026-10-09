@@ -19,6 +19,7 @@ Variables d'environnement (voir aussi supabase/schema.sql pour analysis_results)
 """
 
 import base64
+import re
 import hashlib
 import hmac
 import json
@@ -341,7 +342,13 @@ def _token_failure_reason(response) -> str:
         return "redirect"
     if "code" in description or "grant" in description:
         return "code"
-    return "token"
+    # Raison inconnue : on donne le statut HTTP et le code d'erreur de Whop (ex. token_400_invalid_request),
+    # des mots courts sans aucun secret, pour pouvoir diagnostiquer sans lire les journaux du serveur.
+    try:
+        error_code = re.sub(r"[^a-z0-9_]", "", str(response.json().get("error", "")).lower())[:30]
+    except Exception:
+        error_code = ""
+    return f"token_{response.status_code}" + (f"_{error_code}" if error_code else "")
 
 
 async def _exchange_code(code: str, verifier: str) -> tuple[dict | None, str]:
@@ -358,7 +365,7 @@ async def _exchange_code(code: str, verifier: str) -> tuple[dict | None, str]:
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.post(WHOP_TOKEN_URL, json=body)
-            if response.status_code in (400, 415):  # certains serveurs OAuth n'acceptent que le format formulaire
+            if response.status_code == 415:  # format JSON refusé : on tente le format formulaire
                 response = await client.post(WHOP_TOKEN_URL, data=body)
     except httpx.HTTPError as exc:
         print(f"[paywall] échange du code impossible: {exc!r}")
