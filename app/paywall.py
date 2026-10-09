@@ -185,9 +185,10 @@ async def membership_status(user_id: str, force: bool = False) -> tuple[bool, st
 
 
 async def get_entitlement(request: Request, force: bool = False) -> dict:
-    if not paywall_enabled():
-        return {"paywall": False, "subscribed": True, "logged_in": False, "email": None, "manage_url": None}
     auth = read_auth(request)
+    if not paywall_enabled():
+        # Tout est ouvert, mais on indique quand même si le visiteur est connecté via Whop (utile pour tester la connexion).
+        return {"paywall": False, "subscribed": True, "logged_in": bool(auth), "email": auth.get("email") if auth else None, "manage_url": None}
     if not auth:
         return {"paywall": True, "subscribed": False, "logged_in": False, "email": None, "manage_url": None}
     active, manage_url = await membership_status(auth["uid"], force)
