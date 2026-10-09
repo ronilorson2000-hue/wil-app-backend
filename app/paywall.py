@@ -345,10 +345,12 @@ def _token_failure_reason(response) -> str:
     # Raison inconnue : on donne le statut HTTP et le code d'erreur de Whop (ex. token_400_invalid_request),
     # des mots courts sans aucun secret, pour pouvoir diagnostiquer sans lire les journaux du serveur.
     try:
-        error_code = re.sub(r"[^a-z0-9_]", "", str(response.json().get("error", "")).lower())[:30]
+        payload = response.json()
+        error_code = re.sub(r"[^a-z0-9_]", "", str(payload.get("error", "")).lower())[:30]
+        detail = re.sub(r"[^a-z0-9]+", "-", description).strip("-")[:60]
     except Exception:
-        error_code = ""
-    return f"token_{response.status_code}" + (f"_{error_code}" if error_code else "")
+        error_code, detail = "", ""
+    return f"token_{response.status_code}" + (f"_{error_code}" if error_code else "") + (f"~{detail}" if detail else "")
 
 
 async def _exchange_code(code: str, verifier: str) -> tuple[dict | None, str]:
