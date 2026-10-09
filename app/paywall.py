@@ -58,6 +58,11 @@ _entitlement_cache: dict[str, tuple[float, bool, str | None]] = {}
 _analysis_memory: dict[str, dict] = {}
 
 
+def _env(name: str) -> str:
+    """Variable d'environnement sans espaces ni retours à la ligne autour (fréquents quand on colle une clé)."""
+    return os.getenv(name, "").strip()
+
+
 def plan_prices() -> dict:
     """
     Prix affichés dans l'application (réglables sans toucher au code, via les variables d'environnement
@@ -74,7 +79,7 @@ def plan_prices() -> dict:
         "monthly": f"{monthly:g} {currency}",
         "yearly": f"{yearly:g} {currency}",
         "savePct": save_pct,
-        "hasYearly": bool(os.getenv("WHOP_CHECKOUT_URL_YEARLY")),
+        "hasYearly": bool(_env("WHOP_CHECKOUT_URL_YEARLY")),
     }
 
 
@@ -144,15 +149,15 @@ def safe_return_path(path: str | None, default: str = "/app") -> str:
 # ----------------------------------------------------------------- abonnement (Whop)
 async def _whop_membership(user_id: str) -> tuple[bool, str | None]:
     """Interroge Whop : ce compte a-t-il un abonnement valide ? Renvoie (actif, lien de gestion)."""
-    api_key = os.getenv("WHOP_API_KEY", "")
+    api_key = _env("WHOP_API_KEY")
     if not api_key:
         print("[paywall] WHOP_API_KEY manquant : personne n'est considéré comme abonné")
         return False, None
     params: dict = {"user_ids": [user_id], "statuses": list(ACTIVE_STATUSES), "first": 100}
-    if os.getenv("WHOP_COMPANY_ID"):
-        params["account_id"] = os.getenv("WHOP_COMPANY_ID")
-    if os.getenv("WHOP_PRODUCT_ID"):
-        params["product_ids"] = [os.getenv("WHOP_PRODUCT_ID")]
+    if _env("WHOP_COMPANY_ID"):
+        params["account_id"] = _env("WHOP_COMPANY_ID")
+    if _env("WHOP_PRODUCT_ID"):
+        params["product_ids"] = [_env("WHOP_PRODUCT_ID")]
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.get(WHOP_MEMBERSHIPS_URL, params=params, headers={"Authorization": f"Bearer {api_key}"})
@@ -162,7 +167,7 @@ async def _whop_membership(user_id: str) -> tuple[bool, str | None]:
     if response.status_code != 200:
         print(f"[paywall] Whop memberships {response.status_code}: {response.text[:300]}")
         return False, None
-    product_id = os.getenv("WHOP_PRODUCT_ID")
+    product_id = _env("WHOP_PRODUCT_ID")
     for membership in response.json().get("data", []):
         # Filtrage local en plus des paramètres de la requête : on ne se fie jamais à un filtre ignoré.
         if (membership.get("user") or {}).get("id") != user_id:
@@ -302,7 +307,7 @@ def _pkce_pair() -> tuple[str, str]:
 
 @router.get("/auth/whop/login")
 async def whop_login(request: Request, to: str = "/app"):
-    client_id = os.getenv("WHOP_CLIENT_ID", "")
+    client_id = _env("WHOP_CLIENT_ID")
     if not client_id:
         raise HTTPException(status_code=503, detail="Connexion Whop non configurée.")
     state, nonce = secrets.token_urlsafe(24), secrets.token_urlsafe(24)
@@ -322,16 +327,34 @@ async def whop_login(request: Request, to: str = "/app"):
     return response
 
 
-async def _exchange_code(code: str, verifier: str) -> dict | None:
+def _token_failure_reason(response) -> str:
+    """Traduit la réponse d'erreur de Whop en une raison courte (jamais de secret dans l'adresse)."""
+    try:
+        description = str(response.json().get("error_description", "")).lower()
+    except Exception:
+        description = ""
+    if "client_secret is required" in description:
+        return "secret_missing"
+    if "client_secret is invalid" in description:
+        return "secret_invalid"
+    if "redirect" in description:
+        return "redirect"
+    if "code" in description or "grant" in description:
+        return "code"
+    return "token"
+
+
+async def _exchange_code(code: str, verifier: str) -> tuple[dict | None, str]:
+    """Échange le code contre un jeton. Renvoie (jeton, raison) ; la raison n'est utile qu'en cas d'échec."""
     body = {
         "grant_type": "authorization_code",
         "code": code,
         "redirect_uri": f"{_site_url()}/auth/whop/callback",
-        "client_id": os.getenv("WHOP_CLIENT_ID", ""),
+        "client_id": _env("WHOP_CLIENT_ID"),
         "code_verifier": verifier,
     }
-    if os.getenv("WHOP_CLIENT_SECRET"):
-        body["client_secret"] = os.getenv("WHOP_CLIENT_SECRET")
+    if _env("WHOP_CLIENT_SECRET"):
+        body["client_secret"] = _env("WHOP_CLIENT_SECRET")
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.post(WHOP_TOKEN_URL, json=body)
@@ -339,28 +362,36 @@ async def _exchange_code(code: str, verifier: str) -> dict | None:
                 response = await client.post(WHOP_TOKEN_URL, data=body)
     except httpx.HTTPError as exc:
         print(f"[paywall] échange du code impossible: {exc!r}")
-        return None
+        return None, "network"
     if response.status_code != 200:
         print(f"[paywall] token Whop {response.status_code}: {response.text[:300]}")
-        return None
-    return response.json()
+        return None, _token_failure_reason(response)
+    return response.json(), ""
+
+
+def _login_failed(reason: str) -> RedirectResponse:
+    return RedirectResponse(f"/app?login=failed&reason={reason}")
 
 
 @router.get("/auth/whop/callback")
 async def whop_callback(request: Request, code: str = "", state: str = "", error: str = ""):
+    if error:  # l'utilisateur a refusé l'autorisation (ou Whop a signalé une erreur)
+        return _login_failed("denied")
     saved = _unsign(request.cookies.get(OAUTH_COOKIE))
-    if error or not code or not saved or not hmac.compare_digest(str(saved.get("state", "")), state):
-        return RedirectResponse("/app?login=failed")
-    token = await _exchange_code(code, saved["verifier"])
+    if not code or not saved or not hmac.compare_digest(str(saved.get("state", "")), state):
+        # Cookie de connexion absent ou expiré (10 min), ou état différent : recommencer depuis le début.
+        return _login_failed("state")
+    token, reason = await _exchange_code(code, saved["verifier"])
     if not token or not token.get("access_token"):
-        return RedirectResponse("/app?login=failed")
+        return _login_failed(reason or "token")
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             info = await client.get(WHOP_USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"})
     except httpx.HTTPError:
-        return RedirectResponse("/app?login=failed")
+        return _login_failed("network")
     if info.status_code != 200 or not info.json().get("sub"):
-        return RedirectResponse("/app?login=failed")
+        print(f"[paywall] userinfo Whop {info.status_code}: {info.text[:300]}")
+        return _login_failed("userinfo")
     profile = info.json()
     response = RedirectResponse(safe_return_path(saved.get("to")))
     _set_cookie(response, AUTH_COOKIE, {"uid": profile["sub"], "email": profile.get("email", "")}, AUTH_TTL_SECONDS)
@@ -387,8 +418,8 @@ async def subscribe(request: Request, to: str = "/app", plan: str = "monthly"):
     if not ent["logged_in"]:
         after_login = "/subscribe?to=" + quote(target, safe="") + "&plan=" + plan
         return RedirectResponse(f"/auth/whop/login?to={quote(after_login, safe='')}")
-    checkout = os.getenv("WHOP_CHECKOUT_URL_YEARLY", "") if plan == "yearly" else ""
-    checkout = checkout or os.getenv("WHOP_CHECKOUT_URL", "")
+    checkout = _env("WHOP_CHECKOUT_URL_YEARLY") if plan == "yearly" else ""
+    checkout = checkout or _env("WHOP_CHECKOUT_URL")
     if not checkout:
         raise HTTPException(status_code=503, detail="Les abonnements ne sont pas encore disponibles.")
     response = RedirectResponse(checkout)
