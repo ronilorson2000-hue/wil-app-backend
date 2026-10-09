@@ -58,6 +58,26 @@ _entitlement_cache: dict[str, tuple[float, bool, str | None]] = {}
 _analysis_memory: dict[str, dict] = {}
 
 
+def plan_prices() -> dict:
+    """
+    Prix affichés dans l'application (réglables sans toucher au code, via les variables d'environnement
+    WIL_PRICE_MONTHLY, WIL_PRICE_YEARLY, WIL_PRICE_CURRENCY). Ils doivent correspondre aux plans créés dans Whop.
+    """
+    try:
+        monthly = float(os.getenv("WIL_PRICE_MONTHLY", "10"))
+        yearly = float(os.getenv("WIL_PRICE_YEARLY", "30"))
+    except ValueError:
+        monthly, yearly = 10.0, 30.0
+    currency = os.getenv("WIL_PRICE_CURRENCY", "€")
+    save_pct = max(0, round(100 * (1 - yearly / (monthly * 12)))) if monthly > 0 else 0
+    return {
+        "monthly": f"{monthly:g} {currency}",
+        "yearly": f"{yearly:g} {currency}",
+        "savePct": save_pct,
+        "hasYearly": bool(os.getenv("WHOP_CHECKOUT_URL_YEARLY")),
+    }
+
+
 def paywall_enabled() -> bool:
     return os.getenv("PAYWALL_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
 
@@ -356,15 +376,18 @@ async def logout():
 
 # ----------------------------------------------------------------- parcours d'abonnement
 @router.get("/subscribe")
-async def subscribe(request: Request, to: str = "/app"):
-    """Se connecter à Whop si besoin, puis envoyer vers le paiement (ou revenir si déjà abonné)."""
+async def subscribe(request: Request, to: str = "/app", plan: str = "monthly"):
+    """Se connecter à Whop si besoin, puis envoyer vers le paiement du plan choisi (ou revenir si déjà abonné)."""
     target = safe_return_path(to)
+    plan = "yearly" if plan == "yearly" else "monthly"
     ent = await get_entitlement(request, force=True)
     if not ent["paywall"] or ent["subscribed"]:
         return RedirectResponse(target)
     if not ent["logged_in"]:
-        return RedirectResponse(f"/auth/whop/login?to={quote('/subscribe?to=' + quote(target, safe=''), safe='')}")
-    checkout = os.getenv("WHOP_CHECKOUT_URL", "")
+        after_login = "/subscribe?to=" + quote(target, safe="") + "&plan=" + plan
+        return RedirectResponse(f"/auth/whop/login?to={quote(after_login, safe='')}")
+    checkout = os.getenv("WHOP_CHECKOUT_URL_YEARLY", "") if plan == "yearly" else ""
+    checkout = checkout or os.getenv("WHOP_CHECKOUT_URL", "")
     if not checkout:
         raise HTTPException(status_code=503, detail="Les abonnements ne sont pas encore disponibles.")
     response = RedirectResponse(checkout)
@@ -411,7 +434,10 @@ const WIL_PW = __L__;
     '.wilpw-skel i{display:block;height:9px;border-radius:6px;background:#CBD5E1;margin-bottom:8px}' +
     '.wilpw-btn{display:block;text-align:center;margin-top:18px;padding:16px;border-radius:12px;background:#2563EB;color:#fff!important;font-weight:700;font-size:18px;text-decoration:none;box-shadow:0 6px 16px rgba(37,99,235,.25);transition:background .2s}' +
     '.wilpw-btn:hover{background:#7C3AED}' +
-    '.wilpw-link{display:block;text-align:center;margin-top:12px;font-size:14px;font-weight:600;color:#2563EB;text-decoration:none}';
+    '.wilpw-link{display:block;text-align:center;margin-top:12px;font-size:14px;font-weight:600;color:#2563EB;text-decoration:none}' +
+    '.wilpw-btn + .wilpw-btn{margin-top:10px}' +
+    '.wilpw-sub{display:block;font-size:12px;font-weight:600;opacity:.92;margin-top:2px}' +
+    '.wilpw-note{text-align:center;font-size:12px;color:#64748B;margin:12px 0 0}';
   document.head.appendChild(st);
 })();
 function wilPwEsc(text) {
@@ -419,10 +445,23 @@ function wilPwEsc(text) {
     return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
   });
 }
-function wilSubscribeHref(returnPath) { return '/subscribe?to=' + encodeURIComponent(returnPath); }
+function wilSubscribeHref(returnPath, plan) {
+  return '/subscribe?to=' + encodeURIComponent(returnPath) + (plan ? '&plan=' + plan : '');
+}
+// Boutons d'abonnement : annuel (mis en avant) + mensuel quand les deux plans existent, sinon le seul plan mensuel.
 function wilPwActions(returnPath) {
-  return '<a class="wilpw-btn" href="' + wilPwEsc(wilSubscribeHref(returnPath)) + '">' + wilPwEsc(WIL_PW.btn) + '</a>' +
-    '<a class="wilpw-link" href="' + wilPwEsc(wilSubscribeHref(returnPath)) + '">' + wilPwEsc(WIL_PW.have) + '</a>';
+  const P = WIL_PW.plans;
+  const href = function (plan) { return wilPwEsc(wilSubscribeHref(returnPath, plan)); };
+  let html = '';
+  if (P.hasYearly) {
+    html += '<a class="wilpw-btn" href="' + href('yearly') + '">' + wilPwEsc(WIL_PW.planYearly) + ' · ' + wilPwEsc(P.yearly) + ' ' + wilPwEsc(WIL_PW.perYear) +
+      '<span class="wilpw-sub">' + wilPwEsc(WIL_PW.best) + (P.savePct > 0 ? ' · ' + wilPwEsc(WIL_PW.save.replace('{pct}', P.savePct)) : '') + '</span></a>' +
+      '<a class="wilpw-btn" href="' + href('monthly') + '">' + wilPwEsc(WIL_PW.planMonthly) + ' · ' + wilPwEsc(P.monthly) + ' ' + wilPwEsc(WIL_PW.perMonth) + '</a>';
+  } else {
+    html += '<a class="wilpw-btn" href="' + href('monthly') + '">' + wilPwEsc(WIL_PW.btn) + ' · ' + wilPwEsc(P.monthly) + ' ' + wilPwEsc(WIL_PW.perMonth) + '</a>';
+  }
+  return html + '<p class="wilpw-note">' + wilPwEsc(WIL_PW.cancel) + '</p>' +
+    '<a class="wilpw-link" href="' + href('monthly') + '">' + wilPwEsc(WIL_PW.have) + '</a>';
 }
 // Rapport verrouillé : uniquement les TITRES des sections, leur contenu est grisé (jamais envoyé par le serveur).
 function wilLockedReportHtml(titles, returnPath) {
@@ -486,5 +525,13 @@ def ui_js(tt) -> str:
         "free": tt("pw_free_plan"),
         "manage": tt("pw_manage"),
         "logout": tt("pw_logout"),
+        "planMonthly": tt("pw_plan_monthly"),
+        "planYearly": tt("pw_plan_yearly"),
+        "perMonth": tt("pw_per_month"),
+        "perYear": tt("pw_per_year"),
+        "save": tt("pw_save"),
+        "best": tt("pw_best_value"),
+        "cancel": tt("pw_cancel_anytime"),
+        "plans": plan_prices(),
     }
     return _UI_JS.replace("__L__", json.dumps(labels, ensure_ascii=False).replace("</", "<\\/"))

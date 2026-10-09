@@ -815,6 +815,31 @@ def pricing_page(request: Request):
     """
     lang = _detect_ui_lang(request)
     tt = lambda key: t(lang, key)  # noqa: E731
+    prices = paywall.plan_prices()
+    if paywall.paywall_enabled():
+        yearly_line = (
+            f'<p class="text-sm text-slate-500 -mt-3 mb-5">{tt("pw_plan_yearly")} : <b>{prices["yearly"]}</b> {tt("pw_per_year")}'
+            + (f' · <span class="text-green-600 font-semibold">{tt("pw_save").replace("{pct}", str(prices["savePct"]))}</span>' if prices["savePct"] > 0 else "")
+            + "</p>"
+            if prices["hasYearly"] else ""
+        )
+        pro_price_html = (
+            f'<div class="text-3xl font-extrabold mb-5 text-blue-600">{prices["monthly"]}'
+            f'<span class="text-sm font-normal text-slate-400"> {tt("pw_per_month")}</span></div>{yearly_line}'
+        )
+        yearly_cta = (
+            f'<a href="/subscribe?to=/app&plan=yearly" class="mt-3 inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">'
+            f'{tt("pw_plan_yearly")} · {prices["yearly"]} {tt("pw_per_year")}</a>'
+            if prices["hasYearly"] else ""
+        )
+        pro_cta_html = (
+            f'<a href="/subscribe?to=/app&plan=monthly" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">'
+            f'{tt("pw_plan_monthly")} · {prices["monthly"]} {tt("pw_per_month")}</a>{yearly_cta}'
+            f'<p class="text-xs text-slate-400 mt-3">{tt("pw_cancel_anytime")}</p>'
+        )
+    else:
+        pro_price_html = f'<div class="text-2xl font-extrabold mb-5 text-blue-600">{tt("pricing_pro_price")}</div>'
+        pro_cta_html = f'<button disabled class="mt-auto px-6 py-3 rounded-xl bg-blue-300 text-white font-semibold text-sm cursor-not-allowed">{tt("pricing_pro_cta")}</button>'
     return f"""
     <html lang="{lang}">
       <head><title>{tt("pricing_title")} — Wil App</title>{_SECONDARY_PAGE_HEAD}</head>
@@ -825,23 +850,22 @@ def pricing_page(request: Request):
           <div class="grid sm:grid-cols-2 gap-6 max-w-xl mx-auto">
             <div class="border border-slate-200 rounded-2xl p-8 text-center flex flex-col">
               <h3 class="font-bold text-lg mb-2">{tt("pricing_free_name")}</h3>
-              <div class="text-3xl font-extrabold mb-5">$0<span class="text-sm font-normal text-slate-400">{tt("pricing_free_period")}</span></div>
+              <div class="text-3xl font-extrabold mb-5">0 {os.getenv("WIL_PRICE_CURRENCY", "€")}<span class="text-sm font-normal text-slate-400">{tt("pricing_free_period")}</span></div>
               <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-                <li>✔ {tt("pricing_free_feature1")}</li>
-                <li>✔ {tt("pricing_free_feature2")}</li>
+                <li>✔ {tt("pw_free_feat")}</li>
               </ul>
               <a href="/app" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">{tt("pricing_free_cta")}</a>
               <p class="text-xs text-slate-400 mt-3">{tt("trust_line")}</p>
             </div>
             <div class="border-2 border-blue-600 rounded-2xl p-8 text-center relative flex flex-col">
               <h3 class="font-bold text-lg mb-2">{tt("pricing_pro_name")}</h3>
-              <div class="text-2xl font-extrabold mb-5 text-blue-600">{tt("pricing_pro_price")}</div>
+              {pro_price_html}
               <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-                <li>✔ {tt("pricing_pro_feature1")}</li>
-                <li>✔ {tt("pricing_pro_feature2")}</li>
-                <li>✔ {tt("pricing_pro_feature3")}</li>
+                <li>✔ {tt("pw_pro_feat1")}</li>
+                <li>✔ {tt("pw_pro_feat2")}</li>
+                <li>✔ {tt("pw_pro_feat3")}</li>
               </ul>
-              <button disabled class="mt-auto px-6 py-3 rounded-xl bg-blue-300 text-white font-semibold text-sm cursor-not-allowed">{tt("pricing_pro_cta")}</button>
+              {pro_cta_html}
             </div>
           </div>
         </div>
@@ -3744,12 +3768,10 @@ __PW_JS__
         return;
       }
       if (ME.paywall) {
-        const back = encodeURIComponent('/app#profile');
         openSheet('<p class="font-extrabold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
           '<p class="font-semibold text-blue-600 mb-2">' + esc(I18N.setSubPlan) + '</p>' +
-          '<p class="text-sm text-slate-500 leading-relaxed mb-5">' + esc(WIL_PW.sub) + '</p>' +
-          '<a href="/subscribe?to=' + back + '" class="block w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-base text-center mb-3 hover:bg-violet-600">' + esc(WIL_PW.btn) + '</a>' +
-          '<a href="/subscribe?to=' + back + '" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm text-center">' + esc(WIL_PW.have) + '</a>');
+          '<p class="text-sm text-slate-500 leading-relaxed mb-2">' + esc(WIL_PW.sub) + '</p>' +
+          '<div class="wilpw" style="margin-bottom:0;">' + wilPwActions('/app#profile') + '</div>');
         return;
       }
       openSheet('<p class="font-extrabold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
