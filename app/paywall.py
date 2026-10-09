@@ -148,12 +148,19 @@ def safe_return_path(path: str | None, default: str = "/app") -> str:
 
 
 # ----------------------------------------------------------------- abonnement (Whop)
-async def _whop_membership(user_id: str) -> tuple[bool, str | None]:
-    """Interroge Whop : ce compte a-t-il un abonnement valide ? Renvoie (actif, lien de gestion)."""
+def _diag_slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:80]
+
+
+async def _whop_membership_call(user_id: str) -> tuple[bool, str | None, dict]:
+    """
+    Interroge Whop : ce compte a-t-il un abonnement valide ?
+    Renvoie (actif, lien de gestion, diagnostic). Le diagnostic ({"http", "error"}) sert à /api/me?check=1.
+    """
     api_key = _env("WHOP_API_KEY")
     if not api_key:
         print("[paywall] WHOP_API_KEY manquant : personne n'est considéré comme abonné")
-        return False, None
+        return False, None, {"http": None, "error": "api-key-missing"}
     params: dict = {"user_ids": [user_id], "statuses": list(ACTIVE_STATUSES), "first": 100}
     if _env("WHOP_COMPANY_ID"):
         params["account_id"] = _env("WHOP_COMPANY_ID")
@@ -164,10 +171,17 @@ async def _whop_membership(user_id: str) -> tuple[bool, str | None]:
             response = await client.get(WHOP_MEMBERSHIPS_URL, params=params, headers={"Authorization": f"Bearer {api_key}"})
     except httpx.HTTPError as exc:
         print(f"[paywall] Whop injoignable : {exc!r}")
-        return False, None
+        return False, None, {"http": None, "error": "network"}
     if response.status_code != 200:
         print(f"[paywall] Whop memberships {response.status_code}: {response.text[:300]}")
-        return False, None
+        try:
+            payload = response.json()
+            detail = payload.get("error") or payload.get("message") or ""
+            if isinstance(detail, dict):
+                detail = detail.get("message") or detail.get("code") or ""
+        except Exception:
+            detail = ""
+        return False, None, {"http": response.status_code, "error": _diag_slug(str(detail)) or "error"}
     product_id = _env("WHOP_PRODUCT_ID")
     for membership in response.json().get("data", []):
         # Filtrage local en plus des paramètres de la requête : on ne se fie jamais à un filtre ignoré.
@@ -177,8 +191,13 @@ async def _whop_membership(user_id: str) -> tuple[bool, str | None]:
             continue
         if product_id and (membership.get("product") or {}).get("id") != product_id:
             continue
-        return True, membership.get("manage_url")
-    return False, None
+        return True, membership.get("manage_url"), {"http": 200, "error": None}
+    return False, None, {"http": 200, "error": None}
+
+
+async def _whop_membership(user_id: str) -> tuple[bool, str | None]:
+    active, manage_url, _diag = await _whop_membership_call(user_id)
+    return active, manage_url
 
 
 async def membership_status(user_id: str, force: bool = False) -> tuple[bool, str | None]:
@@ -296,6 +315,12 @@ async def get_analysis(analysis_id: str, request: Request):
 @router.get("/api/me", response_class=JSONResponse)
 async def me(request: Request):
     ent = await get_entitlement(request)
+    # /api/me?check=1 (connecté uniquement) : teste en direct l'appel à Whop qui vérifie l'abonnement,
+    # pour repérer une clé API sans les bonnes permissions AVANT d'activer le paywall.
+    auth = read_auth(request)
+    if request.query_params.get("check") and auth:
+        active, _manage, diag = await _whop_membership_call(auth["uid"])
+        ent = {**ent, "membership_check": {**diag, "active_membership": active}}
     return JSONResponse(content=ent, headers={"Cache-Control": "no-store"})
 
 
