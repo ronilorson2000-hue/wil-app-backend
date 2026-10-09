@@ -16,6 +16,8 @@ la variable TIKTOK_REDIRECT_URI dans .env pointe vers cette URL publique.
 
 import asyncio
 import base64
+import hashlib
+import hmac
 import json
 import math
 import os
@@ -44,7 +46,7 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app import paywall, ratelimit
+from app import paywall, ratelimit, token_box
 from app.db import get_supabase
 from app.library_starter import get_starter_library
 from app.style_guide import get_style_guide
@@ -115,13 +117,34 @@ def _consume_pending_state(state: str) -> bool:
 _sessions: dict[str, dict] = {}
 SESSION_MAX_AGE_SECONDS = 30 * 24 * 3600
 
+# Connexion de l'app mobile : le lien de retour wilapp://callback ne transporte plus la session
+# (une autre application installée pourrait déclarer le même schéma et l'intercepter), mais un
+# CODE à usage unique valable 2 minutes. Il ne s'échange contre la session qu'avec le "verifier"
+# secret que SEULE l'app d'origine connaît (son hash, le "challenge", est lié à la connexion),
+# comme PKCE. Un code intercepté est donc inutilisable.
+_APP_CHALLENGE_RE = re.compile(r"[A-Za-z0-9_-]{43}")
+APP_CODE_TTL_SECONDS = 120
+_app_codes: dict[str, dict] = {}
+
+
+def _issue_app_code(session_id: str, challenge: str, profile: dict) -> str:
+    now = time.time()
+    for key in [k for k, v in _app_codes.items() if v["expires"] < now]:
+        _app_codes.pop(key, None)
+    code = secrets.token_urlsafe(24)
+    _app_codes[code] = {
+        "session_id": session_id, "challenge": challenge, "profile": profile,
+        "expires": now + APP_CODE_TTL_SECONDS, "attempts": 0,
+    }
+    return code
+
 
 def _store_session(session_id: str, access_token: str, open_id: str) -> None:
     supabase = get_supabase()
     if supabase:
         supabase.table("sessions").insert({
             "session_id": session_id,
-            "access_token": access_token,
+            "access_token": token_box.encrypt_token(access_token),  # chiffré au repos (voir token_box.py)
             "open_id": open_id,
         }).execute()
     else:
@@ -140,7 +163,12 @@ def _get_session(session_id: str) -> dict | None:
                 return None
         except (KeyError, ValueError, TypeError):
             pass
-        return res.data[0]
+        row = dict(res.data[0])
+        token = token_box.decrypt_token(row["access_token"])
+        if token is None:  # jeton illisible (clé changée) : la session est à refaire
+            return None
+        row["access_token"] = token
+        return row
     return _sessions.get(session_id)
 
 
@@ -291,7 +319,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(set(_CORS_ORIGINS)),
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Session-Id"],
 )
 
 
@@ -986,7 +1014,7 @@ CHALLENGE_STATE_CODES_REVERSE = {v: k for k, v in CHALLENGE_STATE_CODES.items()}
 
 
 @app.get("/auth/tiktok/login")
-def tiktok_login(source: str = "web", main_challenge: str = ""):
+def tiktok_login(source: str = "web", main_challenge: str = "", challenge: str = ""):
     """
     Étape 1 du flow OAuth : on redirige l'utilisateur vers la page
     d'autorisation de TikTok.
@@ -1017,6 +1045,12 @@ def tiktok_login(source: str = "web", main_challenge: str = ""):
     prefix = "app_" if source == "app" else "web_"
     challenge_code = CHALLENGE_STATE_CODES.get(main_challenge, "no")
     state = prefix + challenge_code + secrets.token_urlsafe(24)
+    if source == "app":
+        # Connexion mobile : le "challenge" (hash SHA-256 du secret de l'app, 43 caractères) est lié
+        # à cette connexion via le state ; on n'en garde que 22 caractères (132 bits), largement suffisant.
+        if not _APP_CHALLENGE_RE.fullmatch(challenge):
+            raise HTTPException(status_code=400, detail="Paramètre 'challenge' manquant ou invalide.")
+        state += "~" + challenge[:22]
     _store_pending_state(state)
 
     base_scope = "user.info.basic,user.info.profile"
@@ -1043,6 +1077,32 @@ def tiktok_login(source: str = "web", main_challenge: str = ""):
         "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
         "Pragma": "no-cache",
     })
+
+
+class AppAuthExchange(BaseModel):
+    code: str
+    verifier: str
+
+
+@app.post("/api/app-auth/exchange", response_class=JSONResponse)
+async def app_auth_exchange(body: AppAuthExchange, request: Request):
+    """
+    L'app mobile échange le code reçu par le lien de retour contre sa session, en prouvant qu'elle
+    est bien celle qui a lancé la connexion (verifier dont le hash a été donné au départ).
+    Un code ne s'échange qu'une fois ; 5 mauvaises preuves l'annulent.
+    """
+    ratelimit.check(request, "exchange", 30)
+    entry = _app_codes.get(body.code)
+    if not entry or entry["expires"] < time.time() or not (43 <= len(body.verifier) <= 128):
+        raise HTTPException(status_code=400, detail="Code invalide ou expiré.")
+    proof = base64.urlsafe_b64encode(hashlib.sha256(body.verifier.encode()).digest()).decode().rstrip("=")[:22]
+    if not hmac.compare_digest(proof, entry["challenge"]):
+        entry["attempts"] += 1
+        if entry["attempts"] >= 5:
+            _app_codes.pop(body.code, None)
+        raise HTTPException(status_code=400, detail="Code invalide ou expiré.")
+    _app_codes.pop(body.code, None)
+    return JSONResponse(content={"session": entry["session_id"], **entry["profile"]}, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/auth/tiktok/callback", response_class=HTMLResponse)
@@ -1148,19 +1208,20 @@ async def tiktok_callback(request: Request):
     # infos du profil en paramètres, pour que Flutter reprenne la main.
     # Android/iOS interceptent cette adresse et rouvrent Wil App directement.
     if state.startswith("app_"):
-        from urllib.parse import urlencode
-
-        app_params = urlencode({
+        app_challenge = state.partition("~")[2]
+        if not app_challenge:
+            raise HTTPException(status_code=400, detail="Connexion mobile sans preuve : relance la connexion depuis l'app.")
+        app_code = _issue_app_code(session_id, app_challenge, {
             "display_name": display_name,
             "avatar_url": avatar_url,
             "username": username,
             "bio": bio,
             "profile_link": profile_link,
-            "is_verified": "true" if is_verified else "false",
-            "session": session_id,
+            "is_verified": bool(is_verified),
             "main_challenge": main_challenge,
         })
-        return RedirectResponse(f"wilapp://callback?{app_params}")
+        # Ni session ni profil dans le lien : seulement le code à usage unique.
+        return RedirectResponse(f"wilapp://callback?code={app_code}")
 
     # Langue d'interface ET langue de rédaction des rapports IA (voir
     # analyze_account/analyze_video/analyze_video_upload/analyze_transcript
@@ -1298,7 +1359,7 @@ async def tiktok_callback(request: Request):
           function fmt(template, vars) {{
             return template.replace(/\\{{(\\w+)\\}}/g, (_, k) => (k in vars) ? vars[k] : `{{${{k}}}}`);
           }}
-          fetch(`/api/analyze-account?session=${{sessionId}}&display_name={display_name_enc}&username={username_enc}&bio={bio_enc}&main_challenge={main_challenge_enc}&ui_lang=${{uiLang}}`)
+          fetch(`/api/analyze-account?display_name={display_name_enc}&username={username_enc}&bio={bio_enc}&main_challenge={main_challenge_enc}&ui_lang=${{uiLang}}`, {{ headers: {{ 'X-Session-Id': sessionId }} }})
             .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
             .then(({{ok, status, data}}) => {{
               document.getElementById('analysis-loading').style.display = 'none';
@@ -5540,7 +5601,7 @@ async def close_account(body: CloseAccountRequest):
 @app.get("/api/analyze-account", response_class=JSONResponse)
 async def analyze_account(
     request: Request,
-    session: str,
+    session: str = "",
     display_name: str = "",
     username: str = "",
     bio: str = "",
@@ -5561,7 +5622,10 @@ async def analyze_account(
     sans jamais inventer de statistique. La niche, elle, reste toujours
     détectée depuis les vraies données du compte (jamais demandée).
     """
-    session_data = _get_session(session)
+    # La session voyage dans l'en-tête X-Session-Id (une adresse finit dans les journaux, pas un en-tête).
+    # Le paramètre d'adresse ?session= reste accepté pour les anciennes versions de l'app.
+    session = request.headers.get("x-session-id") or session
+    session_data = _get_session(session) if session else None
     if not session_data:
         raise HTTPException(
             status_code=401,
