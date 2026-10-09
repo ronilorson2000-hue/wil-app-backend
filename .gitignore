@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 .env
 cloudflared.exe
+.claude/
+ROADMAP.md
+wil_app_project_summary.md
+*.log

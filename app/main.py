@@ -25,6 +25,7 @@ import tempfile
 import time
 import uuid
 from collections import Counter
+from html import escape as _esc_html
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -43,7 +44,7 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app import paywall
+from app import paywall, ratelimit
 from app.db import get_supabase
 from app.library_starter import get_starter_library
 from app.style_guide import get_style_guide
@@ -112,6 +113,7 @@ def _consume_pending_state(state: str) -> bool:
 # et _get_session, qui basculent automatiquement sur Supabase quand c'est
 # disponible.
 _sessions: dict[str, dict] = {}
+SESSION_MAX_AGE_SECONDS = 30 * 24 * 3600
 
 
 def _store_session(session_id: str, access_token: str, open_id: str) -> None:
@@ -130,7 +132,15 @@ def _get_session(session_id: str) -> dict | None:
     supabase = get_supabase()
     if supabase:
         res = supabase.table("sessions").select("*").eq("session_id", session_id).limit(1).execute()
-        return res.data[0] if res.data else None
+        if not res.data:
+            return None
+        try:  # une session n'est pas éternelle (les jetons TikTok expirent de toute façon en 24 h)
+            created = datetime.fromisoformat(res.data[0]["created_at"]).timestamp()
+            if time.time() - created > SESSION_MAX_AGE_SECONDS:
+                return None
+        except (KeyError, ValueError, TypeError):
+            pass
+        return res.data[0]
     return _sessions.get(session_id)
 
 
@@ -251,18 +261,51 @@ def _detect_language(bio: str, titles: list[str]) -> str:
         return "fr"
 
 
-app = FastAPI(title="Wil App Backend", version="0.1.0")
+async def _guard_ai(request: Request, bucket: str = "ai") -> None:
+    """Limite par IP (plus stricte pour un non-abonné) + plafond global journalier, avant tout appel d'IA payant."""
+    entitlement = await paywall.get_entitlement(request)
+    ratelimit.check(request, bucket, ratelimit.ai_limit(entitlement["subscribed"]))
+    ratelimit.charge_daily()
+
+
+# Documentation interactive (/docs, /redoc, /openapi.json) fermée en production : inutile de
+# donner à un attaquant la carte de toutes nos routes. ENABLE_DOCS=1 pour la rouvrir en local.
+_DOCS_ON = os.getenv("ENABLE_DOCS", "").strip().lower() in ("1", "true", "yes", "on")
+app = FastAPI(
+    title="Wil App Backend",
+    version="0.1.0",
+    docs_url="/docs" if _DOCS_ON else None,
+    redoc_url="/redoc" if _DOCS_ON else None,
+    openapi_url="/openapi.json" if _DOCS_ON else None,
+)
 app.include_router(paywall.router)
 
 # CORS = permet à l'app Flutter (qui tournera sur une autre adresse)
 # de communiquer avec ce backend sans être bloquée par le navigateur/OS.
 # En développement on autorise tout ("*"), on restreindra plus tard.
+# Origines autorisées : notre propre site (+ localhost pour le développement). L'app mobile native
+# n'est pas concernée par CORS. CORS_ORIGINS="a,b" pour en ajouter (ex. une version web de l'app).
+_CORS_ORIGINS = [SITE_URL, "https://wilapp.tech", "https://www.wilapp.tech", "http://localhost:8000", "http://127.0.0.1:8000"]
+_CORS_ORIGINS += [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=sorted(set(_CORS_ORIGINS)),
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """En-têtes de sécurité sur toutes les réponses (anti-clickjacking, anti-sniffing, HTTPS forcé)."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+    if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    return response
 
 # Sert les fichiers statiques (captures d'écran de témoignages, etc.)
 # depuis app/static/ — ex. app/static/testimonials/1.png devient
@@ -341,8 +384,7 @@ def set_language(lang: str, to: str = "/"):
     """
     if lang not in SUPPORTED_LANGS:
         lang = DEFAULT_LANG
-    if not to.startswith("/"):
-        to = "/"
+    to = paywall.safe_return_path(to, "/")  # jamais une URL externe (//evil.com refusé)
     response = RedirectResponse(to)
     response.set_cookie(UI_LANG_COOKIE, lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return response
@@ -1013,7 +1055,7 @@ async def tiktok_callback(request: Request):
     """
     error = request.query_params.get("error")
     if error:
-        return f"<h1>Connexion refusée ou erreur</h1><p>{error}</p>"
+        return f"<h1>Connexion refusée ou erreur</h1><p>{_esc_html(error)}</p>"
 
     code = request.query_params.get("code")
     state = request.query_params.get("state")
@@ -1061,7 +1103,9 @@ async def tiktok_callback(request: Request):
     token_data = token_response.json()
 
     if "access_token" not in token_data:
-        return f"<h1>Erreur lors de l'échange du token</h1><pre>{token_data}</pre>"
+        # On n'affiche jamais la réponse brute (elle pourrait contenir des données sensibles) : seulement le motif.
+        reason = _esc_html(str(token_data.get("error_description") or token_data.get("error") or "réponse inattendue")[:200])
+        return f"<h1>Erreur lors de l'échange du token</h1><p>{reason}</p>"
 
     access_token = token_data["access_token"]
 
@@ -1128,10 +1172,10 @@ async def tiktok_callback(request: Request):
         f'<span style="color:#0EA5E9; font-weight:bold;">✔ {tt("dash_verified")}</span>'
         if is_verified else ""
     )
-    bio_html = f'<p style="color:#475569; max-width:400px; margin:12px auto; font-size:14px;">{bio}</p>' if bio else ""
+    bio_html = f'<p style="color:#475569; max-width:400px; margin:12px auto; font-size:14px;">{_esc_html(bio)}</p>' if bio else ""
     link_html = (
-        f'<p><a href="{profile_link}" target="_blank">{tt("dash_view_profile")}</a></p>'
-        if profile_link else ""
+        f'<p><a href="{_esc_html(profile_link)}" target="_blank" rel="noopener noreferrer">{tt("dash_view_profile")}</a></p>'
+        if profile_link.startswith("https://") else ""
     )
 
     # Tableau de bord affiché après connexion : montre les vraies données
@@ -1205,9 +1249,9 @@ async def tiktok_callback(request: Request):
 
         <p style="color:#16A34A; font-weight:600; font-size:14px;">✅ {tt("dash_connected")}</p>
         <div class="card profile">
-          <img class="avatar" src="{avatar_url}" alt="Profile picture" />
-          <h2>{display_name} {verified_badge}</h2>
-          <p class="username">@{username}</p>
+          <img class="avatar" src="{_esc_html(avatar_url)}" alt="Profile picture" />
+          <h2>{_esc_html(display_name)} {verified_badge}</h2>
+          <p class="username">@{_esc_html(username)}</p>
           {bio_html}
           {link_html}
           <div class="stats">
@@ -2816,9 +2860,9 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             document.getElementById('result-caption-value').textContent = data.suggested_caption || '';
 
             document.getElementById('result-hook-value').textContent = (data.hook_excerpt ? ('"' + data.hook_excerpt + '" — ') : '') + (data.hook_type || '');
-            document.getElementById('result-strengths-value').innerHTML = (data.strengths || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
-            document.getElementById('result-weaknesses-value').innerHTML = (data.weaknesses || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
-            document.getElementById('result-actions-value').innerHTML = (data.action_plan || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
+            document.getElementById('result-strengths-value').innerHTML = (data.strengths || []).map(function (s) {{ return '<li>' + escapeHtml(s) + '</li>'; }}).join('');
+            document.getElementById('result-weaknesses-value').innerHTML = (data.weaknesses || []).map(function (s) {{ return '<li>' + escapeHtml(s) + '</li>'; }}).join('');
+            document.getElementById('result-actions-value').innerHTML = (data.action_plan || []).map(function (s) {{ return '<li>' + escapeHtml(s) + '</li>'; }}).join('');
 
             if (!silent) {{
               saveHistoryEntry({{
@@ -5038,6 +5082,7 @@ async def trending_ideas(request: Request, niche_category: str, lang: str = "fr"
     catégorie+langue pour limiter le coût.
     """
     await paywall.require_subscription(request)
+    ratelimit.check(request, "content", 120)
     if niche_category not in NICHE_CATEGORIES:
         niche_category = "Autre"
     result = await _get_trending_content_ideas(niche_category, lang)
@@ -5233,6 +5278,7 @@ async def library(request: Request, niche_category: str, lang: str = DEFAULT_LAN
     consentement recueilli pour le moment).
     """
     await paywall.require_subscription(request)
+    ratelimit.check(request, "content", 120)
     if niche_category not in NICHE_CATEGORIES:
         raise HTTPException(status_code=422, detail="Niche inconnue.")
     if lang not in SUPPORTED_LANGS:
@@ -5387,6 +5433,7 @@ async def discover(request: Request, niche_category: str, lang: str = DEFAULT_LA
     "starter") : on n'invente jamais un score.
     """
     await paywall.require_subscription(request)
+    ratelimit.check(request, "content", 120)
     if niche_category not in NICHE_CATEGORIES:
         raise HTTPException(status_code=422, detail="Niche inconnue.")
     if lang not in SUPPORTED_LANGS:
@@ -5523,6 +5570,7 @@ async def analyze_account(
     entitlement = await paywall.get_entitlement(request)
     if not entitlement["subscribed"] and paywall.free_quota_left(request, "account") <= 0:
         raise HTTPException(status_code=402, detail="Votre analyse gratuite est utilisée. Abonnez-vous pour continuer.")
+    await _guard_ai(request)
     access_token = session_data["access_token"]
     open_id = session_data["open_id"]
 
@@ -6203,6 +6251,7 @@ async def analyze_video(
     un appel Claude sur des chiffres déjà en main, rapide et simple.
     """
     await paywall.require_subscription(request)
+    await _guard_ai(request)
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
 
@@ -6875,6 +6924,7 @@ async def analyze_video_upload(
     entitlement = await paywall.get_entitlement(request)
     if not entitlement["subscribed"] and paywall.free_quota_left(request, "video") <= 0:
         raise HTTPException(status_code=402, detail="Votre analyse gratuite est utilisée. Abonnez-vous pour continuer.")
+    await _guard_ai(request)
 
     published = already_published.strip().lower() == "true"
     try:
@@ -6913,6 +6963,7 @@ async def analyze_video_upload(
 # --------------------------------------------------------------------------
 VIDEO_CHUNK_BYTES = 4 * 1024 * 1024
 UPLOAD_TTL_SECONDS = 3600
+MAX_PENDING_UPLOADS = 40
 _video_uploads: dict[str, dict] = {}
 _video_jobs: dict[str, dict] = {}
 _background_tasks: set = set()
@@ -6958,7 +7009,12 @@ async def video_upload_start(body: VideoUploadStart, request: Request):
         raise HTTPException(status_code=400, detail="Fichier vide.")
     if body.size > MAX_VIDEO_BYTES:
         raise HTTPException(status_code=413, detail="Fichier trop volumineux (200 Mo max).")
+    await _guard_ai(request)
     _purge_stale_uploads()
+    # Disque protégé : pas plus de N envois en cours au total, ni de 3 par visiteur (sinon un script remplirait le disque).
+    pending = [u for u in _video_uploads.values() if not u["job_id"]]
+    if len(pending) >= MAX_PENDING_UPLOADS or sum(1 for u in pending if u["ip"] == ratelimit.client_ip(request)) >= 3:
+        raise HTTPException(status_code=429, detail="Trop d'envois en cours. Réessaie dans quelques minutes.")
     upload_id = str(uuid.uuid4())
     _video_uploads[upload_id] = {
         "path": _upload_dir() / f"{upload_id}.bin",
@@ -6967,6 +7023,7 @@ async def video_upload_start(body: VideoUploadStart, request: Request):
         "received": set(),
         "created": time.time(),
         "job_id": None,
+        "ip": ratelimit.client_ip(request),
     }
     return JSONResponse(content={"upload_id": upload_id, "chunk_size": VIDEO_CHUNK_BYTES})
 
@@ -7179,6 +7236,7 @@ async def analyze_transcript(
     sans jamais inventer de statistique.
     """
     await paywall.require_subscription(request)
+    await _guard_ai(request)
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
     if not transcript or not transcript.strip():
@@ -7346,6 +7404,7 @@ async def generate_script(
     - bio    : bio du compte (optionnel, contexte supplémentaire)
     """
     await paywall.require_subscription(request)
+    await _guard_ai(request)
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
 

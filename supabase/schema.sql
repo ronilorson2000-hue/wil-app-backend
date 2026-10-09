@@ -114,3 +114,17 @@ create index if not exists idx_analysis_results_created_at on analysis_results (
 -- Security n'est pas activé par défaut ici. Si un jour le client accède
 -- directement à Supabase (sans passer par notre API), activer RLS sur
 -- chaque table avant.
+
+-- ---------------------------------------------------------------------------
+-- SÉCURITÉ : Row Level Security activé sur toutes les tables, SANS politique.
+-- Résultat : la clé publique "anon" de Supabase (et toute personne qui la trouverait) ne peut
+-- ni lire ni écrire ces tables. Le backend utilise la clé service_role, qui ignore RLS : il
+-- continue donc de fonctionner normalement. À exécuter une fois dans le SQL Editor.
+-- ---------------------------------------------------------------------------
+alter table sessions enable row level security;
+alter table account_snapshots enable row level security;
+alter table trending_cache enable row level security;
+alter table niche_benchmarks enable row level security;
+alter table pending_states enable row level security;
+alter table video_estimate_feedback enable row level security;
+alter table analysis_results enable row level security;
