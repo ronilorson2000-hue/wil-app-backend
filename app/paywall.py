@@ -15,7 +15,8 @@ Principes :
 Variables d'environnement (voir aussi supabase/schema.sql pour analysis_results) :
   PAYWALL_ENABLED, SESSION_SECRET, SITE_URL,
   WHOP_CLIENT_ID (app_...), WHOP_CLIENT_SECRET (optionnel), WHOP_API_KEY,
-  WHOP_COMPANY_ID (biz_...), WHOP_PRODUCT_ID (optionnel), WHOP_CHECKOUT_URL.
+  WHOP_COMPANY_ID (biz_...), WHOP_PRODUCT_ID (optionnel), WHOP_CHECKOUT_URL,
+  WHOP_PLAN_IDS (plan_... payants, séparés par des virgules : exclut les accès gratuits).
 """
 
 import base64
@@ -183,6 +184,9 @@ async def _whop_membership_call(user_id: str) -> tuple[bool, str | None, dict]:
             detail = ""
         return False, None, {"http": response.status_code, "error": _diag_slug(str(detail)) or "error"}
     product_id = _env("WHOP_PRODUCT_ID")
+    # Plans payants autorisés (WHOP_PLAN_IDS="plan_a,plan_b") : un accès GRATUIT (ex. « App Access ») ne doit
+    # jamais compter comme un abonnement. Sans cette variable, seuls le statut et le produit sont vérifiés.
+    allowed_plans = {x.strip() for x in _env("WHOP_PLAN_IDS").split(",") if x.strip()}
     for membership in response.json().get("data", []):
         # Filtrage local en plus des paramètres de la requête : on ne se fie jamais à un filtre ignoré.
         if (membership.get("user") or {}).get("id") != user_id:
@@ -190,6 +194,8 @@ async def _whop_membership_call(user_id: str) -> tuple[bool, str | None, dict]:
         if membership.get("status") not in ACTIVE_STATUSES:
             continue
         if product_id and (membership.get("product") or {}).get("id") != product_id:
+            continue
+        if allowed_plans and (membership.get("plan") or {}).get("id") not in allowed_plans:
             continue
         return True, membership.get("manage_url"), {"http": 200, "error": None}
     return False, None, {"http": 200, "error": None}
