@@ -35,6 +35,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from app.db import get_supabase
+from app.translations import DEFAULT_LANG, SUPPORTED_LANGS, t
 
 router = APIRouter()
 
@@ -449,15 +450,16 @@ async def logout():
 # ----------------------------------------------------------------- parcours d'abonnement
 @router.get("/subscribe")
 async def subscribe(request: Request, to: str = "/app", plan: str = "monthly"):
-    """Se connecter à Whop si besoin, puis envoyer vers le paiement du plan choisi (ou revenir si déjà abonné)."""
+    """
+    Envoie DIRECTEMENT vers la page de paiement Whop du plan choisi (e-mail + carte sur un seul écran) :
+    aucune connexion avant de payer, pour ne pas perdre de clients. L'utilisateur est reconnu APRÈS le
+    paiement (voir /subscribe/done). Un abonné qui passe ici est simplement renvoyé où il en était.
+    """
     target = safe_return_path(to)
     plan = "yearly" if plan == "yearly" else "monthly"
     ent = await get_entitlement(request, force=True)
     if not ent["paywall"] or ent["subscribed"]:
         return RedirectResponse(target)
-    if not ent["logged_in"]:
-        after_login = "/subscribe?to=" + quote(target, safe="") + "&plan=" + plan
-        return RedirectResponse(f"/auth/whop/login?to={quote(after_login, safe='')}")
     checkout = _env("WHOP_CHECKOUT_URL_YEARLY") if plan == "yearly" else ""
     checkout = checkout or _env("WHOP_CHECKOUT_URL")
     if not checkout:
@@ -467,23 +469,46 @@ async def subscribe(request: Request, to: str = "/app", plan: str = "monthly"):
     return response
 
 
+def _page_lang(request: Request) -> str:
+    lang = request.cookies.get("wil_lang", "")
+    return lang if lang in SUPPORTED_LANGS else DEFAULT_LANG
+
+
 @router.get("/subscribe/done", response_class=HTMLResponse)
-async def subscribe_done(request: Request):
-    """Retour du paiement Whop : on revérifie l'abonnement puis on renvoie l'utilisateur où il en était."""
+async def subscribe_done(request: Request, to: str = "", n: int = 0):
+    """
+    Retour du paiement Whop (ou lien « J'ai déjà un abonnement ») : on reconnaît l'utilisateur via Whop
+    (un clic, son compte existe déjà), on vérifie son abonnement, puis on le renvoie où il en était.
+    """
+    back = safe_return_path(to or (_unsign(request.cookies.get(RETURN_COOKIE)) or {}).get("to"))
+    n = max(0, min(n, 50))
     ent = await get_entitlement(request, force=True)
-    back = safe_return_path((_unsign(request.cookies.get(RETURN_COOKIE)) or {}).get("to"))
-    if ent["subscribed"]:
+    if not ent["paywall"] or ent["subscribed"]:
         response = RedirectResponse(back)
         response.delete_cookie(RETURN_COOKIE)
         return response
+    here = f"/subscribe/done?to={quote(back, safe='')}&n={n}"
+    if not ent["logged_in"]:
+        return RedirectResponse(f"/auth/whop/login?to={quote(here, safe='')}")
+
+    lang = _page_lang(request)
+    style = (
+        "<style>body{font-family:system-ui,sans-serif;max-width:440px;margin:80px auto;padding:0 20px;text-align:center;color:#0F172A}"
+        "a{color:#2563EB}.btn{display:inline-block;margin-top:14px;padding:14px 22px;border-radius:12px;background:#2563EB;color:#fff;"
+        "font-weight:700;text-decoration:none}.btn:hover{background:#7C3AED}p{line-height:1.5;color:#475569}</style>"
+    )
+    head = f'<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Wil App</title>{style}'
+    if n >= 8:  # ~50 s sans abonnement trouvé : on arrête d'attendre et on explique
+        retry = f"/subscribe/done?to={quote(back, safe='')}&n=0"
+        return HTMLResponse(
+            f"""{head}</head><body><h1 style="font-size:22px">{t(lang, "pw_not_found_title")}</h1>
+<p>{t(lang, "pw_not_found_sub")}</p><a class="btn" href="{retry}">{t(lang, "pw_retry")}</a>
+<p><a href="{back}">{t(lang, "pw_back_app")}</a></p></body></html>"""
+        )
     return HTMLResponse(
-        f"""<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="6"><title>Wil App</title>
-<style>body{{font-family:system-ui,sans-serif;max-width:420px;margin:80px auto;padding:0 20px;text-align:center;color:#0F172A}}
-a{{color:#2563EB}}</style></head><body>
-<h1 style="font-size:22px">Validation du paiement…</h1>
-<p>Nous vérifions votre abonnement. Cette page se met à jour toute seule.</p>
-<p><a href="{back}">Revenir à l'application</a></p></body></html>"""
+        f"""{head}<meta http-equiv="refresh" content="6;url={here.replace(f'&n={n}', f'&n={n + 1}')}"></head><body>
+<h1 style="font-size:22px">{t(lang, "pw_checking_title")}</h1><p>{t(lang, "pw_checking_sub")}</p>
+<p><a href="{back}">{t(lang, "pw_back_app")}</a></p></body></html>"""
     )
 
 
@@ -533,7 +558,7 @@ function wilPwActions(returnPath) {
     html += '<a class="wilpw-btn" href="' + href('monthly') + '">' + wilPwEsc(WIL_PW.btn) + ' · ' + wilPwEsc(P.monthly) + ' ' + wilPwEsc(WIL_PW.perMonth) + '</a>';
   }
   return html + '<p class="wilpw-note">' + wilPwEsc(WIL_PW.cancel) + '</p>' +
-    '<a class="wilpw-link" href="' + href('monthly') + '">' + wilPwEsc(WIL_PW.have) + '</a>';
+    '<a class="wilpw-link" href="' + wilPwEsc('/subscribe/done?to=' + encodeURIComponent(returnPath)) + '">' + wilPwEsc(WIL_PW.have) + '</a>';
 }
 // Rapport verrouillé : uniquement les TITRES des sections, leur contenu est grisé (jamais envoyé par le serveur).
 function wilLockedReportHtml(titles, returnPath) {
