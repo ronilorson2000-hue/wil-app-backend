@@ -514,34 +514,61 @@ async def create_checkout_link(plan_id: str, redirect_url: str, ref: str) -> tup
     return (url, config_id, "ok") if url.startswith("https://") else ("", "", "bad-url")
 
 
-async def lookup_buyer(config_id: str) -> dict:
-    """
-    Cherche chez Whop le paiement fait via CE lien de paiement. Renvoie un dictionnaire détaillé
-    (statut HTTP, nombre de paiements, acheteur trouvé...) : sert à /subscribe/done et à son diagnostic.
-    Un paiement n'est accepté que s'il appartient bien à ce lien (on ne se fie jamais à un filtre ignoré).
-    """
-    info: dict = {"http": None, "count": 0, "matched": False, "uid": "", "email": "", "payment_status": None}
-    params: dict = {"checkout_configuration_ids": [config_id], "include_free": "true", "first": 10}
-    if _env("WHOP_COMPANY_ID"):
-        params["account_id"] = _env("WHOP_COMPANY_ID")
+async def _payments_call(params: dict) -> tuple[int | None, list, str]:
+    """Un appel à la liste des paiements. Renvoie (statut HTTP, paiements, raison courte en cas d'échec)."""
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.get(WHOP_PAYMENTS_URL, params=params, headers=_whop_headers())
     except Exception as exc:
         print(f"[paywall] recherche du paiement impossible : {exc!r}")
-        return info
-    info["http"] = response.status_code
+        return None, [], "network"
     if response.status_code != 200:
         print(f"[paywall] payments {response.status_code}: {response.text[:300]}")
-        return info
-    payments = response.json().get("data", [])
-    info["count"] = len(payments)
-    for payment in payments:
-        user = payment.get("user") or {}
-        linked = payment.get("checkout_configuration_id")
-        if user.get("id") and (linked == config_id or (linked is None and len(payments) == 1)):
-            info.update(matched=True, uid=str(user["id"]), email=str(user.get("email") or ""), payment_status=payment.get("status"))
-            break
+        try:
+            payload = response.json()
+            detail = payload.get("error") or payload.get("message") or ""
+            if isinstance(detail, dict):
+                detail = detail.get("message") or detail.get("code") or ""
+        except Exception:
+            detail = ""
+        return response.status_code, [], _diag_slug(str(detail)) or "error"
+    return 200, response.json().get("data", []), ""
+
+
+async def lookup_buyer(config_id: str) -> dict:
+    """
+    Cherche chez Whop le paiement fait via CE lien de paiement. Plusieurs formes de requête sont essayées tour à
+    tour (Whop est strict sur la façon d'écrire les filtres) ; un paiement n'est accepté que s'il appartient bien
+    à ce lien, on ne se fie jamais à un filtre ignoré. Renvoie un dictionnaire détaillé (sert au diagnostic).
+    """
+    info: dict = {"http": None, "count": 0, "matched": False, "uid": "", "email": "", "payment_status": None,
+                  "variant": None, "errors": []}
+    base: dict = {}
+    if _env("WHOP_COMPANY_ID"):
+        base["account_id"] = _env("WHOP_COMPANY_ID")
+    variants = [
+        ("filter", {**base, "checkout_configuration_ids": [config_id], "include_free": "true", "first": 10}),
+        ("filter-brackets", {**base, "checkout_configuration_ids[]": config_id, "include_free": "true", "first": 10}),
+        ("filter-no-free", {**base, "checkout_configuration_ids": [config_id], "first": 10}),
+        ("recent", {**base, "include_free": "true", "order": "created_at", "direction": "desc", "first": 50}),
+        ("recent-no-free", {**base, "order": "created_at", "direction": "desc", "first": 50}),
+    ]
+    for name, params in variants:
+        status, payments, reason = await _payments_call(params)
+        if info["http"] is None or status == 200:
+            info["http"] = status
+        if status != 200:
+            info["errors"].append(f"{name}:{status}-{reason}")
+            continue
+        info["count"] = max(info["count"], len(payments))
+        for payment in payments:
+            user = payment.get("user") or {}
+            linked = payment.get("checkout_configuration_id")
+            # Si Whop ne renvoie pas l'identifiant du lien, on n'accepte que la réponse d'un filtre qui n'a rendu qu'un paiement.
+            if user.get("id") and (linked == config_id or (linked is None and name.startswith("filter") and len(payments) == 1)):
+                info.update(matched=True, uid=str(user["id"]), email=str(user.get("email") or ""),
+                            payment_status=payment.get("status"), variant=name)
+                return info
     return info
 
 
@@ -623,7 +650,7 @@ async def subscribe_done(request: Request, to: str = "", n: int = 0):
                         "checkout_config": buyer.get("ch")}
         if buyer.get("ch"):
             found = await lookup_buyer(buyer["ch"])
-            report["payments"] = {k: found[k] for k in ("http", "count", "matched", "payment_status")}
+            report["payments"] = {k: found[k] for k in ("http", "count", "matched", "payment_status", "variant", "errors")}
             if found["matched"]:
                 active, _manage, diag = await _whop_membership_call(found["uid"])
                 report["membership"] = {**diag, "active": active}
