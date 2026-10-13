@@ -34,6 +34,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
+from app import ratelimit
 from app.db import get_supabase
 from app.translations import DEFAULT_LANG, SUPPORTED_LANGS, t
 
@@ -43,6 +44,7 @@ AUTH_COOKIE = "wil_auth"
 OAUTH_COOKIE = "wil_oauth"
 FREE_COOKIE = "wil_free"
 RETURN_COOKIE = "wil_return"
+BUYER_COOKIE = "wil_buyer"
 AUTH_TTL_SECONDS = 30 * 24 * 3600
 OAUTH_TTL_SECONDS = 10 * 60
 FREE_TTL_SECONDS = 365 * 24 * 3600
@@ -54,6 +56,8 @@ WHOP_AUTHORIZE_URL = "https://api.whop.com/oauth/authorize"
 WHOP_TOKEN_URL = "https://api.whop.com/oauth/token"
 WHOP_USERINFO_URL = "https://api.whop.com/oauth/userinfo"
 WHOP_MEMBERSHIPS_URL = "https://api.whop.com/api/v1/memberships"
+WHOP_CHECKOUT_CONFIG_URL = "https://api.whop.com/api/v1/checkout_configurations"
+WHOP_PAYMENTS_URL = "https://api.whop.com/api/v1/payments"
 
 _fallback_secret = secrets.token_urlsafe(32)
 _secret_warned = False
@@ -328,6 +332,15 @@ async def me(request: Request):
     if request.query_params.get("check") and auth:
         active, _manage, diag = await _whop_membership_call(auth["uid"])
         ent = {**ent, "membership_check": {**diag, "active_membership": active}}
+        # Parcours de paiement sans clic : la clé API doit pouvoir CRÉER un lien de paiement et LIRE les paiements.
+        link, _cfg = await create_checkout_link(_plan_id_from_link(_env("WHOP_CHECKOUT_URL")), f"{_site_url()}/subscribe/done", "diagnostic")
+        ent["checkout_create_ok"] = bool(link)
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                probe = await client.get(WHOP_PAYMENTS_URL, params={"first": 1, "account_id": _env("WHOP_COMPANY_ID")}, headers=_whop_headers())
+            ent["payments_read"] = {"http": probe.status_code}
+        except Exception:
+            ent["payments_read"] = {"http": None}
     return JSONResponse(content=ent, headers={"Cache-Control": "no-store"})
 
 
@@ -448,24 +461,92 @@ async def logout():
 
 
 # ----------------------------------------------------------------- parcours d'abonnement
+def _plan_id_from_link(url: str) -> str:
+    """Identifiant du plan (plan_...) extrait du lien de paiement configuré : pas de variable de plus à gérer."""
+    match = re.search(r"plan_[A-Za-z0-9]+", url or "")
+    return match.group(0) if match else ""
+
+
+def _whop_headers() -> dict:
+    return {"Authorization": f"Bearer {_env('WHOP_API_KEY')}"}
+
+
+async def create_checkout_link(plan_id: str, redirect_url: str, ref: str) -> tuple[str, str]:
+    """
+    Crée, côté Whop, un lien de paiement PROPRE à ce visiteur : il porte notre identifiant (metadata) et ramène
+    automatiquement le client sur notre site après le paiement. Renvoie (adresse de paiement, id du lien),
+    ou ("", "") si Whop refuse (permissions de la clé, réseau...) : l'appelant se replie alors sur le lien fixe.
+    """
+    if not _env("WHOP_API_KEY") or not plan_id:
+        return "", ""
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(
+                WHOP_CHECKOUT_CONFIG_URL,
+                headers=_whop_headers(),
+                json={"plan_id": plan_id, "redirect_url": redirect_url, "metadata": {"wil_ref": ref}},
+            )
+    except Exception as exc:
+        print(f"[paywall] création du lien de paiement impossible : {exc!r}")
+        return "", ""
+    if response.status_code not in (200, 201):
+        print(f"[paywall] checkout_configurations {response.status_code}: {response.text[:300]}")
+        return "", ""
+    try:
+        data = response.json()
+        url = str(data["purchase_url"])
+        config_id = str(data["id"])
+    except Exception:
+        return "", ""
+    if url.startswith("/"):
+        url = "https://whop.com" + url
+    return (url, config_id) if url.startswith("https://") else ("", "")
+
+
+async def find_buyer(config_id: str) -> tuple[str, str]:
+    """Qui a payé via ce lien de paiement ? Renvoie (id Whop, e-mail) ou ("", "") si aucun paiement n'est encore visible."""
+    params: dict = {"checkout_configuration_ids": [config_id], "include_free": "true", "first": 5}
+    if _env("WHOP_COMPANY_ID"):
+        params["account_id"] = _env("WHOP_COMPANY_ID")
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.get(WHOP_PAYMENTS_URL, params=params, headers=_whop_headers())
+    except Exception as exc:
+        print(f"[paywall] recherche du paiement impossible : {exc!r}")
+        return "", ""
+    if response.status_code != 200:
+        print(f"[paywall] payments {response.status_code}: {response.text[:300]}")
+        return "", ""
+    for payment in response.json().get("data", []):
+        user = payment.get("user") or {}
+        if user.get("id"):
+            return str(user["id"]), str(user.get("email") or "")
+    return "", ""
+
+
 @router.get("/subscribe")
 async def subscribe(request: Request, to: str = "/app", plan: str = "monthly"):
     """
-    Envoie DIRECTEMENT vers la page de paiement Whop du plan choisi (e-mail + carte sur un seul écran) :
-    aucune connexion avant de payer, pour ne pas perdre de clients. L'utilisateur est reconnu APRÈS le
-    paiement (voir /subscribe/done). Un abonné qui passe ici est simplement renvoyé où il en était.
+    Envoie DIRECTEMENT vers la page de paiement Whop du plan choisi (e-mail + carte sur un seul écran), sans
+    connexion avant. Le lien de paiement est créé pour CE visiteur : après le paiement, Whop le ramène tout seul
+    sur /subscribe/done, qui retrouve qui a payé et débloque tout, sans aucun clic de sa part.
     """
     target = safe_return_path(to)
     plan = "yearly" if plan == "yearly" else "monthly"
     ent = await get_entitlement(request, force=True)
     if not ent["paywall"] or ent["subscribed"]:
         return RedirectResponse(target)
-    checkout = _env("WHOP_CHECKOUT_URL_YEARLY") if plan == "yearly" else ""
-    checkout = checkout or _env("WHOP_CHECKOUT_URL")
-    if not checkout:
+    ratelimit.check(request, "subscribe", 20)
+    static_link = _env("WHOP_CHECKOUT_URL_YEARLY") if plan == "yearly" else ""
+    static_link = static_link or _env("WHOP_CHECKOUT_URL")
+    if not static_link:
         raise HTTPException(status_code=503, detail="Les abonnements ne sont pas encore disponibles.")
-    response = RedirectResponse(checkout)
+    redirect_url = f"{_site_url()}/subscribe/done?to={quote(target, safe='')}"
+    link, config_id = await create_checkout_link(_plan_id_from_link(static_link), redirect_url, secrets.token_urlsafe(12))
+    response = RedirectResponse(link or static_link)
     _set_cookie(response, RETURN_COOKIE, {"to": target}, 3600)
+    if config_id:  # retient QUEL lien de paiement ce navigateur a ouvert, pour retrouver l'acheteur ensuite
+        _set_cookie(response, BUYER_COOKIE, {"ch": config_id}, 24 * 3600)
     return response
 
 
@@ -477,8 +558,9 @@ def _page_lang(request: Request) -> str:
 @router.get("/subscribe/done", response_class=HTMLResponse)
 async def subscribe_done(request: Request, to: str = "", n: int = 0):
     """
-    Retour du paiement Whop (ou lien « J'ai déjà un abonnement ») : on reconnaît l'utilisateur via Whop
-    (un clic, son compte existe déjà), on vérifie son abonnement, puis on le renvoie où il en était.
+    Retour du paiement Whop : on retrouve qui a payé grâce au lien de paiement de ce navigateur, on vérifie son
+    abonnement, on le connecte et on le renvoie sur son rapport, déverrouillé. Sans lien de paiement mémorisé
+    (autre appareil, « J'ai déjà un abonnement »), on passe par la connexion Whop.
     """
     back = safe_return_path(to or (_unsign(request.cookies.get(RETURN_COOKIE)) or {}).get("to"))
     n = max(0, min(n, 50))
@@ -487,11 +569,24 @@ async def subscribe_done(request: Request, to: str = "", n: int = 0):
         response = RedirectResponse(back)
         response.delete_cookie(RETURN_COOKIE)
         return response
-    here = f"/subscribe/done?to={quote(back, safe='')}&n={n}"
-    if not ent["logged_in"]:
+
+    buyer = _unsign(request.cookies.get(BUYER_COOKIE)) or {}
+    if buyer.get("ch"):
+        uid, email = await find_buyer(buyer["ch"])
+        if uid:
+            active, _manage = await membership_status(uid, force=True)
+            if active:
+                response = RedirectResponse(back)
+                _set_cookie(response, AUTH_COOKIE, {"uid": uid, "email": email}, AUTH_TTL_SECONDS)
+                response.delete_cookie(RETURN_COOKIE)
+                response.delete_cookie(BUYER_COOKIE)
+                return response
+    elif not ent["logged_in"]:
+        here = f"/subscribe/done?to={quote(back, safe='')}&n={n}"
         return RedirectResponse(f"/auth/whop/login?to={quote(here, safe='')}")
 
     lang = _page_lang(request)
+    here = f"/subscribe/done?to={quote(back, safe='')}&n={n}"
     style = (
         "<style>body{font-family:system-ui,sans-serif;max-width:440px;margin:80px auto;padding:0 20px;text-align:center;color:#0F172A}"
         "a{color:#2563EB}.btn{display:inline-block;margin-top:14px;padding:14px 22px;border-radius:12px;background:#2563EB;color:#fff;"
@@ -500,13 +595,14 @@ async def subscribe_done(request: Request, to: str = "", n: int = 0):
     head = f'<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Wil App</title>{style}'
     if n >= 8:  # ~50 s sans abonnement trouvé : on arrête d'attendre et on explique
         retry = f"/subscribe/done?to={quote(back, safe='')}&n=0"
+        signin = f"/auth/whop/login?to={quote(retry, safe='')}"
         return HTMLResponse(
             f"""{head}</head><body><h1 style="font-size:22px">{t(lang, "pw_not_found_title")}</h1>
 <p>{t(lang, "pw_not_found_sub")}</p><a class="btn" href="{retry}">{t(lang, "pw_retry")}</a>
-<p><a href="{back}">{t(lang, "pw_back_app")}</a></p></body></html>"""
+<p><a href="{signin}">{t(lang, "pw_signin_whop")}</a></p><p><a href="{back}">{t(lang, "pw_back_app")}</a></p></body></html>"""
         )
     return HTMLResponse(
-        f"""{head}<meta http-equiv="refresh" content="6;url={here.replace(f'&n={n}', f'&n={n + 1}')}"></head><body>
+        f"""{head}<meta http-equiv="refresh" content="4;url={here.replace(f'&n={n}', f'&n={n + 1}')}"></head><body>
 <h1 style="font-size:22px">{t(lang, "pw_checking_title")}</h1><p>{t(lang, "pw_checking_sub")}</p>
 <p><a href="{back}">{t(lang, "pw_back_app")}</a></p></body></html>"""
     )
