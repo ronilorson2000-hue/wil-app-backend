@@ -514,9 +514,14 @@ async def create_checkout_link(plan_id: str, redirect_url: str, ref: str) -> tup
     return (url, config_id, "ok") if url.startswith("https://") else ("", "", "bad-url")
 
 
-async def find_buyer(config_id: str) -> tuple[str, str]:
-    """Qui a payé via ce lien de paiement ? Renvoie (id Whop, e-mail) ou ("", "") si aucun paiement n'est encore visible."""
-    params: dict = {"checkout_configuration_ids": [config_id], "include_free": "true", "first": 5}
+async def lookup_buyer(config_id: str) -> dict:
+    """
+    Cherche chez Whop le paiement fait via CE lien de paiement. Renvoie un dictionnaire détaillé
+    (statut HTTP, nombre de paiements, acheteur trouvé...) : sert à /subscribe/done et à son diagnostic.
+    Un paiement n'est accepté que s'il appartient bien à ce lien (on ne se fie jamais à un filtre ignoré).
+    """
+    info: dict = {"http": None, "count": 0, "matched": False, "uid": "", "email": "", "payment_status": None}
+    params: dict = {"checkout_configuration_ids": [config_id], "include_free": "true", "first": 10}
     if _env("WHOP_COMPANY_ID"):
         params["account_id"] = _env("WHOP_COMPANY_ID")
     try:
@@ -524,15 +529,26 @@ async def find_buyer(config_id: str) -> tuple[str, str]:
             response = await client.get(WHOP_PAYMENTS_URL, params=params, headers=_whop_headers())
     except Exception as exc:
         print(f"[paywall] recherche du paiement impossible : {exc!r}")
-        return "", ""
+        return info
+    info["http"] = response.status_code
     if response.status_code != 200:
         print(f"[paywall] payments {response.status_code}: {response.text[:300]}")
-        return "", ""
-    for payment in response.json().get("data", []):
+        return info
+    payments = response.json().get("data", [])
+    info["count"] = len(payments)
+    for payment in payments:
         user = payment.get("user") or {}
-        if user.get("id"):
-            return str(user["id"]), str(user.get("email") or "")
-    return "", ""
+        linked = payment.get("checkout_configuration_id")
+        if user.get("id") and (linked == config_id or (linked is None and len(payments) == 1)):
+            info.update(matched=True, uid=str(user["id"]), email=str(user.get("email") or ""), payment_status=payment.get("status"))
+            break
+    return info
+
+
+async def find_buyer(config_id: str) -> tuple[str, str]:
+    """Qui a payé via ce lien de paiement ? Renvoie (id Whop, e-mail) ou ("", "") si aucun paiement n'est encore visible."""
+    info = await lookup_buyer(config_id)
+    return (info["uid"], info["email"]) if info["matched"] else ("", "")
 
 
 @router.get("/subscribe")
@@ -601,6 +617,17 @@ async def subscribe_done(request: Request, to: str = "", n: int = 0):
         return response
 
     buyer = _unsign(request.cookies.get(BUYER_COOKIE)) or {}
+    if request.query_params.get("diag"):
+        # Diagnostic (aucun secret) : montre à quelle étape la reconnaissance de l'acheteur s'arrête.
+        report: dict = {"subscribed": ent["subscribed"], "logged_in": ent["logged_in"], "buyer_cookie": bool(buyer.get("ch")),
+                        "checkout_config": buyer.get("ch")}
+        if buyer.get("ch"):
+            found = await lookup_buyer(buyer["ch"])
+            report["payments"] = {k: found[k] for k in ("http", "count", "matched", "payment_status")}
+            if found["matched"]:
+                active, _manage, diag = await _whop_membership_call(found["uid"])
+                report["membership"] = {**diag, "active": active}
+        return JSONResponse(content=report, headers={"Cache-Control": "no-store"})
     if buyer.get("ch"):
         uid, email = await find_buyer(buyer["ch"])
         if uid:
