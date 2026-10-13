@@ -240,7 +240,14 @@ def webhook_grant_for(buyer: dict) -> tuple[str, str] | None:
 async def membership_status(user_id: str, force: bool = False) -> tuple[bool, str | None]:
     confirmed = _grants_by_user.get(user_id)
     if confirmed and time.time() - confirmed < BRIDGE_SECONDS:
-        return True, None  # paiement confirmé par Whop (webhook) : actif tout de suite, sans attendre l'API de liste
+        # Paiement confirmé par Whop (webhook) : actif tout de suite, sans attendre l'API de liste. On demande quand
+        # même à l'API (au plus toutes les 60 s) pour récupérer le lien « Gérer mon abonnement » dès qu'elle le montre.
+        cached = _entitlement_cache.get(user_id)
+        if cached and cached[1] and (cached[2] or time.time() - cached[0] < 60):
+            return True, cached[2]
+        active, manage_url = await _whop_membership(user_id)
+        _entitlement_cache[user_id] = (time.time(), True, manage_url if active else None)
+        return True, manage_url if active else None
     cached = _entitlement_cache.get(user_id)
     if cached and not force and time.time() - cached[0] < ENTITLEMENT_CACHE_SECONDS:
         return cached[1], cached[2]
