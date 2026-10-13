@@ -536,7 +536,7 @@ async def find_buyer(config_id: str) -> tuple[str, str]:
 
 
 @router.get("/subscribe")
-async def subscribe(request: Request, to: str = "/app", plan: str = "monthly"):
+async def subscribe(request: Request, to: str = "/app", plan: str = "monthly", diag: str = ""):
     """
     Envoie DIRECTEMENT vers la page de paiement Whop du plan choisi (e-mail + carte sur un seul écran), sans
     connexion avant. Le lien de paiement est créé pour CE visiteur : après le paiement, Whop le ramène tout seul
@@ -557,6 +557,23 @@ async def subscribe(request: Request, to: str = "/app", plan: str = "monthly"):
     response = RedirectResponse(link or static_link)
     # Indicateur de diagnostic (aucun secret) : montre si le lien personnalisé a pu être créé, et sinon pourquoi.
     response.headers["X-Wil-Checkout"] = "personalized" if link else f"fallback-{reason}"
+    if diag:  # ?diag=1 : teste aussi la permission de LIRE les paiements (sans aucun secret ni donnée de client)
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                probe = await client.get(
+                    WHOP_PAYMENTS_URL, params={"first": 1, "account_id": _env("WHOP_COMPANY_ID")}, headers=_whop_headers()
+                )
+            body = ""
+            if probe.status_code != 200:
+                try:
+                    payload = probe.json()
+                    detail = payload.get("error") or payload.get("message") or ""
+                    body = _diag_slug(str(detail.get("message") if isinstance(detail, dict) else detail))
+                except Exception:
+                    body = ""
+            response.headers["X-Wil-Payments"] = f"{probe.status_code}" + (f"-{body}" if body else "")
+        except Exception:
+            response.headers["X-Wil-Payments"] = "network"
     _set_cookie(response, RETURN_COOKIE, {"to": target}, 3600)
     if config_id:  # retient QUEL lien de paiement ce navigateur a ouvert, pour retrouver l'acheteur ensuite
         _set_cookie(response, BUYER_COOKIE, {"ch": config_id}, 24 * 3600)
