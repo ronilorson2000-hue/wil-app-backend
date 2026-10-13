@@ -52,7 +52,7 @@ from app import errors, paywall, ratelimit, token_box
 from app.db import get_supabase
 from app.library_starter import get_starter_library
 from app.style_guide import get_style_guide
-from app.translations import DEFAULT_LANG, LANG_FLAGS, LANG_NAMES, SUPPORTED_LANGS, t
+from app.translations import DEFAULT_LANG, LANG_FLAGS, LANG_NAMES, SUPPORTED_LANGS, niche_label, t
 
 # Charge les variables du fichier .env (clés TikTok, redirect URI, etc.)
 load_dotenv()
@@ -2368,7 +2368,7 @@ def tool_analyze_account_page(request: Request):
     niche_buttons = "".join(
         f'''<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
               <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
-              <span>{n}</span>
+              <span>{niche_label(lang, n)}</span>
             </button>'''
         for n in NICHE_CATEGORIES
     )
@@ -2439,7 +2439,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
     niche_buttons = "".join(
         f'''<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
               <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
-              <span>{n}</span>
+              <span>{niche_label(lang, n)}</span>
             </button>'''
         for n in NICHE_CATEGORIES
     )
@@ -3117,7 +3117,7 @@ async def tool_analyze_script_page(request: Request):
     niche_buttons = "".join(
         f'''<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
               <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
-              <span>{n}</span>
+              <span>{niche_label(lang, n)}</span>
             </button>'''
         for n in NICHE_CATEGORIES
     )
@@ -3426,7 +3426,7 @@ def onboarding_page(request: Request, next: str = ""):
     niche_buttons = "".join(
         f'''<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
               <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
-              <span>{n}</span>
+              <span>{niche_label(lang, n)}</span>
             </button>'''
         for n in NICHE_CATEGORIES
     )
@@ -3636,6 +3636,8 @@ __PW_JS__
         return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
       });
     }
+    // Nom d'une niche dans la langue de l'interface (l'identifiant enregistré reste le nom français).
+    function nicheLabel(n) { return (I18N.nicheLabels && I18N.nicheLabels[n]) || n; }
     function readJson(key, fallback) {
       try { return JSON.parse(localStorage.getItem(key) || 'null') || fallback; } catch (e) { return fallback; }
     }
@@ -3652,7 +3654,7 @@ __PW_JS__
     function historyItemHtml(entry) {
       const typeLabel = entry.type === 'script' ? I18N.script : I18N.video;
       const date = entry.ts ? new Date(entry.ts).toLocaleDateString(LANG) : '';
-      return '<div class="history-item"><p class="font-bold text-base truncate">' + esc(entry.title || entry.niche || typeLabel) + '</p>' +
+      return '<div class="history-item"><p class="font-bold text-base truncate">' + esc(entry.title || nicheLabel(entry.niche) || typeLabel) + '</p>' +
         '<p class="text-sm mt-1"><span style="color:' + scoreColor(entry.score) + ';font-weight:700;">' + esc(entry.score) + I18N.scoreSuffix + '</span>' +
         '<span class="text-slate-400"> · ' + esc(typeLabel) + (date ? ' · ' + esc(date) : '') + '</span></p></div>';
     }
@@ -3711,7 +3713,7 @@ __PW_JS__
       }
       const transform = depth ? 'transform:translateY(' + (depth * 14) + 'px) scale(' + (1 - depth * 0.05) + ');' : '';
       return '<div class="disc-card" data-depth="' + depth + '" style="z-index:' + (10 - depth) + ';' + transform + '">' +
-        '<div class="flex gap-2 mb-4">' + badge + '<span class="badge badge-niche">' + esc(idea.niche) + '</span></div>' +
+        '<div class="flex gap-2 mb-4">' + badge + '<span class="badge badge-niche">' + esc(nicheLabel(idea.niche)) + '</span></div>' +
         '<p class="font-extrabold text-xl leading-snug mb-3">' + esc(idea.idea) + '</p>' + hook + gauge + '</div>';
     }
 
@@ -4060,7 +4062,7 @@ __PW_JS__
       const wrap = document.getElementById('lib-niches');
       if (libCat === 'history') { wrap.innerHTML = ''; return; }
       const first = (libCat === 'saved') ? {id: 'all', label: I18N.libPillAll} : {id: 'mine', label: I18N.libPillMine};
-      const pills = [first].concat(I18N.niches.map(function (n) { return {id: n, label: n}; }));
+      const pills = [first].concat(I18N.niches.map(function (n) { return {id: n, label: nicheLabel(n)}; }));
       wrap.innerHTML = pills.map(function (p, i) {
         return '<button type="button" class="niche-pill' + (p.id === libNiche ? ' active' : '') + '" data-i="' + i + '">' + esc(p.label) + '</button>';
       }).join('');
@@ -4092,7 +4094,7 @@ __PW_JS__
         ? '<span class="badge badge-starter">💡 ' + esc(I18N.libBadgeStarter) + '</span>'
         : '<span class="badge badge-trend">🔥 ' + esc(I18N.libBadge) + '</span>';
       return '<div class="idea-card" data-card="' + index + '"><div class="flex items-center justify-between mb-3">' + badge +
-        '<span class="badge badge-niche">' + esc(item.niche) + '</span></div>' +
+        '<span class="badge badge-niche">' + esc(nicheLabel(item.niche)) + '</span></div>' +
         '<p class="font-bold text-lg leading-snug">' + esc(itemDisplay(item)) + '</p>' +
         '<div class="flex justify-end gap-5 mt-4">' +
         '<button type="button" class="lib-action" data-act="copy" data-i="' + index + '">⧉ <span>' + esc(I18N.libCopy) + '</span></button>' +
@@ -4257,6 +4259,7 @@ def app_shell_page(request: Request):
         "profileChallenge": tt("app_profile_challenge"),
         "profileRedo": tt("app_profile_redo"),
         "niches": NICHE_CATEGORIES,
+        "nicheLabels": {n: niche_label(lang, n) for n in NICHE_CATEGORIES},
         "libCatHooks": tt("lib_cat_hooks"),
         "libCatIdeas": tt("lib_cat_ideas"),
         "libCatHashtags": tt("lib_cat_hashtags"),

@@ -2699,3 +2699,54 @@ def t(lang: str, key: str) -> str:
     silencieux sur le français puis sur la clé elle-même si absente."""
     lang = lang if lang in TRANSLATIONS else DEFAULT_LANG
     return TRANSLATIONS[lang].get(key) or TRANSLATIONS[DEFAULT_LANG].get(key) or key
+
+
+# Noms affichés des niches. La CLÉ reste le nom français (identifiant interne, enregistré dans les données des
+# utilisateurs et utilisé par l'IA) ; seul l'affichage est traduit.
+NICHE_LABELS = {
+    "en": {
+        "Beauté & Skincare": "Beauty & Skincare", "Mode & Style": "Fashion & Style", "Fitness & Sport": "Fitness & Sports",
+        "Cuisine & Nutrition": "Food & Nutrition", "Voyage": "Travel", "Humour & Divertissement": "Humor & Entertainment",
+        "Musique & Danse": "Music & Dance", "Gaming & Tech": "Gaming & Tech", "Business & Finance": "Business & Finance",
+        "Développement personnel": "Personal Development", "Éducation & Culture générale": "Education & General Knowledge",
+        "Lifestyle & Vlog quotidien": "Lifestyle & Daily Vlog", "Parentalité & Famille": "Parenting & Family",
+        "Art & Créativité": "Art & Creativity", "Animaux": "Pets", "Santé & Bien-être": "Health & Wellness", "Autre": "Other",
+    },
+    "de": {
+        "Beauté & Skincare": "Beauty & Hautpflege", "Mode & Style": "Mode & Stil", "Fitness & Sport": "Fitness & Sport",
+        "Cuisine & Nutrition": "Essen & Ernährung", "Voyage": "Reisen", "Humour & Divertissement": "Humor & Unterhaltung",
+        "Musique & Danse": "Musik & Tanz", "Gaming & Tech": "Gaming & Tech", "Business & Finance": "Business & Finanzen",
+        "Développement personnel": "Persönliche Entwicklung", "Éducation & Culture générale": "Bildung & Allgemeinwissen",
+        "Lifestyle & Vlog quotidien": "Lifestyle & Alltags-Vlog", "Parentalité & Famille": "Eltern & Familie",
+        "Art & Créativité": "Kunst & Kreativität", "Animaux": "Tiere", "Santé & Bien-être": "Gesundheit & Wohlbefinden", "Autre": "Sonstiges",
+    },
+    "es": {
+        "Beauté & Skincare": "Belleza y cuidado de la piel", "Mode & Style": "Moda y estilo", "Fitness & Sport": "Fitness y deporte",
+        "Cuisine & Nutrition": "Cocina y nutrición", "Voyage": "Viajes", "Humour & Divertissement": "Humor y entretenimiento",
+        "Musique & Danse": "Música y baile", "Gaming & Tech": "Gaming y tecnología", "Business & Finance": "Negocios y finanzas",
+        "Développement personnel": "Desarrollo personal", "Éducation & Culture générale": "Educación y cultura general",
+        "Lifestyle & Vlog quotidien": "Estilo de vida y vlog diario", "Parentalité & Famille": "Crianza y familia",
+        "Art & Créativité": "Arte y creatividad", "Animaux": "Mascotas", "Santé & Bien-être": "Salud y bienestar", "Autre": "Otro",
+    },
+    "pt": {
+        "Beauté & Skincare": "Beleza e skincare", "Mode & Style": "Moda e estilo", "Fitness & Sport": "Fitness e esporte",
+        "Cuisine & Nutrition": "Culinária e nutrição", "Voyage": "Viagens", "Humour & Divertissement": "Humor e entretenimento",
+        "Musique & Danse": "Música e dança", "Gaming & Tech": "Games e tecnologia", "Business & Finance": "Negócios e finanças",
+        "Développement personnel": "Desenvolvimento pessoal", "Éducation & Culture générale": "Educação e cultura geral",
+        "Lifestyle & Vlog quotidien": "Lifestyle e vlog diário", "Parentalité & Famille": "Parentalidade e família",
+        "Art & Créativité": "Arte e criatividade", "Animaux": "Animais", "Santé & Bien-être": "Saúde e bem-estar", "Autre": "Outro",
+    },
+    "it": {
+        "Beauté & Skincare": "Bellezza e skincare", "Mode & Style": "Moda e stile", "Fitness & Sport": "Fitness e sport",
+        "Cuisine & Nutrition": "Cucina e nutrizione", "Voyage": "Viaggi", "Humour & Divertissement": "Umorismo e intrattenimento",
+        "Musique & Danse": "Musica e danza", "Gaming & Tech": "Gaming e tech", "Business & Finance": "Business e finanza",
+        "Développement personnel": "Sviluppo personale", "Éducation & Culture générale": "Istruzione e cultura generale",
+        "Lifestyle & Vlog quotidien": "Lifestyle e vlog quotidiano", "Parentalité & Famille": "Genitorialità e famiglia",
+        "Art & Créativité": "Arte e creatività", "Animaux": "Animali", "Santé & Bien-être": "Salute e benessere", "Autre": "Altro",
+    },
+}
+
+
+def niche_label(lang: str, niche: str) -> str:
+    """Nom d'une niche dans la langue demandée (le français est le nom d'origine)."""
+    return NICHE_LABELS.get(lang, {}).get(niche, niche)
