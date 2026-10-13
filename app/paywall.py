@@ -333,8 +333,9 @@ async def me(request: Request):
         active, _manage, diag = await _whop_membership_call(auth["uid"])
         ent = {**ent, "membership_check": {**diag, "active_membership": active}}
         # Parcours de paiement sans clic : la clé API doit pouvoir CRÉER un lien de paiement et LIRE les paiements.
-        link, _cfg = await create_checkout_link(_plan_id_from_link(_env("WHOP_CHECKOUT_URL")), f"{_site_url()}/subscribe/done", "diagnostic")
+        link, _cfg, why = await create_checkout_link(_plan_id_from_link(_env("WHOP_CHECKOUT_URL")), f"{_site_url()}/subscribe/done", "diagnostic")
         ent["checkout_create_ok"] = bool(link)
+        ent["checkout_create_reason"] = why
         try:
             async with httpx.AsyncClient(timeout=15) as client:
                 probe = await client.get(WHOP_PAYMENTS_URL, params={"first": 1, "account_id": _env("WHOP_COMPANY_ID")}, headers=_whop_headers())
@@ -471,14 +472,17 @@ def _whop_headers() -> dict:
     return {"Authorization": f"Bearer {_env('WHOP_API_KEY')}"}
 
 
-async def create_checkout_link(plan_id: str, redirect_url: str, ref: str) -> tuple[str, str]:
+async def create_checkout_link(plan_id: str, redirect_url: str, ref: str) -> tuple[str, str, str]:
     """
     Crée, côté Whop, un lien de paiement PROPRE à ce visiteur : il porte notre identifiant (metadata) et ramène
     automatiquement le client sur notre site après le paiement. Renvoie (adresse de paiement, id du lien),
     ou ("", "") si Whop refuse (permissions de la clé, réseau...) : l'appelant se replie alors sur le lien fixe.
+    Le 3e élément est la raison (mots courts, sans secret) : « ok » ou par ex. « 403-missing-permission... ».
     """
-    if not _env("WHOP_API_KEY") or not plan_id:
-        return "", ""
+    if not _env("WHOP_API_KEY"):
+        return "", "", "no-api-key"
+    if not plan_id:
+        return "", "", "no-plan-id"
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.post(
@@ -488,19 +492,26 @@ async def create_checkout_link(plan_id: str, redirect_url: str, ref: str) -> tup
             )
     except Exception as exc:
         print(f"[paywall] création du lien de paiement impossible : {exc!r}")
-        return "", ""
+        return "", "", "network"
     if response.status_code not in (200, 201):
         print(f"[paywall] checkout_configurations {response.status_code}: {response.text[:300]}")
-        return "", ""
+        try:
+            payload = response.json()
+            detail = payload.get("error") or payload.get("message") or ""
+            if isinstance(detail, dict):
+                detail = detail.get("message") or detail.get("code") or ""
+        except Exception:
+            detail = ""
+        return "", "", f"{response.status_code}-{_diag_slug(str(detail))}".rstrip("-")
     try:
         data = response.json()
         url = str(data["purchase_url"])
         config_id = str(data["id"])
     except Exception:
-        return "", ""
+        return "", "", "bad-response"
     if url.startswith("/"):
         url = "https://whop.com" + url
-    return (url, config_id) if url.startswith("https://") else ("", "")
+    return (url, config_id, "ok") if url.startswith("https://") else ("", "", "bad-url")
 
 
 async def find_buyer(config_id: str) -> tuple[str, str]:
@@ -542,8 +553,10 @@ async def subscribe(request: Request, to: str = "/app", plan: str = "monthly"):
     if not static_link:
         raise HTTPException(status_code=503, detail="Les abonnements ne sont pas encore disponibles.")
     redirect_url = f"{_site_url()}/subscribe/done?to={quote(target, safe='')}"
-    link, config_id = await create_checkout_link(_plan_id_from_link(static_link), redirect_url, secrets.token_urlsafe(12))
+    link, config_id, reason = await create_checkout_link(_plan_id_from_link(static_link), redirect_url, secrets.token_urlsafe(12))
     response = RedirectResponse(link or static_link)
+    # Indicateur de diagnostic (aucun secret) : montre si le lien personnalisé a pu être créé, et sinon pourquoi.
+    response.headers["X-Wil-Checkout"] = "personalized" if link else f"fallback-{reason}"
     _set_cookie(response, RETURN_COOKIE, {"to": target}, 3600)
     if config_id:  # retient QUEL lien de paiement ce navigateur a ouvert, pour retrouver l'acheteur ensuite
         _set_cookie(response, BUYER_COOKIE, {"ch": config_id}, 24 * 3600)
