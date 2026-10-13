@@ -130,6 +130,7 @@ PRIVACY = {
                 "Anthropic (Claude), which processes account data, scripts and the web searches used to generate reports and trends;",
                 "Google (Gemini API), which processes the videos you upload to analyze their images and sound;",
                 "Whop, which processes payments and sign-in to your Whop account;",
+                "Sentry, which receives technical server error reports (no cookies, no e-mail addresses, no content of your videos or scripts) so we can fix outages;",
                 "our hosting, database and network-security providers (Render, Supabase, Cloudflare), which store or transmit the data described above.",
             ]),
             ("p", "Your use of TikTok remains subject to TikTok's own privacy policy and terms."),

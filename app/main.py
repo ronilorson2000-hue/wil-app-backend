@@ -48,7 +48,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel
 
-from app import errors, paywall, ratelimit, token_box
+from app import errors, monitoring, paywall, ratelimit, token_box
 from app.db import get_supabase
 from app.library_starter import get_starter_library
 from app.style_guide import get_style_guide
@@ -57,6 +57,9 @@ from app.translations import DEFAULT_LANG, LANG_FLAGS, LANG_NAMES, SUPPORTED_LAN
 
 # Charge les variables du fichier .env (clés TikTok, redirect URI, etc.)
 load_dotenv()
+
+# Suivi des erreurs : actif seulement si SENTRY_DSN est défini (voir app/monitoring.py).
+monitoring.init_monitoring()
 
 TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY")
 TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET")
@@ -350,6 +353,8 @@ p{{line-height:1.5;color:#475569}}.btn{{display:inline-block;margin-top:14px;pad
 
 @app.exception_handler(StarletteHTTPException)
 async def _http_exception_handler(request: Request, exc: StarletteHTTPException):
+    if exc.status_code >= 500:  # erreur 5xx renvoyée volontairement (IA indisponible, etc.) : à signaler aussi
+        monitoring.capture_message(f"HTTP {exc.status_code}: {str(exc.detail)[:200]}", path=request.url.path, status=exc.status_code)
     return _error_response(request, exc.status_code, exc.detail, getattr(exc, "headers", None))
 
 
@@ -360,7 +365,21 @@ async def _validation_exception_handler(request: Request, exc: RequestValidation
 
 @app.exception_handler(Exception)
 async def _unexpected_exception_handler(request: Request, exc: Exception):
+    monitoring.capture_exception(exc, path=request.url.path)
     return _error_response(request, 500, f"{type(exc).__name__}: {exc}")
+
+
+@app.get("/internal/monitoring-test", include_in_schema=False)
+async def monitoring_test(request: Request):
+    """
+    Provoque volontairement une erreur pour vérifier que l'alerte arrive bien. Désactivé (404) tant que la variable
+    MONITORING_TEST_TOKEN n'est pas définie ; sinon il faut envoyer ce secret dans l'en-tête X-Monitoring-Token.
+    """
+    expected = os.getenv("MONITORING_TEST_TOKEN", "").strip()
+    given = request.headers.get("x-monitoring-token", "")
+    if not expected or not hmac.compare_digest(expected.encode(), given.encode()):
+        raise HTTPException(status_code=404, detail="Introuvable.")
+    raise RuntimeError("Test volontaire du suivi des erreurs (ignorer)")
 
 
 @app.middleware("http")
@@ -7035,9 +7054,12 @@ async def _run_video_job(job_id: str, upload: dict, params: dict) -> None:
             )
             job["status"] = "done"
     except HTTPException as exc:
+        if exc.status_code >= 500:
+            monitoring.capture_message(f"HTTP {exc.status_code}: {str(exc.detail)[:200]}", path="video-job", status=exc.status_code)
         job.update(status="error", code=exc.status_code, detail=exc.detail, **{"error_extra": errors.public_payload(exc.status_code, exc.detail)})
     except Exception as exc:  # une analyse qui plante ne doit jamais laisser l'écran en attente indéfinie
         print(f"[video-job] erreur inattendue: {exc!r}")
+        monitoring.capture_exception(exc, task="video-job")
         job.update(status="error", code=500, detail="Erreur interne pendant l'analyse. Réessaie.",
                    error_extra=errors.public_payload(500, "erreur interne"))
     finally:

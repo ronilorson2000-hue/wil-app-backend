@@ -135,6 +135,7 @@ PRIVACY = {
                 "Anthropic (Claude), qui traite les données de compte, les scripts et les recherches web servant à générer les rapports et tendances ;",
                 "Google (API Gemini), qui traite les vidéos que vous importez pour en analyser les images et le son ;",
                 "Whop, qui traite les paiements et la connexion à votre compte Whop ;",
+                "Sentry, qui reçoit les rapports techniques d'erreur du serveur (sans cookie, sans adresse e-mail, sans contenu de vos vidéos ou scripts) pour nous permettre de corriger les pannes ;",
                 "nos prestataires d'hébergement, de base de données et de sécurité réseau (Render, Supabase, Cloudflare), qui stockent ou transmettent les données décrites ci-dessus.",
             ]),
             ("p", "Votre utilisation de TikTok reste soumise à la politique de confidentialité et aux conditions de TikTok."),
