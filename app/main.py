@@ -1167,7 +1167,7 @@ async def tiktok_callback(request: Request):
         raise HTTPException(status_code=400, detail="Paramètre 'code' manquant dans le retour TikTok.")
     if not state:
         raise HTTPException(status_code=400, detail="Paramètre 'state' manquant dans le retour TikTok.")
-    if not _consume_pending_state(state):
+    if not await asyncio.to_thread(_consume_pending_state, state):
         raise HTTPException(
             status_code=400,
             detail=f"State '{state[:12]}...' introuvable, déjà utilisé, ou expiré (>10 min) — reconnecte-toi depuis le début.",
@@ -1240,7 +1240,7 @@ async def tiktok_callback(request: Request):
     # brut à l'app ou au navigateur : seulement cet identifiant, qui sert
     # ensuite de "clé" pour les appels comme /api/analyze-account.
     session_id = secrets.token_urlsafe(24)
-    _store_session(session_id, access_token, open_id)
+    await asyncio.to_thread(_store_session, session_id, access_token, open_id)
 
     # Si la connexion a été initiée depuis l'app mobile (state préfixé par
     # "app_"), on redirige vers le deep link "wilapp://callback" avec les
@@ -5031,7 +5031,7 @@ async def _get_trending_hashtags(niche_category: str, lang: str) -> list[str] | 
         return None
 
     cache_key = _niche_cache_key(niche_category, lang)
-    cached = _cache_get("hashtags", cache_key)
+    cached = await asyncio.to_thread(_cache_get, "hashtags", cache_key)
     if cached:
         return cached
 
@@ -5082,7 +5082,7 @@ code), avec exactement ce champ :
         if not hashtags:
             return None
 
-        _cache_set("hashtags", cache_key, hashtags)
+        await asyncio.to_thread(_cache_set, "hashtags", cache_key, hashtags)
         return hashtags
     except Exception:
         # En cas d'échec (timeout, réponse invalide...), on ne casse pas
@@ -5106,7 +5106,7 @@ async def _get_trending_content_ideas(niche_category: str, lang: str) -> dict | 
         return None
 
     cache_key = _niche_cache_key(niche_category, lang)
-    cached = _cache_get("ideas", cache_key)
+    cached = await asyncio.to_thread(_cache_get, "ideas", cache_key)
     if cached:
         return cached
 
@@ -5165,7 +5165,7 @@ code), {lang_instruction}, avec exactement ces champs :
         if not parsed.get("video_ideas") and not parsed.get("trending_hooks"):
             return None
 
-        _cache_set("ideas", cache_key, parsed)
+        await asyncio.to_thread(_cache_set, "ideas", cache_key, parsed)
         return parsed
     except Exception:
         return None
@@ -5663,7 +5663,7 @@ async def analyze_account(
     # La session voyage dans l'en-tête X-Session-Id (une adresse finit dans les journaux, pas un en-tête).
     # Le paramètre d'adresse ?session= reste accepté pour les anciennes versions de l'app.
     session = request.headers.get("x-session-id") or session
-    session_data = _get_session(session) if session else None
+    session_data = (await asyncio.to_thread(_get_session, session)) if session else None
     if not session_data:
         raise HTTPException(
             status_code=401,
@@ -6216,7 +6216,7 @@ contient de toute façon pas)."""
     # sur cette catégorie+langue soit rapide.
     if ai_report and ai_report.get("niche_category"):
         cache_key = _niche_cache_key(ai_report["niche_category"], lang)
-        trending = _cache_get("hashtags", cache_key)
+        trending = await asyncio.to_thread(_cache_get, "hashtags", cache_key)
         if trending:
             ai_report["suggested_hashtags"] = trending
         else:
@@ -6227,10 +6227,10 @@ contient de toute façon pas)."""
     # n'a pas de valeur pour un suivi dans le temps.
     if stats:
         niche_category = ai_report.get("niche_category") if ai_report else None
-        _save_account_snapshot(open_id, username, niche_category, lang, stats)
+        await asyncio.to_thread(_save_account_snapshot, open_id, username, niche_category, lang, stats)
 
     result = {"stats": stats, "ai_report": ai_report, "lang": lang}
-    unlock_id = paywall.store_analysis("account", result)
+    unlock_id = await asyncio.to_thread(paywall.store_analysis, "account", result)
     if entitlement["subscribed"]:
         return JSONResponse(content={**result, "report_id": unlock_id})
     response = JSONResponse(content=paywall.build_teaser("account", result, unlock_id))
@@ -6533,7 +6533,13 @@ instructions :
 
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com"
-GEMINI_INLINE_MAX_BYTES = 15 * 1024 * 1024  # au-delà : Files API (l'inline est plafonné à ~20 Mo au total)
+# Une vidéo envoyée « en un bloc » est copiée plusieurs fois en mémoire (lecture, base64, JSON) : ~4 fois sa taille,
+# gardée pendant TOUTE l'attente de Google. Mesuré : 10 analyses de 12 Mo = 544 Mo (Render en offre 512). Au-delà de
+# 4 Mo on envoie donc la vidéo par FLUX (API Files de Google), qui n'occupe presque aucune mémoire.
+GEMINI_INLINE_MAX_BYTES = 4 * 1024 * 1024
+# Plafonds de simultanéité (réglables) : les analyses en trop attendent leur tour au lieu de saturer le serveur.
+_INLINE_SLOTS = asyncio.Semaphore(int(os.getenv("MAX_INLINE_ANALYSES", "6")))
+_RUNNING_SLOTS = asyncio.Semaphore(int(os.getenv("MAX_RUNNING_ANALYSES", "40")))
 MAX_VIDEO_BYTES = 200 * 1024 * 1024
 
 # Palier de performance choisi par Gemini -> fourchette de vues, en multiple
@@ -6760,11 +6766,17 @@ async def _analyze_video_with_gemini(
     """
     lang = ui_lang if ui_lang in _CACHED_SYSTEM_BLOCKS else DEFAULT_LANG
     uploaded_name = None
+    _size = video_source.stat().st_size if isinstance(video_source, Path) else len(video_source)
+    # Petite vidéo ET une place libre : envoi « en un bloc » (au plus MAX_INLINE_ANALYSES à la fois, pour la mémoire).
+    # Plus de place : on n'attend pas, la vidéo part par flux (API Files), qui n'occupe presque aucune mémoire.
+    _inline = _size <= GEMINI_INLINE_MAX_BYTES and not _INLINE_SLOTS.locked()
+    if _inline:
+        await _INLINE_SLOTS.acquire()
     try:
         # Timeouts larges : l'envoi d'une grosse vidéo peut durer plusieurs minutes sur une connexion lente.
         async with httpx.AsyncClient(timeout=httpx.Timeout(connect=30, read=300, write=300, pool=30)) as client:
-            size = video_source.stat().st_size if isinstance(video_source, Path) else len(video_source)
-            if size <= GEMINI_INLINE_MAX_BYTES:
+            size = _size
+            if _inline:
                 video_bytes = await asyncio.to_thread(video_source.read_bytes) if isinstance(video_source, Path) else video_source
                 video_part = {
                     "inline_data": {"mime_type": mime_type, "data": base64.b64encode(video_bytes).decode()}
@@ -6808,6 +6820,9 @@ async def _analyze_video_with_gemini(
                     pass  # best effort : Google supprime de toute façon le fichier après 48 h
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="Erreur réseau vers le service d'analyse vidéo.")
+    finally:
+        if _inline:
+            _INLINE_SLOTS.release()
 
     if response.status_code != 200:
         try:
@@ -7049,7 +7064,7 @@ async def analyze_video_upload(
 
     if entitlement["subscribed"]:
         return JSONResponse(content=result)
-    unlock_id = paywall.store_analysis("video", result)
+    unlock_id = await asyncio.to_thread(paywall.store_analysis, "video", result)
     response = JSONResponse(content=paywall.build_teaser("video", result, unlock_id))
     paywall.mark_free_used(response, request, "video")
     return response
@@ -7159,18 +7174,20 @@ async def video_upload_chunk(upload_id: str, index: int, request: Request):
 
 async def _run_video_job(job_id: str, upload: dict, params: dict) -> None:
     job = _video_jobs[job_id]
-    job["status"] = "running"
-    job["stage"] = "analyzing"
 
     def on_stage(stage: str) -> None:
         job["stage"] = stage
 
     try:
-        job["result"] = await _run_video_analysis(
-            upload["path"], upload["mime"], params["niche_category"], params["avg_views"],
-            params["main_challenge"], params["published"], params["ui_lang"], on_stage,
-        )
-        job["status"] = "done"
+        # Analyses simultanées plafonnées : les suivantes attendent leur tour (statut « queued ») au lieu de saturer le serveur.
+        async with _RUNNING_SLOTS:
+            job["status"] = "running"
+            job["stage"] = "analyzing"
+            job["result"] = await _run_video_analysis(
+                upload["path"], upload["mime"], params["niche_category"], params["avg_views"],
+                params["main_challenge"], params["published"], params["ui_lang"], on_stage,
+            )
+            job["status"] = "done"
     except HTTPException as exc:
         job.update(status="error", code=exc.status_code, detail=exc.detail, **{"error_extra": errors.public_payload(exc.status_code, exc.detail)})
     except Exception as exc:  # une analyse qui plante ne doit jamais laisser l'écran en attente indéfinie
@@ -7234,7 +7251,7 @@ async def video_job_status(job_id: str, request: Request):
     result = job["result"]
     entitlement = await paywall.get_entitlement(request)
     if not job["unlock_id"]:
-        job["unlock_id"] = paywall.store_analysis("video", result)
+        job["unlock_id"] = await asyncio.to_thread(paywall.store_analysis, "video", result)
     if entitlement["subscribed"]:
         # report_id : permet de retrouver ce rapport après une actualisation de la page.
         return JSONResponse(content={"status": "done", "result": {**result, "report_id": job["unlock_id"]}}, headers=headers)

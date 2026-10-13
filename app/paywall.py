@@ -349,7 +349,7 @@ async def get_analysis(analysis_id: str, request: Request):
     Rapport d'une analyse déjà faite (rechargement de la page, retour après abonnement).
     Abonné : rapport complet. Non-abonné : seulement les titres des sections (teaser).
     """
-    stored = load_analysis(analysis_id)
+    stored = await asyncio.to_thread(load_analysis, analysis_id)
     if not stored:
         raise HTTPException(status_code=404, detail="Rapport introuvable ou expiré.")
     headers = {"Cache-Control": "no-store"}
