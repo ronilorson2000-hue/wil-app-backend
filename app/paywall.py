@@ -29,6 +29,7 @@ import os
 import secrets
 import time
 import uuid
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, urlencode
 
 import httpx
@@ -291,6 +292,25 @@ def mark_free_used(response, request: Request, kind: str) -> None:
 
 
 # ----------------------------------------------------------------- rapports verrouillés
+REPORT_RETENTION_DAYS = 180  # annoncé dans la politique de confidentialité
+_PURGE_EVERY_SECONDS = 24 * 3600
+_last_purge = 0.0
+
+
+def purge_old_analyses(supabase) -> None:
+    """Supprime les rapports plus vieux que REPORT_RETENTION_DAYS (au plus une fois par jour et par instance)."""
+    global _last_purge
+    now = time.time()
+    if now - _last_purge < _PURGE_EVERY_SECONDS:
+        return
+    _last_purge = now
+    cutoff = datetime.now(timezone.utc) - timedelta(days=REPORT_RETENTION_DAYS)
+    try:
+        supabase.table("analysis_results").delete().lt("created_at", cutoff.isoformat()).execute()
+    except Exception as exc:
+        print(f"[paywall] purge des anciens rapports impossible: {exc!r}")
+
+
 def store_analysis(kind: str, payload: dict) -> str:
     """Conserve le rapport complet côté serveur et renvoie son identifiant (clé de déverrouillage)."""
     analysis_id = str(uuid.uuid4())
@@ -298,6 +318,7 @@ def store_analysis(kind: str, payload: dict) -> str:
     if supabase:
         try:
             supabase.table("analysis_results").insert({"id": analysis_id, "kind": kind, "payload": payload}).execute()
+            purge_old_analyses(supabase)
             return analysis_id
         except Exception as exc:
             print(f"[paywall] enregistrement du rapport impossible, repli mémoire: {exc!r}")
