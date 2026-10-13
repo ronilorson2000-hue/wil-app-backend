@@ -535,6 +535,21 @@ async def _payments_call(params: dict) -> tuple[int | None, list, str]:
     return 200, response.json().get("data", []), ""
 
 
+async def _recent_memberships(base: dict) -> tuple[int | None, list, str]:
+    """Abonnements récents de l'entreprise ; chacun porte checkout_configuration_id (le lien de paiement utilisé)."""
+    params = {**base, "order": "created_at", "direction": "desc", "first": 50}
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.get(WHOP_MEMBERSHIPS_URL, params=params, headers=_whop_headers())
+    except Exception as exc:
+        print(f"[paywall] liste des abonnements impossible : {exc!r}")
+        return None, [], "network"
+    if response.status_code != 200:
+        print(f"[paywall] memberships {response.status_code}: {response.text[:300]}")
+        return response.status_code, [], "error"
+    return 200, response.json().get("data", []), ""
+
+
 async def lookup_buyer(config_id: str) -> dict:
     """
     Cherche chez Whop le paiement fait via CE lien de paiement. Plusieurs formes de requête sont essayées tour à
@@ -552,9 +567,14 @@ async def lookup_buyer(config_id: str) -> dict:
         ("filter-no-free", {**base, "checkout_configuration_ids": [config_id], "first": 10}),
         ("recent", {**base, "include_free": "true", "order": "created_at", "direction": "desc", "first": 50}),
         ("recent-no-free", {**base, "order": "created_at", "direction": "desc", "first": 50}),
+        # Un achat à 0 $ (code promo 100 %) peut ne laisser AUCUN paiement : l'abonnement, lui, porte l'id du lien.
+        ("memberships", {}),
     ]
     for name, params in variants:
-        status, payments, reason = await _payments_call(params)
+        if name == "memberships":
+            status, payments, reason = await _recent_memberships(base)
+        else:
+            status, payments, reason = await _payments_call(params)
         if info["http"] is None or status == 200:
             info["http"] = status
         if status != 200:
@@ -677,7 +697,7 @@ async def subscribe_done(request: Request, to: str = "", n: int = 0):
         "font-weight:700;text-decoration:none}.btn:hover{background:#7C3AED}p{line-height:1.5;color:#475569}</style>"
     )
     head = f'<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Wil App</title>{style}'
-    if n >= 8:  # ~50 s sans abonnement trouvé : on arrête d'attendre et on explique
+    if n >= 15:  # ~1 minute sans abonnement trouvé : on arrête d'attendre et on explique
         retry = f"/subscribe/done?to={quote(back, safe='')}&n=0"
         signin = f"/auth/whop/login?to={quote(retry, safe='')}"
         return HTMLResponse(
@@ -687,8 +707,7 @@ async def subscribe_done(request: Request, to: str = "", n: int = 0):
         )
     return HTMLResponse(
         f"""{head}<meta http-equiv="refresh" content="4;url={here.replace(f'&n={n}', f'&n={n + 1}')}"></head><body>
-<h1 style="font-size:22px">{t(lang, "pw_checking_title")}</h1><p>{t(lang, "pw_checking_sub")}</p>
-<p><a href="{back}">{t(lang, "pw_back_app")}</a></p></body></html>"""
+<h1 style="font-size:22px">{t(lang, "pw_checking_title")}</h1><p>{t(lang, "pw_checking_sub")}</p></body></html>"""
     )
 
 
