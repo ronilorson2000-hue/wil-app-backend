@@ -19,6 +19,7 @@ Variables d'environnement (voir aussi supabase/schema.sql pour analysis_results)
   WHOP_PLAN_IDS (plan_... payants, séparés par des virgules : exclut les accès gratuits).
 """
 
+import asyncio
 import base64
 import re
 import hashlib
@@ -570,11 +571,14 @@ async def lookup_buyer(config_id: str) -> dict:
         # Un achat à 0 $ (code promo 100 %) peut ne laisser AUCUN paiement : l'abonnement, lui, porte l'id du lien.
         ("memberships", {}),
     ]
-    for name, params in variants:
+    async def run(name: str, params: dict):
         if name == "memberships":
-            status, payments, reason = await _recent_memberships(base)
-        else:
-            status, payments, reason = await _payments_call(params)
+            return await _recent_memberships(base)
+        return await _payments_call(params)
+
+    # Tous les appels partent en même temps : on gagne plusieurs secondes sur chaque vérification.
+    results = await asyncio.gather(*(run(name, params) for name, params in variants))
+    for (name, _params), (status, payments, reason) in zip(variants, results):
         if info["http"] is None or status == 200:
             info["http"] = status
         if status != 200:
@@ -589,6 +593,7 @@ async def lookup_buyer(config_id: str) -> dict:
                 info.update(matched=True, uid=str(user["id"]), email=str(user.get("email") or ""),
                             payment_status=payment.get("status"), variant=name)
                 return info
+    return info
     return info
 
 
@@ -648,43 +653,71 @@ def _page_lang(request: Request) -> str:
     return lang if lang in SUPPORTED_LANGS else DEFAULT_LANG
 
 
+async def _recognize_buyer(buyer: dict) -> tuple[str, str] | None:
+    """Retrouve l'acheteur du lien de paiement de ce navigateur ET vérifie que son abonnement est actif."""
+    if not buyer.get("ch"):
+        return None
+    uid, email = await find_buyer(buyer["ch"])
+    if not uid:
+        return None
+    active, _manage = await membership_status(uid, force=True)
+    return (uid, email) if active else None
+
+
+def _grant_login(response, uid: str, email: str) -> None:
+    _set_cookie(response, AUTH_COOKIE, {"uid": uid, "email": email}, AUTH_TTL_SECONDS)
+    response.delete_cookie(RETURN_COOKIE)
+    response.delete_cookie(BUYER_COOKIE)
+
+
 @router.get("/subscribe/done", response_class=HTMLResponse)
-async def subscribe_done(request: Request, to: str = "", n: int = 0):
+async def subscribe_done(request: Request, to: str = "", n: int = 0, poll: str = ""):
     """
     Retour du paiement Whop : on retrouve qui a payé grâce au lien de paiement de ce navigateur, on vérifie son
     abonnement, on le connecte et on le renvoie sur son rapport, déverrouillé. Sans lien de paiement mémorisé
     (autre appareil, « J'ai déjà un abonnement »), on passe par la connexion Whop.
+    La page d'attente interroge cette même adresse avec ?poll=1 (réponse JSON) toutes les 1,5 s : elle débloque
+    l'utilisateur dès que l'abonnement est visible, sans recharger la page.
     """
     back = safe_return_path(to or (_unsign(request.cookies.get(RETURN_COOKIE)) or {}).get("to"))
     n = max(0, min(n, 50))
     ent = await get_entitlement(request, force=True)
+    buyer = _unsign(request.cookies.get(BUYER_COOKIE)) or {}
+    no_store = {"Cache-Control": "no-store"}
+
+    if poll:
+        if not ent["paywall"] or ent["subscribed"]:
+            return JSONResponse(content={"status": "ok", "to": back}, headers=no_store)
+        found = await _recognize_buyer(buyer)
+        if found:
+            response = JSONResponse(content={"status": "ok", "to": back}, headers=no_store)
+            _grant_login(response, *found)
+            return response
+        return JSONResponse(content={"status": "waiting"}, headers=no_store)
+
     if not ent["paywall"] or ent["subscribed"]:
         response = RedirectResponse(back)
         response.delete_cookie(RETURN_COOKIE)
         return response
-
-    buyer = _unsign(request.cookies.get(BUYER_COOKIE)) or {}
     if request.query_params.get("diag"):
         # Diagnostic (aucun secret) : montre à quelle étape la reconnaissance de l'acheteur s'arrête.
         report: dict = {"subscribed": ent["subscribed"], "logged_in": ent["logged_in"], "buyer_cookie": bool(buyer.get("ch")),
                         "checkout_config": buyer.get("ch")}
         if buyer.get("ch"):
-            found = await lookup_buyer(buyer["ch"])
-            report["payments"] = {k: found[k] for k in ("http", "count", "matched", "payment_status", "variant", "errors")}
-            if found["matched"]:
-                active, _manage, diag = await _whop_membership_call(found["uid"])
+            started = time.time()
+            found_info = await lookup_buyer(buyer["ch"])
+            report["payments"] = {k: found_info[k] for k in ("http", "count", "matched", "payment_status", "variant", "errors")}
+            report["lookup_ms"] = int((time.time() - started) * 1000)
+            if found_info["matched"]:
+                active, _manage, diag = await _whop_membership_call(found_info["uid"])
                 report["membership"] = {**diag, "active": active}
-        return JSONResponse(content=report, headers={"Cache-Control": "no-store"})
+        return JSONResponse(content=report, headers=no_store)
     if buyer.get("ch"):
-        uid, email = await find_buyer(buyer["ch"])
-        if uid:
-            active, _manage = await membership_status(uid, force=True)
-            if active:
-                response = RedirectResponse(back)
-                _set_cookie(response, AUTH_COOKIE, {"uid": uid, "email": email}, AUTH_TTL_SECONDS)
-                response.delete_cookie(RETURN_COOKIE)
-                response.delete_cookie(BUYER_COOKIE)
-                return response
+        found = await _recognize_buyer(buyer)
+        if found:
+            response = RedirectResponse(back)
+            _grant_login(response, *found)
+            return response
     elif not ent["logged_in"]:
         here = f"/subscribe/done?to={quote(back, safe='')}&n={n}"
         return RedirectResponse(f"/auth/whop/login?to={quote(here, safe='')}")
@@ -694,7 +727,9 @@ async def subscribe_done(request: Request, to: str = "", n: int = 0):
     style = (
         "<style>body{font-family:system-ui,sans-serif;max-width:440px;margin:80px auto;padding:0 20px;text-align:center;color:#0F172A}"
         "a{color:#2563EB}.btn{display:inline-block;margin-top:14px;padding:14px 22px;border-radius:12px;background:#2563EB;color:#fff;"
-        "font-weight:700;text-decoration:none}.btn:hover{background:#7C3AED}p{line-height:1.5;color:#475569}</style>"
+        "font-weight:700;text-decoration:none}.btn:hover{background:#7C3AED}p{line-height:1.5;color:#475569}"
+        ".spin{width:44px;height:44px;margin:0 auto 18px;border:5px solid #DBEAFE;border-top-color:#2563EB;border-radius:50%;animation:s 0.9s linear infinite}"
+        "@keyframes s{to{transform:rotate(360deg)}}</style>"
     )
     head = f'<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Wil App</title>{style}'
     if n >= 15:  # ~1 minute sans abonnement trouvé : on arrête d'attendre et on explique
@@ -705,9 +740,25 @@ async def subscribe_done(request: Request, to: str = "", n: int = 0):
 <p>{t(lang, "pw_not_found_sub")}</p><a class="btn" href="{retry}">{t(lang, "pw_retry")}</a>
 <p><a href="{signin}">{t(lang, "pw_signin_whop")}</a></p><p><a href="{back}">{t(lang, "pw_back_app")}</a></p></body></html>"""
         )
+    poll_url = f"/subscribe/done?poll=1&to={quote(back, safe='')}"
+    fallback = f"/subscribe/done?to={quote(back, safe='')}&n=15"
+    next_page = here.replace(f"&n={n}", f"&n={n + 1}")
     return HTMLResponse(
-        f"""{head}<meta http-equiv="refresh" content="4;url={here.replace(f'&n={n}', f'&n={n + 1}')}"></head><body>
-<h1 style="font-size:22px">{t(lang, "pw_checking_title")}</h1><p>{t(lang, "pw_checking_sub")}</p></body></html>"""
+        f"""{head}<noscript><meta http-equiv="refresh" content="4;url={next_page}"></noscript></head><body>
+<div class="spin"></div><h1 style="font-size:22px">{t(lang, "pw_checking_title")}</h1><p>{t(lang, "pw_checking_sub")}</p>
+<script>
+(function () {{
+  var tries = 0;
+  function tick() {{
+    fetch({json.dumps(poll_url)}, {{cache: 'no-store', credentials: 'same-origin'}})
+      .then(function (r) {{ return r.json(); }})
+      .then(function (d) {{ if (d && d.status === 'ok') {{ location.replace(d.to); }} else {{ next(); }} }})
+      .catch(next);
+  }}
+  function next() {{ tries += 1; if (tries >= 40) {{ location.replace({json.dumps(fallback)}); }} else {{ setTimeout(tick, 1500); }} }}
+  tick();
+}})();
+</script></body></html>"""
     )
 
 
