@@ -60,6 +60,16 @@ WHOP_MEMBERSHIPS_URL = "https://api.whop.com/api/v1/memberships"
 WHOP_CHECKOUT_CONFIG_URL = "https://api.whop.com/api/v1/checkout_configurations"
 WHOP_PAYMENTS_URL = "https://api.whop.com/api/v1/payments"
 
+# Paiements confirmés PAR WHOP (webhook signé), instantanément : l'API de liste de Whop peut mettre plusieurs
+# minutes à refléter un paiement, le webhook, lui, arrive en quelques secondes.
+WEBHOOK_TOLERANCE_SECONDS = 300
+BRIDGE_SECONDS = 24 * 3600  # un paiement confirmé par webhook compte comme abonnement le temps que l'API le reflète
+_known_configs: dict[str, str] = {}      # id du lien de paiement créé par NOS soins -> notre référence
+_grants_by_ref: dict[str, dict] = {}
+_grants_by_config: dict[str, dict] = {}
+_grants_by_user: dict[str, float] = {}   # id Whop -> instant de la confirmation
+_last_webhook: dict = {}                  # dernier message reçu (type et NOMS des champs seulement, jamais de données personnelles)
+
 _fallback_secret = secrets.token_urlsafe(32)
 _secret_warned = False
 _entitlement_cache: dict[str, tuple[float, bool, str | None]] = {}
@@ -212,7 +222,25 @@ async def _whop_membership(user_id: str) -> tuple[bool, str | None]:
     return active, manage_url
 
 
+def _prune_grants() -> None:
+    cutoff = time.time() - BRIDGE_SECONDS
+    for table in (_grants_by_ref, _grants_by_config):
+        for key in [k for k, v in table.items() if v["ts"] < cutoff]:
+            table.pop(key, None)
+    for key in [k for k, v in _grants_by_user.items() if v < cutoff]:
+        _grants_by_user.pop(key, None)
+
+
+def webhook_grant_for(buyer: dict) -> tuple[str, str] | None:
+    """(id Whop, e-mail) si Whop a déjà confirmé le paiement fait via le lien de paiement de ce navigateur."""
+    grant = _grants_by_ref.get(buyer.get("ref") or "") or _grants_by_config.get(buyer.get("ch") or "")
+    return (grant["uid"], grant["email"]) if grant else None
+
+
 async def membership_status(user_id: str, force: bool = False) -> tuple[bool, str | None]:
+    confirmed = _grants_by_user.get(user_id)
+    if confirmed and time.time() - confirmed < BRIDGE_SECONDS:
+        return True, None  # paiement confirmé par Whop (webhook) : actif tout de suite, sans attendre l'API de liste
     cached = _entitlement_cache.get(user_id)
     if cached and not force and time.time() - cached[0] < ENTITLEMENT_CACHE_SECONDS:
         return cached[1], cached[2]
@@ -621,7 +649,8 @@ async def subscribe(request: Request, to: str = "/app", plan: str = "monthly", d
     if not static_link:
         raise HTTPException(status_code=503, detail="Les abonnements ne sont pas encore disponibles.")
     redirect_url = f"{_site_url()}/subscribe/done?to={quote(target, safe='')}"
-    link, config_id, reason = await create_checkout_link(_plan_id_from_link(static_link), redirect_url, secrets.token_urlsafe(12))
+    ref = secrets.token_urlsafe(12)
+    link, config_id, reason = await create_checkout_link(_plan_id_from_link(static_link), redirect_url, ref)
     response = RedirectResponse(link or static_link)
     # Indicateur de diagnostic (aucun secret) : montre si le lien personnalisé a pu être créé, et sinon pourquoi.
     response.headers["X-Wil-Checkout"] = "personalized" if link else f"fallback-{reason}"
@@ -644,7 +673,8 @@ async def subscribe(request: Request, to: str = "/app", plan: str = "monthly", d
             response.headers["X-Wil-Payments"] = "network"
     _set_cookie(response, RETURN_COOKIE, {"to": target}, 3600)
     if config_id:  # retient QUEL lien de paiement ce navigateur a ouvert, pour retrouver l'acheteur ensuite
-        _set_cookie(response, BUYER_COOKIE, {"ch": config_id}, 24 * 3600)
+        _known_configs[config_id] = ref
+        _set_cookie(response, BUYER_COOKIE, {"ch": config_id, "ref": ref}, 24 * 3600)
     return response
 
 
@@ -657,6 +687,9 @@ async def _recognize_buyer(buyer: dict) -> tuple[str, str] | None:
     """Retrouve l'acheteur du lien de paiement de ce navigateur ET vérifie que son abonnement est actif."""
     if not buyer.get("ch"):
         return None
+    confirmed = webhook_grant_for(buyer)  # Whop nous a déjà prévenus : aucun appel à l'API, réponse immédiate
+    if confirmed:
+        return confirmed
     uid, email = await find_buyer(buyer["ch"])
     if not uid:
         return None
@@ -702,7 +735,8 @@ async def subscribe_done(request: Request, to: str = "", n: int = 0, poll: str =
     if request.query_params.get("diag"):
         # Diagnostic (aucun secret) : montre à quelle étape la reconnaissance de l'acheteur s'arrête.
         report: dict = {"subscribed": ent["subscribed"], "logged_in": ent["logged_in"], "buyer_cookie": bool(buyer.get("ch")),
-                        "checkout_config": buyer.get("ch")}
+                        "checkout_config": buyer.get("ch"), "webhook_confirmed": bool(webhook_grant_for(buyer)),
+                        "webhook_configured": bool(_env("WHOP_WEBHOOK_SECRET")), "last_webhook": dict(_last_webhook) or None}
         if buyer.get("ch"):
             started = time.time()
             found_info = await lookup_buyer(buyer["ch"])
@@ -760,6 +794,84 @@ async def subscribe_done(request: Request, to: str = "", n: int = 0, poll: str =
 }})();
 </script></body></html>"""
     )
+
+
+def _webhook_signature_ok(headers, body: bytes) -> bool:
+    """
+    Vérifie la signature Whop (Standard Webhooks) : HMAC-SHA256 de « {webhook-id}.{webhook-timestamp}.{corps} »
+    avec le secret `ws_...` utilisé tel quel, comparé en temps constant ; un message trop ancien est refusé.
+    """
+    secret = _env("WHOP_WEBHOOK_SECRET")
+    msg_id, timestamp, signature = headers.get("webhook-id", ""), headers.get("webhook-timestamp", ""), headers.get("webhook-signature", "")
+    if not (secret and msg_id and timestamp and signature):
+        return False
+    try:
+        if abs(time.time() - int(timestamp)) > WEBHOOK_TOLERANCE_SECONDS:
+            return False
+    except ValueError:
+        return False
+    expected = base64.b64encode(
+        hmac.new(secret.encode(), f"{msg_id}.{timestamp}.".encode() + body, hashlib.sha256).digest()
+    ).decode()
+    for candidate in signature.split():
+        version, _, value = candidate.partition(",")
+        if version == "v1" and hmac.compare_digest(value, expected):
+            return True
+    return False
+
+
+def _read_paid_event(payload: dict) -> dict | None:
+    """Extrait (utilisateur, lien de paiement, référence) d'un paiement réussi / abonnement activé, sinon None."""
+    if payload.get("type") not in ("payment.succeeded", "membership.activated"):
+        return None
+    data = payload.get("data") or {}
+    user = data.get("user") or (data.get("membership") or {}).get("user") or {}
+    uid = user.get("id") or data.get("user_id")
+    if not uid:
+        return None
+    config = data.get("checkout_configuration_id") or (data.get("checkout_configuration") or {}).get("id") or ""
+    ref = (data.get("metadata") or {}).get("wil_ref") or ""
+    # Sécurité : seuls comptent les paiements faits via un lien de paiement créé par NOS soins (notre marqueur
+    # `wil_ref`, ou un lien que ce serveur connaît). Le paiement d'un autre produit ne débloque jamais rien.
+    if not (ref or config in _known_configs):
+        return None
+    allowed = {x.strip() for x in _env("WHOP_PLAN_IDS").split(",") if x.strip()}
+    plan_id = (data.get("plan") or {}).get("id")
+    if allowed and plan_id and plan_id not in allowed:
+        return None
+    return {"uid": str(uid), "email": str(user.get("email") or ""), "config": str(config), "ref": str(ref or _known_configs.get(config, ""))}
+
+
+@router.post("/webhooks/whop")
+async def whop_webhook(request: Request):
+    """Whop nous prévient dès qu'un paiement réussit : l'abonné est débloqué en quelques secondes."""
+    body = await request.body()
+    if not _env("WHOP_WEBHOOK_SECRET"):
+        raise HTTPException(status_code=503, detail="Webhook non configuré.")
+    if not _webhook_signature_ok(request.headers, body):
+        raise HTTPException(status_code=401, detail="Signature invalide.")
+    try:
+        payload = json.loads(body)
+        event = _read_paid_event(payload)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail="Message illisible.")
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+    _last_webhook.clear()
+    _last_webhook.update(type=str(payload.get("type", ""))[:40], matched=bool(event), at=int(time.time()),
+                         data_keys=sorted(str(k) for k in data)[:30],
+                         has_metadata_ref=bool((data.get("metadata") or {}).get("wil_ref")) if isinstance(data.get("metadata"), dict) else False,
+                         has_checkout_config=bool(data.get("checkout_configuration_id") or data.get("checkout_configuration")))
+    if event:
+        _prune_grants()
+        grant = {"uid": event["uid"], "email": event["email"], "ts": time.time()}
+        if event["ref"]:
+            _grants_by_ref[event["ref"]] = grant
+        if event["config"]:
+            _grants_by_config[event["config"]] = grant
+        _grants_by_user[event["uid"]] = grant["ts"]
+        _entitlement_cache.pop(event["uid"], None)
+        print(f"[paywall] webhook : paiement confirmé pour {event['uid']}")
+    return JSONResponse(content={"ok": True})
 
 
 # ----------------------------------------------------------------- composants d'interface partagés
