@@ -43,10 +43,12 @@ from fastapi.responses import (
     PlainTextResponse,
     RedirectResponse,
 )
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel
 
-from app import paywall, ratelimit, token_box
+from app import errors, paywall, ratelimit, token_box
 from app.db import get_supabase
 from app.library_starter import get_starter_library
 from app.style_guide import get_style_guide
@@ -321,6 +323,43 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "X-Session-Id"],
 )
+
+
+def _error_response(request: Request, status: int, detail, headers=None):
+    """
+    Réponse d'erreur propre : JSON {detail, error_code} pour les appels des pages, vraie page HTML (traduite)
+    pour une navigation dans le navigateur (retour TikTok, etc.). Le détail technique va dans les journaux.
+    """
+    payload = errors.public_payload(status, detail)
+    if status >= 500 or payload["error_code"] in ("service_unavailable", "busy", "ai_invalid"):
+        print(f"[erreur {status}] {request.method} {request.url.path} : {str(detail)[:300]}")
+    wants_page = "text/html" in request.headers.get("accept", "") and not request.url.path.startswith("/api/")
+    if wants_page:
+        lang = _detect_ui_lang(request)
+        message = t(lang, "err_" + payload["error_code"]) if payload["error_code"] not in ("quota_used", "subscription_required") else t(lang, "pw_feature_sub")
+        message = message.replace("{max}", str(payload.get("max", "")))
+        page = f"""<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wil App</title><style>body{{font-family:system-ui,sans-serif;max-width:440px;margin:90px auto;padding:0 20px;text-align:center;color:#0F172A}}
+p{{line-height:1.5;color:#475569}}.btn{{display:inline-block;margin-top:14px;padding:14px 22px;border-radius:12px;background:#2563EB;color:#fff;font-weight:700;text-decoration:none}}
+.btn:hover{{background:#7C3AED}}</style></head><body><div style="font-size:44px">😕</div><h1 style="font-size:22px">Wil App</h1>
+<p>{_esc_html(message)}</p><a class="btn" href="/app">{_esc_html(t(lang, "back_home"))}</a></body></html>"""
+        return HTMLResponse(page, status_code=status, headers=headers)
+    return JSONResponse(payload, status_code=status, headers=headers)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return _error_response(request, exc.status_code, exc.detail, getattr(exc, "headers", None))
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_exception_handler(request: Request, exc: RequestValidationError):
+    return _error_response(request, 422, "requête invalide")
+
+
+@app.exception_handler(Exception)
+async def _unexpected_exception_handler(request: Request, exc: Exception):
+    return _error_response(request, 500, f"{type(exc).__name__}: {exc}")
 
 
 @app.middleware("http")
@@ -1375,7 +1414,7 @@ async def tiktok_callback(request: Request):
                   document.getElementById('analysis-result').innerHTML = wilNoticeHtml(WIL_PW.featTitle, WIL_PW.trial, '/app');
                   return;
                 }}
-                const reason = (data && data.detail) ? data.detail : `{tt("common_error_prefix")} ${{status}}`;
+                const reason = wilPwEsc(wilErrText(data, status));
                 document.getElementById('analysis-result').innerHTML =
                   `<div class="card"><p class="loading" style="color:#DC2626;">${{reason}}</p></div>`;
                 return;
@@ -2787,7 +2826,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               }}
               misses = 0;
               if (data.status === 'done') return {{ok: true, status: 200, data: data.result}};
-              if (data.status === 'error') return {{ok: false, status: data.code || 500, data: {{detail: data.detail}}}};
+              if (data.status === 'error') return {{ok: false, status: data.code || 500, data: {{detail: data.detail, error_code: data.error_code, max: data.max}}}};
             }}
           }}
 
@@ -2827,8 +2866,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                     // Analyse gratuite déjà utilisée : abonnement requis (aucun jeton dépensé).
                     document.getElementById('upload-error').innerHTML = wilNoticeHtml(WIL_PW.featTitle, WIL_PW.trial, '/tools/analyze-video');
                   }} else {{
-                    const reason = (res.data && res.data.detail) ? res.data.detail : ('{tt("common_error_prefix")} ' + res.status);
-                    document.getElementById('upload-error').textContent = reason;
+                    document.getElementById('upload-error').textContent = wilErrText(res.data, res.status);
                   }}
                   goToStep('step-upload', 100, true);
                   return;
@@ -3200,6 +3238,7 @@ async def tool_analyze_script_page(request: Request):
 
         <script>
 {_onboarding_js_core("", "", lang, "step-script")}
+{errors.error_js(tt)}
 
           const MAX_SCRIPT_WORDS = {MAX_TRANSCRIPT_WORDS};
           const LOADING_STAGES = ["{tt("loading_script_reading")}", "{tt("loading_script_analyzing")}", "{tt("loading_insights")}"];
@@ -3254,8 +3293,7 @@ async def tool_analyze_script_page(request: Request):
               .then(function (res) {{
                 clearInterval(stageInterval);
                 if (!res.ok) {{
-                  const reason = (res.data && res.data.detail) ? res.data.detail : ('{tt("common_error_prefix")} ' + res.status);
-                  document.getElementById('script-error').textContent = reason;
+                  document.getElementById('script-error').textContent = wilErrText(res.data, res.status);
                   goToStep('step-script', 100, true);
                   return;
                 }}
@@ -3326,6 +3364,7 @@ async def tool_trending_ideas_page(request: Request, niche_category: str = "", l
           </div>
         </div>
         <script>
+{errors.error_js(tt)}
           const nicheCategory = "{niche_category}";
           const lang = "{lang}";
           const result = document.getElementById('trending-result');
@@ -3337,8 +3376,7 @@ async def tool_trending_ideas_page(request: Request, niche_category: str = "", l
               .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
               .then(({{ok, status, data}}) => {{
                 if (!ok) {{
-                  const reason = (data && data.detail) ? data.detail : `{tt("common_error_prefix")} ${{status}}`;
-                  result.innerHTML = `<p style="color:#c0392b;">${{reason}}</p>`;
+                  result.innerHTML = `<p style="color:#c0392b;">${{wilErrText(data, status)}}</p>`;
                   return;
                 }}
                 const ideas = (data.video_ideas || []).map(i => `<li>${{i}}</li>`).join('');
@@ -3757,7 +3795,7 @@ __PW_JS__
           .then(function (r) { return r.json().then(function (data) { return {ok: r.ok, status: r.status, data: data}; }); })
           .then(function (res) {
             if (!res.ok) {
-              const err = new Error((res.data && res.data.detail) || (I18N.errorPrefix + ' ' + res.status));
+              const err = new Error(wilErrText(res.data, res.status));
               err.locked = res.status === 402;
               throw err;
             }
@@ -4039,7 +4077,7 @@ __PW_JS__
         .then(function (r) { return r.json().then(function (data) { return {ok: r.ok, status: r.status, data: data}; }); })
         .then(function (res) {
           if (!res.ok) {
-            const err = new Error((res.data && res.data.detail) || (I18N.errorPrefix + ' ' + res.status));
+            const err = new Error(wilErrText(res.data, res.status));
             err.locked = res.status === 402;
             throw err;
           }
@@ -7134,10 +7172,11 @@ async def _run_video_job(job_id: str, upload: dict, params: dict) -> None:
         )
         job["status"] = "done"
     except HTTPException as exc:
-        job.update(status="error", code=exc.status_code, detail=exc.detail)
+        job.update(status="error", code=exc.status_code, detail=exc.detail, **{"error_extra": errors.public_payload(exc.status_code, exc.detail)})
     except Exception as exc:  # une analyse qui plante ne doit jamais laisser l'écran en attente indéfinie
         print(f"[video-job] erreur inattendue: {exc!r}")
-        job.update(status="error", code=500, detail="Erreur interne pendant l'analyse. Réessaie.")
+        job.update(status="error", code=500, detail="Erreur interne pendant l'analyse. Réessaie.",
+                   error_extra=errors.public_payload(500, "erreur interne"))
     finally:
         # Le fichier est supprimé ; l'entrée reste (quelques octets) pour qu'un renvoi de « finish » retrouve le même job.
         upload["path"].unlink(missing_ok=True)
@@ -7190,7 +7229,8 @@ async def video_job_status(job_id: str, request: Request):
     if job["status"] in ("queued", "running"):
         return JSONResponse(content={"status": job["status"], "stage": job["stage"]}, headers=headers)
     if job["status"] == "error":
-        return JSONResponse(content={"status": "error", "code": job["code"], "detail": job["detail"]}, headers=headers)
+        public = job.get("error_extra") or errors.public_payload(job["code"], job["detail"])
+        return JSONResponse(content={"status": "error", "code": job["code"], **public}, headers=headers)
     result = job["result"]
     entitlement = await paywall.get_entitlement(request)
     if not job["unlock_id"]:

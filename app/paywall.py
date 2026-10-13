@@ -35,7 +35,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from app import ratelimit
+from app import errors, ratelimit
 from app.db import get_supabase
 from app.translations import DEFAULT_LANG, SUPPORTED_LANGS, t
 
@@ -1000,4 +1000,4 @@ def ui_js(tt) -> str:
         "cancel": tt("pw_cancel_anytime"),
         "plans": plan_prices(),
     }
-    return _UI_JS.replace("__L__", json.dumps(labels, ensure_ascii=False).replace("</", "<\\/"))
+    return _UI_JS.replace("__L__", json.dumps(labels, ensure_ascii=False).replace("</", "<\\/")) + errors.error_js(tt)
