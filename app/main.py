@@ -628,7 +628,7 @@ def home(request: Request):
               {tt("hero_badge")}
             </div>
             <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight mb-5 text-white">
-              {tt("hero_title_1")}<span class="italic bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">{tt("hero_title_2")}</span>
+              {tt("hero_title_1")}<span class="italic bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent" style="padding-right:.15em;-webkit-box-decoration-break:clone;box-decoration-break:clone">{tt("hero_title_2")}</span>
             </h1>
             <p class="text-sm sm:text-lg text-slate-300 mb-10 leading-relaxed">
               {tt("hero_subtitle")}
@@ -881,12 +881,12 @@ _SECONDARY_PAGE_HEAD = """
 def _secondary_page_nav_html(lang: str, current_path: str) -> str:
     """Nav partagée par Services/About/Contact : logo, retour, langue."""
     return f"""
-  <nav class="flex items-center justify-between max-w-6xl mx-auto px-6 py-5">
-    <a href="/" class="flex items-center gap-2">
+  <nav class="flex items-center justify-between max-w-6xl mx-auto px-4 sm:px-6 py-5">
+    <a href="/" class="flex items-center gap-2 shrink-0">
       <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white font-bold text-sm">W</div>
-      <span class="font-bold text-lg text-slate-900">Wil App</span>
+      <span class="font-bold text-lg text-slate-900 whitespace-nowrap">Wil App</span>
     </a>
-    <div class="flex items-center gap-6 text-sm font-medium text-slate-600">
+    <div class="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm font-medium text-slate-600">
       <a href="/" class="hover:text-slate-900">{t(lang, "back_home")}</a>
       {_language_menu_html(lang, current_path)}
     </div>
@@ -1658,6 +1658,8 @@ _ONBOARDING_STYLE = """
   .nav-item:hover { background: #F8FAFC; }
   .nav-item.active { color: #2563EB; font-weight: 700; background: #EFF6FF; }
   .nav-item svg { width: 24px; height: 24px; }
+  .nav-item span { white-space: nowrap; }
+  @media (max-width: 400px) { .nav-item { font-size: 10.5px; margin: 8px 2px; } }
 """ + _NAV_POSITION_CSS + _THEME_CSS + _VIOLET_BUTTONS_CSS
 
 _ONBOARDING_HEAD_ASSETS = """
@@ -3546,6 +3548,8 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     .nav-item:hover { background: #F8FAFC; }
     .nav-item.active { color: #2563EB; font-weight: 700; background: #EFF6FF; }
     .nav-item svg { width: 24px; height: 24px; }
+    .nav-item span { white-space: nowrap; }
+    @media (max-width: 400px) { .nav-item { font-size: 10.5px; margin: 8px 2px; } }
     __NAV_CSS__
     .app-tab { animation: tabIn 0.25s ease; }
     @keyframes tabIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
