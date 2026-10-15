@@ -127,7 +127,7 @@ TRANSLATIONS = {
         "faq_q3": "Puis-je analyser une vidéo ou un script avant de le publier ?",
         "faq_a3": "Oui. Les outils dédiés \"Analyser la vidéo\" et \"Analyser le script\" te donnent un diagnostic (accroche, rythme, structure, points forts/faibles) sur un contenu déjà tourné ou encore à l'état de script.",
         "faq_q4": "L'offre gratuite est-elle limitée dans le temps ?",
-        "faq_a4": "Non, l'offre Free reste gratuite pour connecter ton compte et voir ton aperçu de profil. L'offre Pro (bientôt disponible) ajoutera des analyses avancées et un support prioritaire.",
+        "faq_a4": "L'offre gratuite n'a pas de limite de durée, mais elle est limitée en contenu : elle te permet d'essayer 1 analyse vidéo et 1 analyse de compte, avec un aperçu du rapport. Le rapport complet et les autres fonctionnalités sont réservés à l'abonnement Pro (mensuel ou annuel), annulable à tout moment.",
         "faq_q5": "Comment révoquer l'accès ou poser une question ?",
         "faq_a5": "Tu peux révoquer l'accès de Wil App à tout moment depuis les paramètres de connexions tierces de ton compte TikTok. Pour toute autre question, écris-nous à",
 
@@ -570,7 +570,7 @@ TRANSLATIONS = {
         "faq_q3": "Can I analyze a video or a script before publishing it?",
         "faq_a3": "Yes. The dedicated \"Analyze video\" and \"Analyze script\" tools give you a diagnosis (hook, pacing, structure, strengths/weaknesses) on content that's already filmed or still just a script.",
         "faq_q4": "Is the free plan limited in time?",
-        "faq_a4": "No, the Free plan stays free for connecting your account and viewing your profile overview. The Pro plan (coming soon) will add advanced analysis and priority support.",
+        "faq_a4": "The free plan has no time limit, but it is limited in content: it lets you try 1 video analysis and 1 account analysis, with a preview of the report. The full report and the other features are reserved for the Pro subscription (monthly or yearly), which you can cancel at any time.",
         "faq_q5": "How do I revoke access or ask a question?",
         "faq_a5": "You can revoke Wil App's access at any time from your TikTok account's third-party connections settings. For any other question, write to us at",
 
@@ -1013,7 +1013,7 @@ TRANSLATIONS = {
         "faq_q3": "Kann ich ein Video oder Skript vor der Veröffentlichung analysieren?",
         "faq_a3": "Ja. Die Werkzeuge \"Video analysieren\" und \"Skript analysieren\" liefern eine Diagnose (Hook, Rhythmus, Struktur, Stärken/Schwächen) zu bereits gedrehtem Inhalt oder noch als reinem Skript.",
         "faq_q4": "Ist der kostenlose Plan zeitlich begrenzt?",
-        "faq_a4": "Nein, der Free-Plan bleibt dauerhaft kostenlos für die Verbindung Ihres Kontos und die Profilübersicht. Der Pro-Plan (demnächst verfügbar) bringt erweiterte Analysen und priorisierten Support.",
+        "faq_a4": "Der kostenlose Plan ist zeitlich unbegrenzt, aber inhaltlich eingeschränkt: Du kannst 1 Videoanalyse und 1 Kontoanalyse mit einer Vorschau des Berichts ausprobieren. Der vollständige Bericht und die weiteren Funktionen sind dem Pro-Abonnement (monatlich oder jährlich) vorbehalten, das du jederzeit kündigen kannst.",
         "faq_q5": "Wie widerrufe ich den Zugriff oder stelle eine Frage?",
         "faq_a5": "Sie können den Zugriff von Wil App jederzeit in den Einstellungen für Drittanbieter-Verbindungen Ihres TikTok-Kontos widerrufen. Bei allen anderen Fragen schreiben Sie uns an",
 
@@ -1456,7 +1456,7 @@ TRANSLATIONS = {
         "faq_q3": "¿Puedo analizar un vídeo o un guion antes de publicarlo?",
         "faq_a3": "Sí. Las herramientas dedicadas \"Analizar vídeo\" y \"Analizar guion\" te dan un diagnóstico (gancho, ritmo, estructura, puntos fuertes/débiles) sobre contenido ya grabado o que aún es solo un guion.",
         "faq_q4": "¿El plan gratuito tiene límite de tiempo?",
-        "faq_a4": "No, el plan Free sigue siendo gratuito para conectar tu cuenta y ver el resumen de tu perfil. El plan Pro (próximamente) añadirá análisis avanzados y soporte prioritario.",
+        "faq_a4": "El plan gratuito no tiene límite de tiempo, pero sí de contenido: te permite probar 1 análisis de vídeo y 1 análisis de cuenta, con una vista previa del informe. El informe completo y las demás funciones están reservados a la suscripción Pro (mensual o anual), que puedes cancelar en cualquier momento.",
         "faq_q5": "¿Cómo revoco el acceso o hago una pregunta?",
         "faq_a5": "Puedes revocar el acceso de Wil App en cualquier momento desde los ajustes de conexiones de terceros de tu cuenta de TikTok. Para cualquier otra pregunta, escríbenos a",
 
@@ -1899,7 +1899,7 @@ TRANSLATIONS = {
         "faq_q3": "Posso analisar um vídeo ou um roteiro antes de o publicar?",
         "faq_a3": "Sim. As ferramentas dedicadas \"Analisar vídeo\" e \"Analisar roteiro\" dão-te um diagnóstico (gancho, ritmo, estrutura, pontos fortes/fracos) sobre um conteúdo já filmado ou ainda apenas um roteiro.",
         "faq_q4": "O plano gratuito tem limite de tempo?",
-        "faq_a4": "Não, o plano Free continua gratuito para conectar a tua conta e ver a visão geral do teu perfil. O plano Pro (brevemente) vai acrescentar análises avançadas e suporte prioritário.",
+        "faq_a4": "O plano gratuito não tem limite de tempo, mas é limitado em conteúdo: permite-te experimentar 1 análise de vídeo e 1 análise de conta, com uma pré-visualização do relatório. O relatório completo e as restantes funcionalidades estão reservados à subscrição Pro (mensal ou anual), que podes cancelar a qualquer momento.",
         "faq_q5": "Como revogo o acesso ou faço uma pergunta?",
         "faq_a5": "Podes revogar o acesso do Wil App a qualquer momento nas definições de conexões de terceiros da tua conta do TikTok. Para qualquer outra questão, escreve-nos para",
 
@@ -2342,7 +2342,7 @@ TRANSLATIONS = {
         "faq_q3": "Posso analizzare un video o uno script prima di pubblicarlo?",
         "faq_a3": "Sì. Gli strumenti dedicati \"Analizza video\" e \"Analizza script\" ti danno una diagnosi (hook, ritmo, struttura, punti di forza/debolezza) su un contenuto già girato o ancora solo uno script.",
         "faq_q4": "Il piano gratuito è limitato nel tempo?",
-        "faq_a4": "No, il piano Free rimane gratuito per collegare il tuo account e vedere la panoramica del profilo. Il piano Pro (prossimamente) aggiungerà analisi avanzate e supporto prioritario.",
+        "faq_a4": "Il piano gratuito non ha limiti di tempo, ma è limitato nei contenuti: ti permette di provare 1 analisi video e 1 analisi dell'account, con un'anteprima del report. Il report completo e le altre funzioni sono riservati all'abbonamento Pro (mensile o annuale), che puoi disdire in qualsiasi momento.",
         "faq_q5": "Come revoco l'accesso o faccio una domanda?",
         "faq_a5": "Puoi revocare l'accesso di Wil App in qualsiasi momento dalle impostazioni delle connessioni di terze parti del tuo account TikTok. Per qualsiasi altra domanda, scrivici a",
 
