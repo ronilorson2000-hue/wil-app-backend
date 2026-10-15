@@ -3393,6 +3393,8 @@ async def tool_trending_ideas_page(request: Request, niche_category: str = "", l
 
           if (!nicheCategory) {{
             result.innerHTML = '<p class="loading">{tt("tool_trending_no_niche")}</p>';
+          }} else if (!(function () {{ try {{ return localStorage.getItem('wilAiConsent') === '1'; }} catch (e) {{ return false; }} }})()) {{
+            result.innerHTML = {_js_json("<p><strong>" + _esc_html(tt("ai_consent_title")) + "</strong></p><p>" + _esc_html(tt("ai_consent_intro")) + '</p><p><a href="/app">' + _esc_html(tt("ai_consent_continue")) + "</a></p>")};
           }} else {{
             fetch(`/api/trending-ideas?niche_category=${{encodeURIComponent(nicheCategory)}}&lang=${{encodeURIComponent(lang)}}`)
               .then(r => r.json().then(data => ({{ok: r.ok, status: r.status, data}})))
@@ -3980,6 +3982,20 @@ __PW_JS__
         .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); done(); })
         .catch(function () { document.getElementById('disconnect-error').classList.remove('hidden'); });
     }
+    function openAiConsentSheet() {
+      const granted = window.wilAiConsentGranted && window.wilAiConsentGranted();
+      openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setAi) + '</p>' +
+        '<p class="text-sm text-slate-500 leading-relaxed mb-2">' + esc(WIL_PW.aiClaude) + '</p>' +
+        '<p class="text-sm text-slate-500 leading-relaxed mb-4">' + esc(WIL_PW.aiGemini) + '</p>' +
+        '<button type="button" id="ai-toggle" class="block w-full py-3.5 rounded-xl ' + (granted ? 'bg-red-600' : 'bg-blue-600') + ' text-white font-bold text-sm mb-3">' + esc(granted ? I18N.setAiWithdraw : I18N.setAiAllow) + '</button>' +
+        '<button type="button" id="ai-cancel" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm">' + esc(I18N.setCancel) + '</button>');
+      document.getElementById('ai-cancel').addEventListener('click', closeSheet);
+      document.getElementById('ai-toggle').addEventListener('click', function () {
+        if (granted) { window.wilAiConsentSet(false); closeSheet(); renderProfile(); window.wilAiConsentShow(); }
+        else { closeSheet(); window.wilAiConsentShow(); }
+      });
+    }
+    window.wilAiConsentChanged = function () { try { renderProfile(); } catch (e) {} };
     function openCloseAccountSheet() {
       openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setCloseTitle) + '</p>' +
         '<p class="text-sm text-slate-500 leading-relaxed mb-4">' + esc(I18N.setCloseDesc) + '</p>' +
@@ -3992,7 +4008,7 @@ __PW_JS__
     function closeAccount() {
       const sid = (function () { try { return localStorage.getItem('wilSession'); } catch (e) { return null; } })();
       const wipe = function () {
-        ['wilOnboarding', 'wilHistory', 'wilSaved', 'wilTikTok', 'wilSession', 'wilDiscover', 'wilTheme', 'wilReports'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+        ['wilOnboarding', 'wilHistory', 'wilSaved', 'wilTikTok', 'wilSession', 'wilDiscover', 'wilTheme', 'wilReports', 'wilAiConsent'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
         location.href = '/';
       };
       if (!sid) { wipe(); return; }
@@ -4023,6 +4039,7 @@ __PW_JS__
         setRowHtml('restore', I18N.setRestore, '', 'data-set="restore"', 'button') +
         setRowHtml('subscription', I18N.setManageSub, ME.paywall ? (ME.subscribed ? WIL_PW.active : WIL_PW.free) : '', 'data-set="subscription"', 'button') +
         (tiktok ? setRowHtml('unlink', I18N.setDisconnect, '', 'data-set="disconnect"', 'button') : '') +
+        setRowHtml('ai', I18N.setAi, window.wilAiConsentGranted && window.wilAiConsentGranted() ? I18N.setAiOn : I18N.setAiOff, 'data-set="ai"', 'button') +
         setRowHtml('close', I18N.setCloseAccount, '', 'data-set="close"', 'button') +
         setRowHtml('contact', I18N.setContact, '', 'href="' + esc(CFG.whatsapp) + '" target="_blank" rel="noopener"', 'a') +
         setRowHtml('terms', I18N.setTerms, '', 'href="/terms?from=app"', 'a') +
@@ -4044,6 +4061,7 @@ __PW_JS__
       else if (action === 'subscription') openSubscriptionSheet();
       else if (action === 'disconnect') openDisconnectSheet();
       else if (action === 'close') openCloseAccountSheet();
+      else if (action === 'ai') openAiConsentSheet();
     });
 
     // ---------- BIBLIOTHÈQUE ----------
@@ -4322,6 +4340,11 @@ def app_shell_page(request: Request):
         "setRestoreDesc": tt("set_restore_desc"),
         "setGetApp": tt("set_get_app"),
         "setCloseAccount": tt("set_close_account"),
+        "setAi": tt("set_ai"),
+        "setAiOn": tt("set_ai_on"),
+        "setAiOff": tt("set_ai_off"),
+        "setAiWithdraw": tt("set_ai_withdraw"),
+        "setAiAllow": tt("set_ai_allow"),
         "setCloseTitle": tt("set_close_title"),
         "setCloseDesc": tt("set_close_desc"),
         "setCloseConfirm": tt("set_close_confirm"),

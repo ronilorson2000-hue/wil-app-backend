@@ -50,7 +50,7 @@ TERMS = {
             ("p", "<strong>Rinnovo.</strong> L'abbonamento si rinnova automaticamente alla fine di ogni periodo (mensile o annuale), al prezzo vigente, fino a quando non lo disdici. L'Editore può modificare i propri prezzi: qualsiasi aumento si applica a partire dal periodo successivo, previo ragionevole preavviso (via e-mail o nell'app), e puoi disdire prima che entri in vigore."),
         ]),
         ("6. Disdetta e rimborso", [
-            ("p", "<strong>Disdetta.</strong> Puoi disdire il tuo abbonamento in qualsiasi momento, da Impostazioni &gt; Gestisci il mio abbonamento (un link alla tua area Whop) oppure scrivendoci. La disdetta ha effetto alla fine del periodo già pagato: conservi l'accesso fino a tale data e non viene effettuato alcun ulteriore addebito. Il periodo in corso non è rimborsato, fatta salva la regola seguente."),
+            ("p", "<strong>Disdetta.</strong> Puoi disdire il tuo abbonamento in qualsiasi momento, da Impostazioni &gt; Gestisci l'abbonamento (un link alla tua area Whop) oppure scrivendoci. La disdetta ha effetto alla fine del periodo già pagato: conservi l'accesso fino a tale data e non viene effettuato alcun ulteriore addebito. Il periodo in corso non è rimborsato, fatta salva la regola seguente."),
             ("p", "<strong>Rimborso entro 14 giorni.</strong> Puoi chiedere il rimborso del tuo abbonamento entro 14 giorni dall'acquisto, a condizione che con tale abbonamento <strong>non sia stata effettuata alcuna analisi</strong> (video, account TikTok o script). Per farlo, scrivici (sezione 15) indicando l'indirizzo e-mail usato per l'acquisto. Il rimborso avviene sul metodo di pagamento originale, tramite il nostro fornitore di pagamenti."),
             ("p", "Una volta effettuata un'analisi, il servizio digitale si considera reso e l'importo pagato non è più rimborsabile, salvo diversa disposizione di legge. Questa regola non limita i diritti inderogabili che ti riconosce la legge del tuo paese di residenza, compreso il diritto di recesso applicabile ai consumatori dell'Unione europea. L'accesso al Servizio inizia immediatamente dopo il tuo pagamento."),
         ]),
@@ -67,7 +67,7 @@ TERMS = {
             ("p", "Il Servizio è fornito «così com'è». Wil App non è affiliata, sponsorizzata né approvata da TikTok o da ByteDance Ltd. Nei limiti consentiti dalla legge, l'Editore declina ogni responsabilità per i danni indiretti derivanti dall'uso del Servizio. Nulla nei presenti Termini esclude una responsabilità che non possa essere esclusa ai sensi della legge applicabile."),
         ]),
         ("11. Cessazione e sospensione", [
-            ("p", "Puoi smettere di utilizzare il Servizio in qualsiasi momento, revocando l'accesso dalle impostazioni del tuo account TikTok o chiudendo il tuo account da Impostazioni &gt; Chiudi account (ciò elimina i tuoi dati, come descritto nella nostra Informativa sulla privacy). La chiusura dell'account non disdice di per sé un abbonamento a pagamento in corso: disdicilo separatamente (sezione 6). L'Editore si riserva il diritto di sospendere l'accesso di un utente in caso di abuso o di violazione dei presenti Termini."),
+            ("p", "Puoi smettere di utilizzare il Servizio in qualsiasi momento, revocando l'accesso dalle impostazioni del tuo account TikTok o eliminando il tuo account da Impostazioni &gt; Elimina il mio account (ciò elimina i tuoi dati, come descritto nella nostra Informativa sulla privacy). L'eliminazione dell'account non disdice di per sé un abbonamento a pagamento in corso: disdicilo separatamente (sezione 6). L'Editore si riserva il diritto di sospendere l'accesso di un utente in caso di abuso o di violazione dei presenti Termini."),
         ]),
         ("12. Modifica dei presenti Termini", [
             ("p", "I presenti Termini possono essere aggiornati. In caso di modifica rilevante, in particolare dei prezzi o delle regole di rimborso, sarai informato via e-mail o nell'app prima della sua entrata in vigore. L'uso continuato del Servizio dopo una modifica costituisce accettazione dei nuovi termini."),
@@ -92,7 +92,7 @@ PRIVACY = {
     "back_settings": "← Torna alle impostazioni",
     "see_also": "Vedi anche i nostri Termini di servizio →",
     "footer": "Wil App — Informativa sulla privacy",
-    "intro": "La presente Informativa sulla privacy spiega come Wil App («noi») raccoglie, utilizza e protegge le informazioni quando utilizzi il nostro Servizio. Wil App è gestita da una persona fisica che agisce a titolo personale, titolare del trattamento dei dati, contattabile ai recapiti indicati nella sezione 11.",
+    "intro": "La presente Informativa sulla privacy spiega come Wil App («noi») raccoglie, utilizza e protegge le informazioni quando utilizzi il nostro Servizio. Wil App è gestita da una persona fisica che agisce a titolo personale, titolare del trattamento dei dati, contattabile ai recapiti indicati nella sezione 12.",
     "sections": [
         ("1. Informazioni che raccogliamo", [
             ("p", "<strong>Account TikTok.</strong> Quando colleghi il tuo account TikTok tramite il Login Kit ufficiale di TikTok, possiamo ricevere, solo con la tua esplicita autorizzazione:"),
@@ -102,28 +102,38 @@ PRIVACY = {
             ]),
             ("p", "Non accediamo ai messaggi privati, alle informazioni di pagamento né ad alcun dato oltre quanto consentito dalle autorizzazioni che concedi. Dal tuo account collegato conserviamo una sessione di accesso (il token è cifrato) e istantanee periodiche delle tue statistiche (tassi di engagement e di viralità), così da poter confrontare il tuo account con se stesso nel tempo."),
             ("p", "<strong>Account Whop e abbonamento.</strong> Per gestire gli abbonamenti utilizziamo Whop: riceviamo il tuo identificativo Whop, il tuo indirizzo e-mail e lo stato del tuo abbonamento (attivo o meno, piano). I pagamenti sono elaborati da Whop: non riceviamo né conserviamo i dati della tua carta."),
-            ("p", "<strong>Video e script che fornisci.</strong> Quando carichi un video o incolli uno script da analizzare, questo viene inviato ai nostri fornitori di intelligenza artificiale (sezione 5) per generare il tuo report. Non conserviamo il tuo file video dopo l'analisi. Non utilizziamo i tuoi video o script per costruire i contenuti mostrati ad altri utenti."),
+            ("p", "<strong>Video e script che fornisci.</strong> Quando carichi un video o incolli uno script da analizzare, questo viene inviato ai nostri fornitori di intelligenza artificiale (sezione 2) per generare il tuo report. Non conserviamo il tuo file video dopo l'analisi. Non utilizziamo i tuoi video o script per costruire i contenuti mostrati ad altri utenti."),
             ("p", "<strong>Report di analisi.</strong> Il report generato viene conservato sui nostri server con un identificativo casuale, senza collegamento diretto alla tua identità, in modo che tu possa ritrovarlo (ad esempio dopo aver aggiornato la pagina o sottoscritto un abbonamento). I report vengono eliminati automaticamente dopo 180 giorni."),
             ("p", "<strong>Riscontro sulle stime.</strong> Se ci indichi che un video è già stato pubblicato e rispondi se la nostra stima era vicina ai risultati reali, registriamo tale risposta in forma anonima (nicchia, punteggio, livello stimato e la tua risposta), senza il video e senza alcun identificativo."),
             ("p", "<strong>Dati conservati sul tuo dispositivo.</strong> Le tue risposte di onboarding, la cronologia delle analisi, gli elementi salvati, le scelte di lingua e di aspetto e una copia degli ultimi report sono memorizzati nel tuo browser (archiviazione locale), sul tuo dispositivo. Se colleghi TikTok, il tuo browser conserva anche il tuo profilo pubblico (nome, nome utente, foto) e un identificativo di sessione."),
             ("p", "<strong>Dati tecnici.</strong> Per proteggere il Servizio dagli abusi, utilizziamo temporaneamente il tuo indirizzo IP (limitazione della frequenza delle richieste); il nostro fornitore di hosting può conservare log tecnici per un periodo limitato."),
         ]),
-        ("2. Come utilizziamo le tue informazioni", [
+        ("2. Trattamento tramite intelligenza artificiale", [
+            ("p", "Per produrre le tue analisi, Wil App <strong>trasmette i contenuti che fornisci a fornitori esterni di intelligenza artificiale</strong>, che li trattano per analizzarli e classificarli. In concreto:"),
+            ("ul", [
+                "i tuoi <strong>video</strong> (immagini e audio) vengono inviati a Google (Gemini);",
+                "i tuoi <strong>script</strong> vengono inviati ad Anthropic (Claude);",
+                "le informazioni del tuo <strong>profilo TikTok</strong> (nome, nome utente, descrizione) e le statistiche dei tuoi video vengono inviate ad Anthropic (Claude);",
+                "le <strong>idee di tendenza</strong> sono prodotte da Claude (Anthropic) a partire da ricerche web.",
+            ]),
+            ("p", "Questi invii avvengono solo quando avvii un'analisi e solo dopo il tuo consenso: prima della prima analisi viene mostrata una finestra di consenso, e puoi revocarlo in qualsiasi momento nelle impostazioni (Profilo). Questi fornitori sono aziende indipendenti: trattano i dati secondo le proprie condizioni e le proprie regole sulla privacy. Non vendiamo i tuoi contenuti e non li usiamo per creare i contenuti mostrati ad altri utenti. Se non vuoi che i tuoi contenuti vengano trasmessi a questi fornitori, non usare le funzioni di analisi."),
+        ]),
+        ("3. Come utilizziamo le tue informazioni", [
             ("p", "Utilizziamo queste informazioni esclusivamente per fornire il Servizio (analisi dell'account, analisi di video e script, tendenze, gestione del tuo abbonamento), mantenerlo sicuro e migliorarne l'affidabilità e la precisione delle nostre stime. Non vendiamo i tuoi dati personali a terzi."),
         ]),
-        ("3. Basi giuridiche", [
+        ("4. Basi giuridiche", [
             ("p", "A seconda dei casi, il trattamento si fonda sull'esecuzione del contratto (fornitura del Servizio e gestione del tuo abbonamento), sul tuo consenso (collegamento del tuo account TikTok, che puoi revocare in qualsiasi momento), sul nostro legittimo interesse (sicurezza, prevenzione degli abusi, miglioramento del Servizio) e sull'adempimento dei nostri obblighi legali (contabilità e pagamenti)."),
         ]),
-        ("4. Conservazione e sicurezza", [
+        ("5. Conservazione e sicurezza", [
             ("p", "Adottiamo misure tecniche ragionevoli per proteggere le informazioni che conserviamo: i token di accesso di TikTok sono cifrati, le connessioni sono protette da HTTPS e l'accesso ai nostri database è limitato."),
             ("ul", [
-                "Sessioni TikTok: al massimo 30 giorni, oppure fino a quando ti scolleghi o chiudi il tuo account.",
-                "Istantanee delle statistiche dell'account: fino alla chiusura del tuo account.",
+                "Sessioni TikTok: al massimo 30 giorni, oppure fino a quando ti scolleghi o elimini il tuo account.",
+                "Istantanee delle statistiche dell'account: fino all'eliminazione del tuo account.",
                 "Report di analisi: 180 giorni.",
                 "Dati di pagamento e fatturazione: conservati da Whop e, se del caso, da noi per il tempo richiesto dalla legge.",
             ]),
         ]),
-        ("5. Servizi di terze parti", [
+        ("6. Servizi di terze parti", [
             ("p", "Il nostro Servizio si basa sui seguenti fornitori, ciascuno soggetto alle proprie condizioni e alla propria informativa sulla privacy:"),
             ("ul", [
                 "TikTok (API ufficiali e Login Kit);",
@@ -135,27 +145,27 @@ PRIVACY = {
             ]),
             ("p", "L'uso di TikTok da parte tua resta soggetto all'informativa sulla privacy e ai termini propri di TikTok."),
         ]),
-        ("6. Trasferimenti internazionali", [
+        ("7. Trasferimenti internazionali", [
             ("p", "Alcuni di questi fornitori hanno sede al di fuori del tuo paese, in particolare negli Stati Uniti. I tuoi dati possono quindi essere trasferiti e trattati in altri paesi, con le garanzie previste da tali fornitori e dalla legge applicabile."),
         ]),
-        ("7. I tuoi diritti", [
+        ("8. I tuoi diritti", [
             ("p", "Dalla schermata Impostazioni dell'app puoi in qualsiasi momento:"),
             ("ul", [
                 "<strong>Scollegare TikTok</strong>: revochiamo il token di accesso ed eliminiamo la tua sessione, conservando la tua cronologia;",
-                "<strong>Chiudere il tuo account</strong>: eliminiamo i dati memorizzati sul tuo dispositivo e, se TikTok era collegato, revochiamo l'accesso ed eliminiamo dai nostri server le tue sessioni e la cronologia delle statistiche. Questa azione è definitiva.",
+                "<strong>Eliminare il tuo account</strong>: eliminiamo i dati memorizzati sul tuo dispositivo e, se TikTok era collegato, revochiamo l'accesso ed eliminiamo dai nostri server le tue sessioni e la cronologia delle statistiche. Questa azione è definitiva.",
             ]),
             ("p", "Puoi inoltre revocare l'accesso di Wil App dalle impostazioni del tuo account TikTok. In base alla legge applicabile (ad esempio il GDPR), hai inoltre il diritto di accesso, rettifica, cancellazione, limitazione, opposizione e portabilità, nonché il diritto di proporre reclamo all'autorità per la protezione dei dati del tuo paese. Per esercitare tali diritti, in particolare per i dati legati al tuo abbonamento o a un report specifico (indicane il link), contattaci: rispondiamo entro un mese."),
         ]),
-        ("8. Cookie e archiviazione locale", [
+        ("9. Cookie e archiviazione locale", [
             ("p", "Utilizziamo solo cookie strettamente necessari al funzionamento del Servizio, senza pubblicità né tracciamento: la tua scelta della lingua (1 anno), il contatore dell'analisi gratuita (1 anno), il tuo accesso Whop (30 giorni) e cookie temporanei durante l'accesso e il pagamento (da pochi minuti a 24 ore). L'archiviazione locale del tuo browser è utilizzata per le preferenze e la cronologia descritte nella sezione 1."),
         ]),
-        ("9. Età minima", [
+        ("10. Età minima", [
             ("p", "Il Servizio è destinato a persone di almeno 18 anni. Non raccogliamo consapevolmente informazioni da persone di età inferiore a 18 anni. Se ritieni che una persona di età inferiore a 18 anni abbia utilizzato il Servizio, contattaci ed elimineremo i dati corrispondenti."),
         ]),
-        ("10. Modifiche", [
+        ("11. Modifiche", [
             ("p", "Possiamo aggiornare la presente Informativa di tanto in tanto. In caso di modifica rilevante, ti informeremo nell'app. L'uso continuato del Servizio dopo una modifica costituisce accettazione dell'informativa aggiornata. In caso di discrepanza tra le traduzioni, prevale la versione francese."),
         ]),
-        ("11. Contatti", [
+        ("12. Contatti", [
             ("p", "Domande? Contattaci all'indirizzo {EMAIL} o tramite {WHATSAPP}."),
         ]),
     ],
