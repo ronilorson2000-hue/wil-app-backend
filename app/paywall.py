@@ -368,7 +368,7 @@ def load_analysis(analysis_id: str) -> dict | None:
 # Ordre d'affichage des titres : points forts / points faibles d'abord.
 _TEASER_SECTIONS = {
     "video": ["strengths", "weaknesses", "action_plan", "category_scores", "timeline", "hook_rewrites", "shooting_plan"],
-    "account": ["strengths", "improvements", "stats", "suggested_hashtags"],
+    "account": ["strengths", "improvements", "category_scores", "action_plan", "content_ideas", "bio_rewrites", "stats", "suggested_hashtags"],
 }
 
 

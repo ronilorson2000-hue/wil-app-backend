@@ -1412,6 +1412,10 @@ async def tiktok_callback(request: Request):
             strengths: "{tt('dash_strengths')}",
             improvements: "{tt('dash_improvements')}",
             stats: "{tt('pw_section_stats')}",
+            category_scores: "{tt('dash_category_title')}",
+            action_plan: "{tt('dash_action_plan')}",
+            content_ideas: "{tt('dash_content_ideas')}",
+            bio_rewrites: "{tt('dash_bio_rewrites')}",
             suggested_hashtags: "{tt('dash_suggested_hashtags')}"
           }};
           // Petit helper i18n : remplace {{cle}} par sa valeur dans un
@@ -1511,6 +1515,10 @@ def report_page(request: Request, analysis_id: str):
             strengths: "{tt('dash_strengths')}",
             improvements: "{tt('dash_improvements')}",
             stats: "{tt('pw_section_stats')}",
+            category_scores: "{tt('dash_category_title')}",
+            action_plan: "{tt('dash_action_plan')}",
+            content_ideas: "{tt('dash_content_ideas')}",
+            bio_rewrites: "{tt('dash_bio_rewrites')}",
             suggested_hashtags: "{tt('dash_suggested_hashtags')}"
           }};
           // Profil TikTok mémorisé sur l'appareil (jamais le jeton) : même en-tête qu'après la connexion.
@@ -1760,7 +1768,7 @@ function wilAccountReportHtml(data) {
   const esc = wilPwEsc;
   let html = '';
   if (stats && stats.total_videos_analyzed > 0) {
-    const scoreIcon = function (s) { return s <= 40 ? '🔴' : s <= 60 ? '🟡' : s <= 80 ? '🟠' : '🔵'; };
+    const scoreIcon = function (s) { return s <= 40 ? '🔴' : '🔵'; };
     const ratioLine = (stats.likes_followers_ratio !== null && stats.likes_followers_ratio !== undefined)
       ? '<p style="font-size:12px;color:#94A3B8;margin:2px 0 0;">' + wilFmt(WIL_ACC.likesRatio, {ratio: stats.likes_followers_ratio}) + '</p>'
       : '';
@@ -1771,7 +1779,7 @@ function wilAccountReportHtml(data) {
       '<div class="bar-bg" style="margin-top:8px;"><div class="bar-fill" style="width:' + stats.viral_percentage + '%"></div></div>' +
       '<p style="margin-top:14px;font-size:14px;"><strong>🚀 ' + wilFmt(WIL_ACC.viralPct, {pct: stats.viral_percentage}) + '</strong> &nbsp;|&nbsp; <strong>' + wilFmt(WIL_ACC.nonViralPct, {pct: stats.non_viral_percentage}) + '</strong></p>' +
       '<p style="font-size:14px;">' + wilFmt(WIL_ACC.avgEngagement, {pct: stats.average_engagement_rate}) + '</p>' +
-      ratioLine + '</div>';
+      ratioLine + (report && report.score_basis ? '<p style="font-size:12.5px;color:#64748B;margin:8px 0 0;">' + esc(report.score_basis) + '</p>' : '') + '</div>';
     window.__wilAvgViews = stats.average_view_count || '';
   }
   if (report) {
@@ -1792,9 +1800,56 @@ function wilAccountReportHtml(data) {
       '<p style="margin-top:14px;font-size:15px;line-height:1.5;">' + esc(report.summary || '') + '</p>' +
       nicheFocus +
       '<p style="margin-top:16px;"><strong>✅ ' + WIL_ACC.strengths + '</strong></p><ul class="bullets">' + strengths + '</ul>' +
-      '<p><strong>📈 ' + WIL_ACC.improvements + '</strong></p><ul class="bullets">' + improvements + '</ul>' +
-      hashtagDiag +
-      '<p style="margin-top:16px;"><strong>' + WIL_ACC.suggestedHashtags + '</strong></p>' +
+      '<p><strong>📈 ' + WIL_ACC.improvements + '</strong></p><ul class="bullets">' + improvements + '</ul></div>';
+
+    // Détail du profil : une barre bleue par catégorie, avec le conseil et l'exemple (comme dans le rapport vidéo).
+    const cats = report.category_scores || {};
+    const catKeys = ['profile', 'content', 'hooks', 'consistency', 'hashtags'].filter(function (k) { return cats[k]; });
+    if (catKeys.length) {
+      html += '<div class="card"><p style="font-weight:700;margin:0 0 14px;">' + esc(WIL_ACC.catTitle) + '</p>' + catKeys.map(function (k) {
+        const c = cats[k];
+        const sc = Math.max(0, Math.min(100, Number(c.score) || 0));
+        const color = sc <= 40 ? '#DC2626' : '#2563EB';
+        return '<div style="margin-bottom:16px;"><div style="display:flex;justify-content:space-between;margin-bottom:4px;">' +
+          '<span style="font-size:14px;font-weight:600;">' + esc(WIL_ACC.cat[k]) + '</span>' +
+          '<span style="font-size:14px;font-weight:800;color:' + color + ';">' + sc + '</span></div>' +
+          '<div class="bar-bg"><div class="bar-fill" style="width:' + sc + '%;background:' + color + ';"></div></div>' +
+          (c.comment ? '<p style="font-size:12.5px;color:#64748B;margin:6px 0 0;">' + esc(c.comment) + '</p>' : '') +
+          (c.tip ? '<p style="font-size:12.5px;color:#334155;margin:4px 0 0;"><b>' + esc(WIL_ACC.tip) + ' :</b> ' + esc(c.tip) + '</p>' : '') +
+          (c.example ? '<p style="font-size:12.5px;color:#64748B;font-style:italic;margin:2px 0 0;">' + esc(WIL_ACC.example) + ' : ' + esc(c.example) + '</p>' : '') + '</div>';
+      }).join('') + '</div>';
+    }
+
+    // Plan d'action de la semaine
+    if ((report.action_plan || []).length) {
+      html += '<div class="card"><p style="font-weight:700;margin:0 0 6px;">🎯 ' + esc(WIL_ACC.planTitle) + '</p><ol style="padding-left:20px;margin:8px 0 0;">' +
+        report.action_plan.map(function (a) { return '<li style="margin-bottom:8px;line-height:1.5;font-size:14px;">' + esc(a) + '</li>'; }).join('') + '</ol></div>';
+    }
+
+    // Idées de vidéos à tourner
+    if ((report.content_ideas || []).length) {
+      html += '<div class="card"><p style="font-weight:700;margin:0 0 6px;">🎬 ' + esc(WIL_ACC.ideasTitle) + '</p>' +
+        report.content_ideas.map(function (idea) {
+          return '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:12px 14px;margin-top:10px;">' +
+            '<p style="font-weight:700;font-size:14px;margin:0 0 4px;">' + esc(idea.title) + '</p>' +
+            (idea.hook ? '<p style="font-size:13px;color:#2563EB;margin:0 0 4px;font-weight:600;">' + esc(WIL_ACC.ideaHook) + ' : « ' + esc(idea.hook) + ' »</p>' : '') +
+            (idea.why ? '<p style="font-size:12.5px;color:#64748B;margin:0;">' + esc(idea.why) + '</p>' : '') + '</div>';
+        }).join('') + '</div>';
+    }
+
+    // Bio : 2 versions plus efficaces, copiables
+    if ((report.bio_rewrites || []).length) {
+      html += '<div class="card"><p style="font-weight:700;margin:0 0 6px;">✍️ ' + esc(WIL_ACC.bioTitle) + '</p>' +
+        report.bio_rewrites.map(function (b) {
+          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:10px 14px;margin-top:10px;">' +
+            '<span style="font-size:14px;line-height:1.4;">' + esc(b) + '</span>' +
+            '<button type="button" data-t="' + esc(b) + '" onclick="try{navigator.clipboard.writeText(this.dataset.t);this.textContent=\'✓\';}catch(e){}" ' +
+            'style="flex-shrink:0;border:0;background:#2563EB;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;" title="' + esc(WIL_ACC.copy) + '">📋</button></div>';
+        }).join('') + '</div>';
+    }
+
+    html += '<div class="card">' + hashtagDiag.replace('margin-top:16px;', 'margin-top:0;') +
+      '<p style="margin-top:' + (hashtagDiag ? '16px' : '0') + ';"><strong>' + WIL_ACC.suggestedHashtags + '</strong></p>' +
       '<div style="margin-top:6px;">' + hashtags + '</div></div>';
     window.__wilNicheCategory = report.niche_category || '';
   }
@@ -1820,6 +1875,21 @@ def _account_report_js(tt) -> str:
         "improvements": tt("dash_improvements"),
         "suggestedHashtags": tt("dash_suggested_hashtags"),
         "unavailable": tt("dash_analysis_unavailable"),
+        "catTitle": tt("dash_category_title"),
+        "cat": {
+            "profile": tt("dash_cat_profile"),
+            "content": tt("dash_cat_content"),
+            "hooks": tt("dash_cat_hooks"),
+            "consistency": tt("dash_cat_consistency"),
+            "hashtags": tt("dash_cat_hashtags"),
+        },
+        "tip": tt("res_tip_label"),
+        "example": tt("res_example_label"),
+        "planTitle": tt("dash_action_plan"),
+        "ideasTitle": tt("dash_content_ideas"),
+        "ideaHook": tt("dash_idea_hook"),
+        "bioTitle": tt("dash_bio_rewrites"),
+        "copy": tt("dash_copy"),
     }
     return _ACCOUNT_REPORT_JS.replace("__L__", _js_json(labels))
 
@@ -5591,6 +5661,86 @@ async def close_account(body: CloseAccountRequest):
     return JSONResponse(content={"ok": True, "deleted": True})
 
 
+# --------------------------------------------------------------------------
+# Rapport de COMPTE (Claude) : même richesse que le rapport vidéo (notes par catégorie avec conseil et exemple,
+# plan d'action, idées de vidéos, bio). Les anciens champs (summary, strengths, improvements...) sont conservés.
+ACCOUNT_CATEGORY_KEYS = ("profile", "content", "hooks", "consistency", "hashtags")
+
+
+def _parse_ai_json(raw_text: str) -> dict | None:
+    """JSON de la réponse de l'IA, même entouré de ```json ou de texte parasite. None si illisible."""
+    cleaned = (raw_text or "").strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.lower().startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+    for candidate in (cleaned, cleaned[cleaned.find("{"):cleaned.rfind("}") + 1] if "{" in cleaned else ""):
+        if not candidate:
+            continue
+        try:
+            value = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            return value
+    return None
+
+
+def _text_field(value, limit: int) -> str:
+    return str(value).strip()[:limit] if isinstance(value, (str, int, float)) and str(value).strip() else ""
+
+
+def _string_list(value, maximum: int, limit: int = 300) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [t for t in (_text_field(item, limit) for item in value) if t][:maximum]
+
+
+def _clean_account_report(report) -> dict | None:
+    """Garde uniquement des champs bien formés (jamais de plantage de l'affichage sur une réponse imparfaite de l'IA)."""
+    if not isinstance(report, dict):
+        return None
+    out = dict(report)
+    out["strengths"] = _string_list(report.get("strengths"), 3)
+    out["improvements"] = _string_list(report.get("improvements"), 3)
+    out["action_plan"] = _string_list(report.get("action_plan"), 3)
+    out["bio_rewrites"] = _string_list(report.get("bio_rewrites"), 2, 150)
+    out["score_basis"] = _text_field(report.get("score_basis"), 300)
+
+    categories = {}
+    raw_categories = report.get("category_scores")
+    if isinstance(raw_categories, dict):
+        for key in ACCOUNT_CATEGORY_KEYS:
+            item = raw_categories.get(key)
+            if not isinstance(item, dict):
+                continue
+            try:
+                score = max(0, min(100, int(round(float(item.get("score"))))))
+            except (TypeError, ValueError):
+                continue
+            categories[key] = {
+                "score": score,
+                "comment": _text_field(item.get("comment"), 240),
+                "tip": _text_field(item.get("tip"), 160),
+                "example": _text_field(item.get("example"), 200),
+            }
+    out["category_scores"] = categories
+
+    ideas = []
+    if isinstance(report.get("content_ideas"), list):
+        for item in report["content_ideas"]:
+            if not isinstance(item, dict):
+                continue
+            title = _text_field(item.get("title"), 140)
+            if not title:
+                continue
+            ideas.append({"title": title, "hook": _text_field(item.get("hook"), 140), "why": _text_field(item.get("why"), 220)})
+    out["content_ideas"] = ideas[:3]
+    return out
+
+
+
 @app.get("/api/analyze-account", response_class=JSONResponse)
 async def analyze_account(
     request: Request,
@@ -5959,6 +6109,13 @@ données comme un problème)."""
             "reach": "L'utilisateur dit que son plus gros défi est la PORTÉE/les VUES : oriente \"improvements\" vers ce qui retient dès la première seconde et jusqu'au bout (accroche, rythme).",
         }.get(main_challenge, "Défi principal non précisé — reste équilibré entre accroche, rétention et appel à l'action.")
 
+        has_performance_data = bool(stats and stats.get("videos"))
+        categories_rule = (
+            'note les 5 catégories "profile", "content", "hooks", "consistency" et "hashtags".'
+            if has_performance_data
+            else 'aucune donnée de performance n\'est disponible : ne note QUE "profile" (laisse les 4 autres catégories de côté).'
+        )
+
         prompt = f"""Profil :
 - Nom affiché : {display_name}
 - Nom d'utilisateur : @{username}
@@ -6077,9 +6234,44 @@ actuelle, expliqué avec une technique nommée (règle 4) et SANS chiffre
 — pas juste "il vous manque de la régularité". Termine sur un ton qui
 donne envie d'agir, pas alarmiste.
 
-BRIÈVETÉ (important) : le rapport doit être court et direct — un créateur
-doit pouvoir le lire en 15 secondes. Pas de phrase d'intro/conclusion
-inutile, pas de reformulation, une idée par phrase. Précis > exhaustif.
+NOTES PAR CATÉGORIE ("category_scores") : {categories_rule}
+Pour chaque catégorie : "score" (0 à 100, honnête, appuyé sur un vrai signal de CE compte),
+"comment" (UNE phrase courte qui justifie la note), "tip" (UNE instruction à
+l'impératif, 10 mots maximum) et "example" (un exemple concret adapté à CE compte,
+14 mots maximum : un titre de vidéo, une phrase à dire, un sujet à filmer).
+- "profile" : nom, bio et promesse du compte — comprend-on en 3 secondes de quoi parle le compte et pourquoi le suivre ?
+- "content" : cohérence de la niche et des sujets, et sujets qui marchent le mieux sur CE compte.
+- "hooks" : la façon dont les titres et accroches des vidéos donnent envie de regarder (compare les vidéos qui marchent à celles qui marchent moins).
+- "consistency" : régularité de publication, moment de la journée, plateau récent.
+- "hashtags" : pertinence et variété des hashtags.
+Les notes doivent être COHÉRENTES entre elles et avec le « Score de viralité du compte »
+donné plus haut (jamais une note qui le contredit nettement). N'invente aucune note pour
+une catégorie sans donnée réelle.
+
+"score_basis" : UNE phrase courte, ZÉRO chiffre, qui explique ce qui tire le score de
+viralité du compte vers le haut ou vers le bas (le plus parlant, pas une liste).
+
+PLAN D'ACTION ("action_plan") : EXACTEMENT 3 instructions pour les 7 prochains jours,
+dans l'ordre d'importance, chacune à l'impératif, 14 mots maximum, concrète et propre à
+CE compte (jamais un conseil valable pour tous). Ne recopie pas "improvements" : le plan
+dit QUOI FAIRE CETTE SEMAINE. Aucune statistique du compte ; une quantité d'actions est
+permise, écrite en toutes lettres (« trois vidéos »).
+
+IDÉES DE VIDÉOS ("content_ideas") : EXACTEMENT 3 idées de vidéos à tourner, inspirées
+des sujets et formats qui marchent le mieux sur CE compte (titres les plus vus ci-dessus ;
+sans titres, base-toi sur la bio et la niche). Pour chacune : "title" (le sujet de la
+vidéo, 9 mots maximum), "hook" (la première phrase à dire : 4 à 9 mots, elle nomme un
+détail PRÉCIS), "why" (pourquoi cette idée colle à CE compte, 14 mots maximum, sans
+chiffre). Aucune idée générique.
+
+BIO ("bio_rewrites") : EXACTEMENT 2 versions de la bio, 80 caractères maximum chacune :
+une promesse claire (qui est le créateur + ce qu'on gagne à le suivre), écrite à la
+première personne ou sans pronom (une bio ne vouvoie pas). N'invente aucun fait ni chiffre
+sur le créateur.
+
+BRIÈVETÉ (important) : chaque élément doit se lire en quelques secondes — phrases
+COURTES (12 mots maximum), une idée par phrase, pas d'intro ni de conclusion inutile,
+pas de reformulation. Précis > exhaustif.
 
 Réponds avec un objet JSON (pas de markdown, pas de balises de code, juste
 du JSON brut) contenant exactement ces champs, avec un texte très simple
@@ -6090,15 +6282,26 @@ du JSON brut) contenant exactement ces champs, avec un texte très simple
   "niches_detected": ["1 à 3 sujets courts trouvés sur ce compte (règle 9) — une seule entrée si le compte est déjà cohérent sur un seul sujet"],
   "niche_focus_advice": "1 phrase MAXIMUM, CM2, ZÉRO chiffre, instruction à l'impératif pour se concentrer sur le sujet qui marche le mieux (règle 9) — chaîne vide si 'niches_detected' n'a qu'une seule entrée",
   "summary": "1-2 phrases MAXIMUM, niveau CM2, suivant la STRUCTURE DU RÉSUMÉ ci-dessus — UN chiffre marquant autorisé pour la preuve de réussite, ZÉRO chiffre pour l'écart/reproche",
-  "strengths": ["1-2 points forts MAXIMUM, chacun en 1 phrase simple, appuyé sur un vrai signal de ce compte — ce que le créateur fait déjà bien et doit continuer ; UN chiffre marquant autorisé s'il prouve la réussite (règle d'or n°2)"],
-  "improvements": ["1-2 instructions MAXIMUM à l'impératif (RÈGLE D'OR N°3), chacune en 1 phrase simple, ZÉRO chiffre : soit ce qu'il FAUT faire ('Commencez à...'), soit ce qu'il NE FAUT PAS faire ('Arrêtez de...') — jamais une simple observation"],
+  "strengths": ["2-3 points forts MAXIMUM, chacun en 1 phrase simple, appuyé sur un vrai signal de ce compte — ce que le créateur fait déjà bien et doit continuer ; UN chiffre marquant autorisé s'il prouve la réussite (règle d'or n°2)"],
+  "improvements": ["2-3 instructions MAXIMUM à l'impératif (RÈGLE D'OR N°3), chacune en 1 phrase simple, ZÉRO chiffre : soit ce qu'il FAUT faire ('Commencez à...'), soit ce qu'il NE FAUT PAS faire ('Arrêtez de...') — jamais une simple observation"],
   "hashtag_diagnosis": "1 phrase MAXIMUM, ZÉRO chiffre, expliquant si les hashtags actuels aident ou nuisent — nomme explicitement le problème de répétition si des hashtags sur-utilisés sont listés ci-dessus (règle 7)",
-  "suggested_hashtags": ["5 hashtags pertinents pour la niche à privilégier (celle nommée dans niche_focus_advice si plusieurs niches détectées, sinon la niche unique du compte), sans le symbole #"]
+  "suggested_hashtags": ["5 hashtags pertinents pour la niche à privilégier (celle nommée dans niche_focus_advice si plusieurs niches détectées, sinon la niche unique du compte), sans le symbole #"],
+  "score_basis": "UNE phrase courte, ZÉRO chiffre : ce qui tire le score de viralité du compte vers le haut ou vers le bas",
+  "category_scores": {{
+    "profile": {{"score": 0, "comment": "...", "tip": "...", "example": "..."}},
+    "content": {{"score": 0, "comment": "...", "tip": "...", "example": "..."}},
+    "hooks": {{"score": 0, "comment": "...", "tip": "...", "example": "..."}},
+    "consistency": {{"score": 0, "comment": "...", "tip": "...", "example": "..."}},
+    "hashtags": {{"score": 0, "comment": "...", "tip": "...", "example": "..."}}
+  }},
+  "action_plan": ["EXACTEMENT 3 instructions pour les 7 prochains jours (voir PLAN D'ACTION)"],
+  "content_ideas": [{{"title": "...", "hook": "...", "why": "..."}}, {{"title": "...", "hook": "...", "why": "..."}}, {{"title": "...", "hook": "...", "why": "..."}}],
+  "bio_rewrites": ["version 1 de la bio (80 caractères max)", "version 2 de la bio (80 caractères max)"]
 }}
 
-Le contenu de chaque champ doit être rédigé entièrement en français, très
-simple, sans aucun chiffre (sauf le champ suggested_hashtags qui n'en
-contient de toute façon pas)."""
+Le contenu de chaque champ est rédigé dans la langue précisée au tout début de tes
+instructions, avec des mots très simples. Aucune statistique chiffrée du compte dans
+les conseils (sauf l'unique chiffre marquant autorisé dans "summary"/"strengths")."""
 
         # Note : la recherche web en direct (pour des hashtags vraiment
         # "tendance maintenant") a été désactivée pour l'instant, car plus
@@ -6114,7 +6317,7 @@ contient de toute façon pas)."""
         # retombe alors proprement sur ai_report=None au lieu de planter.
         response = None
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=90) as client:
                 response = await client.post(
                     "https://api.anthropic.com/v1/messages",
                     headers={
@@ -6124,8 +6327,9 @@ contient de toute façon pas)."""
                     },
                     json={
                         "model": "claude-sonnet-5",
-                        "max_tokens": 3000,
-                        "output_config": {"effort": "low"},
+                        # Rapport plus riche (notes, plan, idées, bio) : plus de place pour répondre.
+                        "max_tokens": 6000,
+                        "output_config": {"effort": os.getenv("ACCOUNT_AI_EFFORT", "medium")},
                         "messages": _cached_messages(prompt, ui_lang),
                     },
                 )
@@ -6135,16 +6339,7 @@ contient de toute façon pas)."""
         if response and response.status_code == 200:
             raw_text = _extract_text_block(response.json())
 
-            cleaned = raw_text.strip()
-            if cleaned.startswith("```"):
-                cleaned = cleaned.strip("`")
-                if cleaned.startswith("json"):
-                    cleaned = cleaned[4:]
-                cleaned = cleaned.strip()
-            try:
-                ai_report = json.loads(cleaned)
-            except json.JSONDecodeError:
-                ai_report = None
+            ai_report = _clean_account_report(_parse_ai_json(raw_text))
 
             # Claude doit choisir dans la liste fermée NICHE_CATEGORIES, mais
             # on ne lui fait pas confiance aveuglément (variation de formulation,
