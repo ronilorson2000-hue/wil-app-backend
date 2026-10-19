@@ -3005,7 +3005,18 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             const box = document.getElementById('locked-report');
             box.classList.remove('hidden');
             const titles = (data.sections || []).map(function (k) {{ return LOCK_TITLES[k]; }}).filter(Boolean);
-            box.innerHTML = wilLockedReportHtml(titles, '/tools/analyze-video?unlock=' + data.unlock_id);
+            // Aperçu gratuit (envoyé par le serveur) : visible, pour donner envie de débloquer le reste.
+            const preview = data.preview || {{}};
+            let previewHtml = '';
+            if (preview.category_scores) {{
+              previewHtml += '<div class="insight-card"><p class="font-semibold text-sm mb-3">' + escapeHtml(LOCK_TITLES.category_scores) +
+                '</p><div class="space-y-4">' + categoriesHtml(preview.category_scores) + '</div></div>';
+            }}
+            if (preview.timeline && preview.timeline.length) {{
+              previewHtml += '<div class="insight-card"><p class="font-semibold text-sm mb-3">' + escapeHtml(LOCK_TITLES.timeline) +
+                '</p><div class="space-y-4">' + timelineHtml(preview.timeline) + '</div></div>';
+            }}
+            box.innerHTML = previewHtml + wilLockedReportHtml(titles, '/tools/analyze-video?unlock=' + data.unlock_id);
           }}
 
           // Miniature réduite : gardée avec le rapport pour que la page se réaffiche à l'identique après une actualisation.
@@ -3031,6 +3042,31 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               wilCacheReport(id, {{kind: 'video', locked: !!data.locked, payload: data, thumb: thumb}});
             }});
             try {{ history.replaceState(null, '', location.pathname + '?unlock=' + id); }} catch (e) {{}}
+          }}
+
+          // « Détail du score » : une barre par catégorie (même rendu dans le rapport complet et dans l'aperçu gratuit).
+          function categoriesHtml(cats) {{
+            return Object.keys(CAT_LABELS).map(function (key) {{
+              const c = cats[key] || {{score: 0, comment: ''}};
+              return '<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-medium">' + CAT_LABELS[key] +
+                '</span><span class="text-sm font-extrabold" style="color:' + scoreColor(c.score) + '">' + c.score + '</span></div>' +
+                '<div class="score-track"><div class="score-fill" style="width:' + c.score + '%;background:' + scoreColor(c.score) + '"></div></div>' +
+                '<p class="text-xs text-slate-500 mt-1">' + escapeHtml(c.comment) + '</p>' +
+                (c.tip ? '<p class="text-xs text-slate-700 mt-1"><b>' + TIP_LABEL + ' :</b> ' + escapeHtml(c.tip) + '</p>' : '') +
+                (c.example ? '<p class="text-xs text-slate-500 italic mt-0.5">' + EXAMPLE_LABEL + ' : ' + escapeHtml(c.example) + '</p>' : '') + '</div>';
+            }}).join('');
+          }}
+
+          // « Déroulé de la vidéo » : début, milieu, fin avec le verdict de chaque moment.
+          function timelineHtml(timeline) {{
+            return timeline.map(function (t) {{
+              const color = VERDICT_COLORS[t.verdict] || '#64748B';
+              return '<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-bold">' + escapeHtml(PHASE_LABELS[t.phase] || t.phase) +
+                (t.moment ? ' <span class="text-xs font-normal text-slate-400">· ' + escapeHtml(t.moment) + '</span>' : '') + '</span>' +
+                '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="color:' + color + ';background:' + color + '1A">' + escapeHtml(VERDICT_LABELS[t.verdict] || '') + '</span></div>' +
+                '<p class="text-sm text-slate-600">' + escapeHtml(t.what_happens) + '</p>' +
+                (t.advice ? '<p class="text-sm text-slate-800 mt-1">→ ' + escapeHtml(t.advice) + '</p>' : '') + '</div>';
+            }}).join('');
           }}
 
           function renderResults(data, silent) {{
@@ -3067,27 +3103,11 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               }});
             }}
 
-            const cats = data.category_scores || {{}};
-            document.getElementById('stats-categories').innerHTML = Object.keys(CAT_LABELS).map(function (key) {{
-              const c = cats[key] || {{score: 0, comment: ''}};
-              return '<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-medium">' + CAT_LABELS[key] +
-                '</span><span class="text-sm font-extrabold" style="color:' + scoreColor(c.score) + '">' + c.score + '</span></div>' +
-                '<div class="score-track"><div class="score-fill" style="width:' + c.score + '%;background:' + scoreColor(c.score) + '"></div></div>' +
-                '<p class="text-xs text-slate-500 mt-1">' + escapeHtml(c.comment) + '</p>' +
-                (c.tip ? '<p class="text-xs text-slate-700 mt-1"><b>' + TIP_LABEL + ' :</b> ' + escapeHtml(c.tip) + '</p>' : '') +
-                (c.example ? '<p class="text-xs text-slate-500 italic mt-0.5">' + EXAMPLE_LABEL + ' : ' + escapeHtml(c.example) + '</p>' : '') + '</div>';
-            }}).join('');
+            document.getElementById('stats-categories').innerHTML = categoriesHtml(data.category_scores || {{}});
 
             const timeline = data.timeline || [];
             document.getElementById('timeline-card').classList.toggle('hidden', timeline.length === 0);
-            document.getElementById('stats-timeline').innerHTML = timeline.map(function (t) {{
-              const color = VERDICT_COLORS[t.verdict] || '#64748B';
-              return '<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-bold">' + escapeHtml(PHASE_LABELS[t.phase] || t.phase) +
-                (t.moment ? ' <span class="text-xs font-normal text-slate-400">· ' + escapeHtml(t.moment) + '</span>' : '') + '</span>' +
-                '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="color:' + color + ';background:' + color + '1A">' + escapeHtml(VERDICT_LABELS[t.verdict] || '') + '</span></div>' +
-                '<p class="text-sm text-slate-600">' + escapeHtml(t.what_happens) + '</p>' +
-                (t.advice ? '<p class="text-sm text-slate-800 mt-1">→ ' + escapeHtml(t.advice) + '</p>' : '') + '</div>';
-            }}).join('');
+            document.getElementById('stats-timeline').innerHTML = timelineHtml(timeline);
 
             const rewrites = data.hook_rewrites || [];
             document.getElementById('rewrites-card').classList.toggle('hidden', rewrites.length === 0);
@@ -3172,7 +3192,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 if (d.kind !== 'video') throw new Error('kind');
                 const thumb = cached ? cached.thumb : '';
                 const entry = d.locked
-                  ? {{kind: 'video', locked: true, payload: {{locked: true, kind: 'video', unlock_id: reportId, sections: d.teaser.sections}}, thumb: thumb}}
+                  ? {{kind: 'video', locked: true, payload: {{locked: true, kind: 'video', unlock_id: reportId, sections: d.teaser.sections, preview: d.teaser.preview}}, thumb: thumb}}
                   : {{kind: 'video', locked: false, payload: d.report, thumb: thumb}};
                 wilCacheReport(reportId, entry);
                 show(entry, !!(cached && !cached.locked));
