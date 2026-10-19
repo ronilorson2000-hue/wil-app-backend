@@ -3010,16 +3010,15 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             const box = document.getElementById('locked-report');
             box.classList.remove('hidden');
             const titles = (data.sections || []).map(function (k) {{ return LOCK_TITLES[k]; }}).filter(Boolean);
-            // Aperçu gratuit (envoyé par le serveur) : visible, pour donner envie de débloquer le reste.
+            // Aperçu gratuit (envoyé par le serveur) : les points forts sont visibles, pour donner envie de débloquer le reste.
             const preview = data.preview || {{}};
             let previewHtml = '';
-            if (preview.category_scores) {{
-              previewHtml += '<div class="insight-card"><p class="font-semibold text-sm mb-3">' + escapeHtml(LOCK_TITLES.category_scores) +
-                '</p><div class="space-y-4">' + categoriesHtml(preview.category_scores) + '</div></div>';
-            }}
-            if (preview.timeline && preview.timeline.length) {{
-              previewHtml += '<div class="insight-card"><p class="font-semibold text-sm mb-3">' + escapeHtml(LOCK_TITLES.timeline) +
-                '</p><div class="space-y-4">' + timelineHtml(preview.timeline) + '</div></div>';
+            if (preview.strengths && preview.strengths.length) {{
+              previewHtml += '<div class="insight-card"><div class="flex items-start gap-3"><div class="improve-icon">✅</div><div class="flex-1">' +
+                '<p class="font-bold text-sm mb-1">' + escapeHtml(LOCK_TITLES.strengths) + '</p>' +
+                '<ul class="text-sm text-slate-600 list-disc pl-4 space-y-1">' +
+                preview.strengths.map(function (x) {{ return '<li>' + escapeHtml(x) + '</li>'; }}).join('') +
+                '</ul></div></div></div>';
             }}
             box.innerHTML = previewHtml + wilLockedReportHtml(titles, '/tools/analyze-video?unlock=' + data.unlock_id);
           }}
