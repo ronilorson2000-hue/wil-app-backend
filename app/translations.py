@@ -36,9 +36,9 @@ TRANSLATIONS = {
     "fr": {
         "nav_services": "Services",
         "nav_how_it_works": "Comment ça marche",
-        "nav_pricing": "Pricing",
+        "nav_pricing": "Tarifs",
         "nav_faq": "FAQ",
-        "nav_about": "About",
+        "nav_about": "À propos",
         "nav_contact": "Contact",
         "nav_login": "Se connecter",
         "nav_language": "Langue",
@@ -63,8 +63,8 @@ TRANSLATIONS = {
         "hiw_3_title": "Analyse le script d'une vidéo",
         "hiw_3_desc": "Colle le texte de ton prochain script pour recevoir un score de viralité estimé et des conseils, avant même de filmer.",
 
-        "pricing_title": "Pricing",
-        "pricing_free_name": "Free",
+        "pricing_title": "Tarifs",
+        "pricing_free_name": "Gratuit",
         "pricing_free_period": "/mois",
         "pricing_free_feature1": "Connecte ton compte TikTok",
         "pricing_free_feature2": "Aperçu de profil de base",
@@ -134,8 +134,8 @@ TRANSLATIONS = {
         "footer_whatsapp": "WhatsApp",
         "footer_col_product": "Produit",
         "footer_col_info": "Informations",
-        "footer_terms": "Terms of Service",
-        "footer_privacy": "Privacy Policy",
+        "footer_terms": "Conditions d'utilisation",
+        "footer_privacy": "Politique de confidentialité",
         "footer_rights": "Tous droits réservés.",
 
         "services_title": "Nos services",
@@ -954,7 +954,7 @@ TRANSLATIONS = {
         "hiw_3_desc": "Fügen Sie den Text Ihres nächsten Skripts ein, um einen geschätzten Viralitäts-Score und Ratschläge zu erhalten, noch bevor Sie drehen.",
 
         "pricing_title": "Preise",
-        "pricing_free_name": "Free",
+        "pricing_free_name": "Kostenlos",
         "pricing_free_period": "/Monat",
         "pricing_free_feature1": "TikTok-Konto verbinden",
         "pricing_free_feature2": "Grundlegende Profilübersicht",
@@ -1147,7 +1147,7 @@ TRANSLATIONS = {
         "loading_script_analyzing": "Text wird analysiert...",
         "loading_insights": "Insights werden erstellt...",
         "loading_done": "Analyse abgeschlossen!",
-        "results_smart_insights": "Smart Insights",
+        "results_smart_insights": "Intelligente Analyse",
         "results_viral_potential": "Viralitätspotenzial",
         "results_niche_label": "Nische",
         "results_caption_label": "Vorgeschlagene Bildunterschrift",
@@ -1399,7 +1399,7 @@ TRANSLATIONS = {
         "hiw_3_desc": "Pega el texto de tu próximo guion para recibir una puntuación de viralidad estimada y consejos, incluso antes de grabar.",
 
         "pricing_title": "Precios",
-        "pricing_free_name": "Free",
+        "pricing_free_name": "Gratis",
         "pricing_free_period": "/mes",
         "pricing_free_feature1": "Conecta tu cuenta de TikTok",
         "pricing_free_feature2": "Resumen básico del perfil",
@@ -1844,7 +1844,7 @@ TRANSLATIONS = {
         "hiw_3_desc": "Cola o texto do teu próximo roteiro para receberes uma pontuação de viralidade estimada e conselhos, ainda antes de filmares.",
 
         "pricing_title": "Preços",
-        "pricing_free_name": "Free",
+        "pricing_free_name": "Grátis",
         "pricing_free_period": "/mês",
         "pricing_free_feature1": "Conecta a tua conta do TikTok",
         "pricing_free_feature2": "Visão geral básica do perfil",
@@ -2289,7 +2289,7 @@ TRANSLATIONS = {
         "hiw_3_desc": "Incolla il testo del tuo prossimo script per ricevere un punteggio di viralità stimato e consigli, ancora prima di girare.",
 
         "pricing_title": "Prezzi",
-        "pricing_free_name": "Free",
+        "pricing_free_name": "Gratuito",
         "pricing_free_period": "/mese",
         "pricing_free_feature1": "Collega il tuo account TikTok",
         "pricing_free_feature2": "Panoramica base del profilo",
