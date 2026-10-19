@@ -946,58 +946,49 @@ def pricing_page(request: Request):
     lang = _detect_ui_lang(request)
     tt = lambda key: t(lang, key)  # noqa: E731
     prices = paywall.plan_prices()
+    features = "".join(
+        f'<li class="relative pl-5 mb-2"><span class="absolute left-0 text-green-600 font-extrabold">✓</span>{tt(key)}</li>'
+        for key in ("pw_pro_feat1", "pw_pro_feat2", "pw_pro_feat3")
+    )
+
+    def plan_card(plan: str, title: str, price: str, per: str, best: bool, save: str) -> str:
+        """Même carte que sous un rapport verrouillé : nom, prix, contenu du plan, bouton."""
+        border = "border-2 border-violet-600 shadow-lg shadow-violet-200" if best else "border border-violet-300"
+        badge = (
+            f'<span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-[11px] font-bold px-3 py-1 rounded-full whitespace-nowrap">'
+            f'{tt("pw_best_value")}</span>' if best else ""
+        )
+        return f"""
+            <div class="relative flex flex-col bg-white {border} rounded-2xl p-4 pt-6 sm:p-6 sm:pt-8">
+              {badge}
+              <h3 class="font-bold text-base text-center">{title}</h3>
+              <div class="text-3xl font-extrabold text-center text-blue-600 mt-1">{price}<span class="text-sm font-semibold text-slate-400"> {per}</span></div>
+              <p class="text-center text-xs font-bold text-green-600 min-h-[1rem] mt-1 mb-4">{save}</p>
+              <ul class="text-[13px] leading-snug text-slate-700 mb-5 flex-1">{features}</ul>
+              <a href="/subscribe?to=/app&plan={plan}" class="block text-center px-3 py-3 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition">{tt("pw_choose")}</a>
+            </div>"""
+
     if paywall.paywall_enabled():
-        yearly_line = (
-            f'<p class="text-sm text-slate-500 -mt-3 mb-5">{tt("pw_plan_yearly")} : <b>{prices["yearly"]}</b> {tt("pw_per_year")}'
-            + (f' · <span class="text-green-600 font-semibold">{tt("pw_save").replace("{pct}", str(prices["savePct"]))}</span>' if prices["savePct"] > 0 else "")
-            + "</p>"
-            if prices["hasYearly"] else ""
-        )
-        pro_price_html = (
-            f'<div class="text-3xl font-extrabold mb-5 text-blue-600">{prices["monthly"]}'
-            f'<span class="text-sm font-normal text-slate-400"> {tt("pw_per_month")}</span></div>{yearly_line}'
-        )
-        yearly_cta = (
-            f'<a href="/subscribe?to=/app&plan=yearly" class="mt-3 inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">'
-            f'{tt("pw_plan_yearly")} · {prices["yearly"]} {tt("pw_per_year")}</a>'
-            if prices["hasYearly"] else ""
-        )
-        pro_cta_html = (
-            f'<a href="/subscribe?to=/app&plan=monthly" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">'
-            f'{tt("pw_plan_monthly")} · {prices["monthly"]} {tt("pw_per_month")}</a>{yearly_cta}'
-            f'<p class="text-xs text-slate-400 mt-3">{tt("pw_cancel_anytime")}</p>'
-        )
+        save_text = tt("pw_save").replace("{pct}", str(prices["savePct"])) if prices["hasYearly"] and prices["savePct"] > 0 else ""
+        # Mensuel à gauche, annuel (mis en avant) à droite, comme sous les rapports verrouillés.
+        cards = plan_card("monthly", tt("pw_plan_monthly"), prices["monthly"], tt("pw_per_month"), not prices["hasYearly"], "")
+        if prices["hasYearly"]:
+            cards += plan_card("yearly", tt("pw_plan_yearly"), prices["yearly"], tt("pw_per_year"), True, save_text)
+        grid_class = "grid-cols-2 max-w-2xl" if prices["hasYearly"] else "grid-cols-1 max-w-xs"
+        plans_html = f"""
+          <div class="grid {grid_class} gap-4 sm:gap-6 mx-auto">{cards}
+          </div>
+          <p class="text-center text-xs text-slate-400 mt-6">{tt("pw_cancel_anytime")}</p>"""
     else:
-        pro_price_html = f'<div class="text-2xl font-extrabold mb-5 text-blue-600">{tt("pricing_pro_price")}</div>'
-        pro_cta_html = f'<button disabled class="mt-auto px-6 py-3 rounded-xl bg-blue-300 text-white font-semibold text-sm cursor-not-allowed">{tt("pricing_pro_cta")}</button>'
+        plans_html = f'<p class="text-center text-lg font-bold text-blue-600">{tt("pricing_pro_price")}</p>'
     return f"""
     <html lang="{lang}">
       <head><title>{tt("pricing_title")} — Wil App</title>{_SECONDARY_PAGE_HEAD}</head>
       <body class="bg-white text-slate-900 antialiased">
         {_secondary_page_nav_html(lang, "/pricing")}
-        <div class="max-w-5xl mx-auto px-6 py-16">
-          <h1 class="text-3xl font-bold text-center mb-14">{tt("pricing_title")}</h1>
-          <div class="grid sm:grid-cols-2 gap-6 max-w-xl mx-auto">
-            <div class="border border-slate-200 rounded-2xl p-8 text-center flex flex-col">
-              <h3 class="font-bold text-lg mb-2">{tt("pricing_free_name")}</h3>
-              <div class="text-3xl font-extrabold mb-5">0 {os.getenv("WIL_PRICE_CURRENCY", "€")}<span class="text-sm font-normal text-slate-400">{tt("pricing_free_period")}</span></div>
-              <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-                <li>✔ {tt("pw_free_feat")}</li>
-              </ul>
-              <a href="/app" class="mt-auto inline-block px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition">{tt("pricing_free_cta")}</a>
-              <p class="text-xs text-slate-400 mt-3">{tt("trust_line")}</p>
-            </div>
-            <div class="border-2 border-blue-600 rounded-2xl p-8 text-center relative flex flex-col">
-              <h3 class="font-bold text-lg mb-2">{tt("pricing_pro_name")}</h3>
-              {pro_price_html}
-              <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-                <li>✔ {tt("pw_pro_feat1")}</li>
-                <li>✔ {tt("pw_pro_feat2")}</li>
-                <li>✔ {tt("pw_pro_feat3")}</li>
-              </ul>
-              {pro_cta_html}
-            </div>
-          </div>
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+          <h1 class="text-3xl font-bold text-center mb-12">{tt("pricing_title")}</h1>
+          {plans_html}
         </div>
       </body>
     </html>
