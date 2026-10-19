@@ -1546,22 +1546,28 @@ def report_page(request: Request, analysis_id: str):
             }}
           }};
           const cached = wilGetCachedReport(reportId);
-          if (cached) show(cached);
-          if (!cached || cached.locked) {{
-            wilLoadUnlocked(reportId)
-              .then(function (d) {{
-                const entry = d.locked
-                  ? {{kind: d.kind, locked: true, payload: {{locked: true, kind: d.kind, unlock_id: reportId, sections: d.teaser.sections}}}}
-                  : {{kind: d.kind, locked: false, payload: d.report}};
-                wilCacheReport(reportId, entry);
-                show(entry);
-              }})
-              .catch(function () {{
-                if (cached) return;
-                document.getElementById('report-loading').style.display = 'none';
-                document.getElementById('analysis-result').innerHTML = '<div class="card"><p class="loading" style="color:#DC2626;">' + wilPwEsc(WIL_PW.error) + '</p></div>';
-              }});
+          if (cached && cached.locked) {{
+            show(cached);
+          }} else if (cached) {{
+            // Rapport complet gardé sur cet appareil : affiché seulement si l'abonnement est toujours actif.
+            fetch('/api/me').then(function (r) {{ return r.json(); }}).then(function (me) {{
+              if (me && (me.subscribed || !me.paywall)) show(cached);
+            }}).catch(function () {{}});
           }}
+          wilLoadUnlocked(reportId)
+            .then(function (d) {{
+              const entry = d.locked
+                ? {{kind: d.kind, locked: true, payload: {{locked: true, kind: d.kind, unlock_id: reportId, sections: d.teaser.sections}}}}
+                : {{kind: d.kind, locked: false, payload: d.report}};
+              wilCacheReport(reportId, entry);
+              if (cached && !cached.locked && !entry.locked) return;  // déjà affiché
+              show(entry);
+            }})
+            .catch(function () {{
+              if (cached) return;
+              document.getElementById('report-loading').style.display = 'none';
+              document.getElementById('analysis-result').innerHTML = '<div class="card"><p class="loading" style="color:#DC2626;">' + wilPwEsc(WIL_PW.error) + '</p></div>';
+            }});
         </script>
       </body>
     </html>
@@ -3242,12 +3248,17 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               if (entry.locked) {{ renderLockedReport(entry.payload); }} else {{ renderResults(entry.payload, silent); }}
               goToStep('step-results', 100, false);
             }};
-            if (cached && cached.kind === 'video') {{
+            if (cached && cached.kind === 'video' && cached.locked) {{
               show(cached, true);
-              if (!cached.locked) return;
             }} else {{
               document.getElementById('loading-status-text').textContent = WIL_PW.unlocking;
               goToStep('step-loading', 100, false);
+              if (cached && cached.kind === 'video') {{
+                // Rapport complet gardé sur cet appareil : affiché seulement si l'abonnement est toujours actif.
+                fetch('/api/me').then(function (r) {{ return r.json(); }}).then(function (me) {{
+                  if (me && (me.subscribed || !me.paywall)) show(cached, true);
+                }}).catch(function () {{}});
+              }}
             }}
             wilLoadUnlocked(reportId)
               .then(function (d) {{
@@ -3257,6 +3268,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                   ? {{kind: 'video', locked: true, payload: {{locked: true, kind: 'video', unlock_id: reportId, sections: d.teaser.sections}}, thumb: thumb}}
                   : {{kind: 'video', locked: false, payload: d.report, thumb: thumb}};
                 wilCacheReport(reportId, entry);
+                if (cached && !cached.locked && !entry.locked) return;  // déjà affiché
                 show(entry, !!(cached && !cached.locked));
               }})
               .catch(function () {{
