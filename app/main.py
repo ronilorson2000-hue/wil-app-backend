@@ -2484,13 +2484,13 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             <h1 class="text-xl font-extrabold mb-1">{tt("tool_video_title")}</h1>
             <p class="text-sm text-slate-500 mb-6">{tt("tool_video_subtitle")}</p>
             <label for="upload-video-input" id="upload-dropzone" class="block cursor-pointer text-center"
-                   style="border:3px dashed #d4d4d8;border-radius:28px;background:#f1f1f1;padding:36px 20px;">
+                   style="border:3px dashed #8B5CF6;border-radius:28px;background:#C4B5FD;padding:36px 20px;">
               <div id="upload-dropzone-empty">
-                <svg class="mx-auto" width="56" height="56" viewBox="0 0 48 48" fill="none" stroke="#ff2d55" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg class="mx-auto" width="56" height="56" viewBox="0 0 48 48" fill="none" stroke="#5B21B6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M24 31V9"/><path d="M13 20L24 9l11 11"/><path d="M6 30v7a3 3 0 0 0 3 3h30a3 3 0 0 0 3-3v-7"/>
                 </svg>
                 <p class="font-semibold text-xl text-slate-900 mt-5 leading-snug">{tt("upload_dropzone_title")}</p>
-                <p class="text-sm text-slate-500 mt-3">{tt("upload_dropzone_formats")}</p>
+                <p class="text-sm text-slate-700 mt-3">{tt("upload_dropzone_formats")}</p>
               </div>
               <img id="upload-thumb-preview" alt="" class="hidden mx-auto rounded-2xl" style="max-height:260px;object-fit:cover;" />
             </label>
