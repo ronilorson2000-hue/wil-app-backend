@@ -52,7 +52,14 @@ OAUTH_TTL_SECONDS = 10 * 60
 FREE_TTL_SECONDS = 365 * 24 * 3600
 ENTITLEMENT_CACHE_SECONDS = 120
 ACTIVE_STATUSES = ("active", "trialing", "canceling")
-FREE_LIMITS = {"video": 1, "account": 1}
+FREE_LIMITS = {"video": 1, "account": 1}  # ancien essai unique (cookie), plus utilisé pour bloquer
+
+
+def _free_per_day() -> int:
+    try:
+        return max(1, int(os.getenv("FREE_ANALYSES_PER_DAY", "5")))
+    except ValueError:
+        return 5
 
 WHOP_AUTHORIZE_URL = "https://api.whop.com/oauth/authorize"
 WHOP_TOKEN_URL = "https://api.whop.com/oauth/token"
@@ -279,6 +286,20 @@ async def require_subscription(request: Request) -> dict:
 def _free_counts(request: Request) -> dict:
     data = _unsign(request.cookies.get(FREE_COOKIE)) or {}
     return {k: int(data.get(k, 0)) for k in FREE_LIMITS}
+
+
+def check_free_analysis(request: Request, kind: str, subscribed: bool) -> None:
+    """
+    Les analyses sont gratuites pour tout le monde (seul le RAPPORT est verrouillé tant qu'on n'est pas abonné),
+    mais chaque analyse coûte de l'IA : un visiteur non abonné est limité à FREE_ANALYSES_PER_DAY (5 par défaut)
+    analyses par jour et par adresse IP. Au-delà : message « limite atteinte » + abonnement.
+    """
+    if subscribed:
+        return
+    try:
+        ratelimit.check(request, f"free-{kind}", _free_per_day(), window=86400)
+    except HTTPException:
+        raise HTTPException(status_code=402, detail="Votre analyse gratuite est utilisée. Abonnez-vous pour continuer.")
 
 
 def free_quota_left(request: Request, kind: str) -> int:
@@ -910,7 +931,7 @@ const WIL_PW = __L__;
   const st = document.createElement('style');
   st.id = 'wil-pw-style';
   st.textContent =
-    '.wilpw{max-width:480px;margin:0 auto 16px;text-align:left}' +
+    '.wilpw{max-width:520px;margin:0 auto 16px;text-align:left}' +
     '.wilpw-head{text-align:center;margin:8px 0 20px}' +
     '.wilpw-ic{width:56px;height:56px;border-radius:50%;background:#EFF6FF;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px}' +
     '.wilpw-head h2{font-size:20px;font-weight:800;margin:0 0 6px;color:#0F172A}' +
@@ -924,7 +945,20 @@ const WIL_PW = __L__;
     '.wilpw-link{display:block;text-align:center;margin-top:12px;font-size:14px;font-weight:600;color:#2563EB;text-decoration:none}' +
     '.wilpw-btn + .wilpw-btn{margin-top:10px}' +
     '.wilpw-sub{display:block;font-size:12px;font-weight:600;opacity:.92;margin-top:2px}' +
-    '.wilpw-note{text-align:center;font-size:12px;color:#64748B;margin:12px 0 0}';
+    '.wilpw-note{text-align:center;font-size:12px;color:#64748B;margin:12px 0 0}' +
+    '.wilpw-plans{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:22px}' +
+    '.wilpw-plans-one{grid-template-columns:minmax(0,1fr);max-width:280px;margin-left:auto;margin-right:auto}' +
+    '.wilpw-plan{position:relative;display:flex;flex-direction:column;background:#fff;border:1.5px solid #C4B5FD;border-radius:16px;padding:18px 12px 12px}' +
+    '.wilpw-plan-best{border:2px solid #7C3AED;box-shadow:0 6px 18px rgba(124,58,237,.2)}' +
+    '.wilpw-badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:#7C3AED;color:#fff;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}' +
+    '.wilpw-plan-name{font-size:14px;font-weight:800;margin:2px 0;text-align:center;color:#0F172A}' +
+    '.wilpw-plan-price{font-size:26px;font-weight:800;text-align:center;margin:0 0 2px;color:#2563EB}' +
+    '.wilpw-plan-price span{font-size:12px;font-weight:600;color:#64748B;margin-left:3px}' +
+    '.wilpw-plan-save{text-align:center;font-size:11.5px;font-weight:700;color:#16A34A;margin:0 0 10px;min-height:16px}' +
+    '.wilpw-feats{list-style:none;padding:0;margin:0 0 12px;font-size:12px;line-height:1.4;color:#334155;flex:1}' +
+    '.wilpw-feats li{position:relative;padding-left:16px;margin-bottom:7px}' +
+    '.wilpw-feats li:before{content:"✓";position:absolute;left:0;color:#16A34A;font-weight:800}' +
+    '.wilpw-plan .wilpw-btn{margin-top:auto;padding:11px 8px;font-size:14px}';
   document.head.appendChild(st);
 })();
 function wilPwEsc(text) {
@@ -936,21 +970,29 @@ function wilSubscribeHref(returnPath, plan) {
   return '/subscribe?to=' + encodeURIComponent(returnPath) + (plan ? '&plan=' + plan : '');
 }
 // Boutons d'abonnement : annuel (mis en avant) + mensuel quand les deux plans existent, sinon le seul plan mensuel.
+// Cartes d'abonnement côte à côte (annuel mis en avant + mensuel), avec tout ce que comprend le plan payant.
 function wilPwActions(returnPath) {
   const P = WIL_PW.plans;
   const href = function (plan) { return wilPwEsc(wilSubscribeHref(returnPath, plan)); };
-  let html = '';
+  const feats = '<ul class="wilpw-feats">' + (WIL_PW.feats || []).map(function (f) { return '<li>' + wilPwEsc(f) + '</li>'; }).join('') + '</ul>';
+  const card = function (plan, title, price, per, best, save) {
+    return '<div class="wilpw-plan' + (best ? ' wilpw-plan-best' : '') + '">' +
+      (best ? '<span class="wilpw-badge">' + wilPwEsc(WIL_PW.best) + '</span>' : '') +
+      '<p class="wilpw-plan-name">' + wilPwEsc(title) + '</p>' +
+      '<p class="wilpw-plan-price">' + wilPwEsc(price) + '<span>' + wilPwEsc(per) + '</span></p>' +
+      '<p class="wilpw-plan-save">' + (save ? wilPwEsc(save) : '&nbsp;') + '</p>' + feats +
+      '<a class="wilpw-btn" href="' + href(plan) + '">' + wilPwEsc(WIL_PW.choose) + '</a></div>';
+  };
+  let html = '<div class="wilpw-plans' + (P.hasYearly ? '' : ' wilpw-plans-one') + '">';
   if (P.hasYearly) {
-    html += '<a class="wilpw-btn" href="' + href('yearly') + '">' + wilPwEsc(WIL_PW.planYearly) + ' · ' + wilPwEsc(P.yearly) + ' ' + wilPwEsc(WIL_PW.perYear) +
-      '<span class="wilpw-sub">' + wilPwEsc(WIL_PW.best) + (P.savePct > 0 ? ' · ' + wilPwEsc(WIL_PW.save.replace('{pct}', P.savePct)) : '') + '</span></a>' +
-      '<a class="wilpw-btn" href="' + href('monthly') + '">' + wilPwEsc(WIL_PW.planMonthly) + ' · ' + wilPwEsc(P.monthly) + ' ' + wilPwEsc(WIL_PW.perMonth) + '</a>';
+    html += card('yearly', WIL_PW.planYearly, P.yearly, WIL_PW.perYear, true, P.savePct > 0 ? WIL_PW.save.replace('{pct}', P.savePct) : '') +
+      card('monthly', WIL_PW.planMonthly, P.monthly, WIL_PW.perMonth, false, '');
   } else {
-    html += '<a class="wilpw-btn" href="' + href('monthly') + '">' + wilPwEsc(WIL_PW.btn) + ' · ' + wilPwEsc(P.monthly) + ' ' + wilPwEsc(WIL_PW.perMonth) + '</a>';
+    html += card('monthly', WIL_PW.planMonthly, P.monthly, WIL_PW.perMonth, true, '');
   }
-  return html + '<p class="wilpw-note">' + wilPwEsc(WIL_PW.cancel) + '</p>' +
+  return html + '</div><p class="wilpw-note">' + wilPwEsc(WIL_PW.cancel) + '</p>' +
     '<a class="wilpw-link" href="' + wilPwEsc('/subscribe/done?to=' + encodeURIComponent(returnPath)) + '">' + wilPwEsc(WIL_PW.have) + '</a>';
 }
-// Rapport verrouillé : uniquement les TITRES des sections, leur contenu est grisé (jamais envoyé par le serveur).
 function wilLockedReportHtml(titles, returnPath) {
   const cards = titles.map(function (title) {
     return '<div class="wilpw-card"><div class="wilpw-row"><span>' + wilPwEsc(title) + '</span><span>🔒</span></div>' +
@@ -1087,6 +1129,8 @@ def ui_js(tt) -> str:
         "best": tt("pw_best_value"),
         "cancel": tt("pw_cancel_anytime"),
         "plans": plan_prices(),
+        "feats": [tt("pw_pro_feat1"), tt("pw_pro_feat2"), tt("pw_pro_feat3")],
+        "choose": tt("pw_choose"),
         "aiTitle": tt("ai_consent_title"),
         "aiIntro": tt("ai_consent_intro"),
         "aiClaude": tt("ai_consent_claude"),

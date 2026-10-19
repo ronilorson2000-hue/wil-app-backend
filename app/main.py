@@ -5562,8 +5562,7 @@ async def analyze_account(
             detail="Session invalide ou expirée. Reconnecte-toi avec TikTok.",
         )
     entitlement = await paywall.get_entitlement(request)
-    if not entitlement["subscribed"] and paywall.free_quota_left(request, "account") <= 0:
-        raise HTTPException(status_code=402, detail="Votre analyse gratuite est utilisée. Abonnez-vous pour continuer.")
+    paywall.check_free_analysis(request, "account", entitlement["subscribed"])
     await _guard_ai(request)
     access_token = session_data["access_token"]
     open_id = session_data["open_id"]
@@ -6126,7 +6125,6 @@ contient de toute façon pas)."""
     if entitlement["subscribed"]:
         return JSONResponse(content={**result, "report_id": unlock_id})
     response = JSONResponse(content=paywall.build_teaser("account", result, unlock_id))
-    paywall.mark_free_used(response, request, "account")
     return response
 
 
@@ -6931,8 +6929,7 @@ async def analyze_video_upload(
     # Non-abonné : une analyse d'essai (le rapport reste verrouillé) ; ensuite, abonnement requis
     # AVANT de dépenser le moindre jeton.
     entitlement = await paywall.get_entitlement(request)
-    if not entitlement["subscribed"] and paywall.free_quota_left(request, "video") <= 0:
-        raise HTTPException(status_code=402, detail="Votre analyse gratuite est utilisée. Abonnez-vous pour continuer.")
+    paywall.check_free_analysis(request, "video", entitlement["subscribed"])
     await _guard_ai(request)
 
     published = already_published.strip().lower() == "true"
@@ -6958,7 +6955,6 @@ async def analyze_video_upload(
         return JSONResponse(content=result)
     unlock_id = await asyncio.to_thread(paywall.store_analysis, "video", result)
     response = JSONResponse(content=paywall.build_teaser("video", result, unlock_id))
-    paywall.mark_free_used(response, request, "video")
     return response
 
 
@@ -7010,10 +7006,9 @@ class VideoUploadStart(BaseModel):
 async def video_upload_start(body: VideoUploadStart, request: Request):
     if not GEMINI_API_KEY:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY manquant dans .env")
-    # Refus immédiat (avant tout envoi de vidéo) si l'essai gratuit est déjà utilisé.
+    # Refus immédiat (avant tout envoi de vidéo) si la limite d'analyses gratuites du jour est atteinte.
     entitlement = await paywall.get_entitlement(request)
-    if not entitlement["subscribed"] and paywall.free_quota_left(request, "video") <= 0:
-        raise HTTPException(status_code=402, detail="Votre analyse gratuite est utilisée. Abonnez-vous pour continuer.")
+    paywall.check_free_analysis(request, "video", entitlement["subscribed"])
     if body.size <= 0:
         raise HTTPException(status_code=400, detail="Fichier vide.")
     if body.size > MAX_VIDEO_BYTES:
@@ -7153,7 +7148,6 @@ async def video_job_status(job_id: str, request: Request):
     response = JSONResponse(
         content={"status": "done", "result": paywall.build_teaser("video", result, job["unlock_id"])}, headers=headers
     )
-    paywall.mark_free_used(response, request, "video")
     return response
 
 
