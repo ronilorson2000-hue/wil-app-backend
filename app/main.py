@@ -2363,11 +2363,9 @@ def _onboarding_js_core(
             document.getElementById('tabbtn-improvements').classList.toggle('active', tab === 'improvements');
           }}
 
+          // Barres et notes du rapport : bleues (rouge seulement pour une note très faible, jamais d'orange).
           function scoreColor(score) {{
-            if (score <= 40) return '#DC2626';
-            if (score <= 60) return '#F59E0B';
-            if (score <= 80) return '#F97316';
-            return '#2563EB';
+            return score <= 40 ? '#DC2626' : '#2563EB';
           }}
 {apply_stored_js}"""
 
@@ -2669,7 +2667,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               <div class="insight-card">
                 <p class="font-semibold text-sm mb-1">{tt("results_niche_label")}</p>
                 <p id="stats-niche-value" class="text-sm text-slate-600"></p>
-                <p id="niche-mismatch-note" class="hidden text-xs text-amber-600 mt-1">{tt("niche_detected_note")}</p>
+                <p id="niche-mismatch-note" class="hidden text-xs text-blue-600 mt-1">{tt("niche_detected_note")}</p>
               </div>
             </div>
 
@@ -2703,7 +2701,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }};
           const PHASE_LABELS = {{ opening: "{tt("res_phase_opening")}", middle: "{tt("res_phase_middle")}", ending: "{tt("res_phase_ending")}" }};
           const VERDICT_LABELS = {{ strong: "{tt("res_verdict_strong")}", ok: "{tt("res_verdict_ok")}", weak: "{tt("res_verdict_weak")}" }};
-          const VERDICT_COLORS = {{ strong: "#16A34A", ok: "#F59E0B", weak: "#DC2626" }};
+          const VERDICT_COLORS = {{ strong: "#16A34A", ok: "#2563EB", weak: "#DC2626" }};
           const TIP_LABEL = "{tt("res_tip_label")}";
           const EXAMPLE_LABEL = "{tt("res_example_label")}";
           const EST_LABELS = {{ views: "{tt("est_views")}", likes: "{tt("est_likes")}", comments: "{tt("est_comments")}" }};
@@ -3755,11 +3753,9 @@ __PW_JS__
     function readJson(key, fallback) {
       try { return JSON.parse(localStorage.getItem(key) || 'null') || fallback; } catch (e) { return fallback; }
     }
+    // Notes de l'historique : bleues (rouge seulement pour une note très faible, jamais d'orange).
     function scoreColor(score) {
-      if (score <= 40) return '#DC2626';
-      if (score <= 60) return '#F59E0B';
-      if (score <= 80) return '#F97316';
-      return '#2563EB';
+      return score <= 40 ? '#DC2626' : '#2563EB';
     }
 
     const onboarding = readJson('wilOnboarding', {});
