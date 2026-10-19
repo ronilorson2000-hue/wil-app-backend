@@ -986,7 +986,7 @@ function wilSubscribeHref(returnPath, plan) {
   return '/subscribe?to=' + encodeURIComponent(returnPath) + (plan ? '&plan=' + plan : '');
 }
 // Boutons d'abonnement : annuel (mis en avant) + mensuel quand les deux plans existent, sinon le seul plan mensuel.
-// Cartes d'abonnement côte à côte (annuel mis en avant + mensuel), avec tout ce que comprend le plan payant.
+// Cartes d'abonnement côte à côte (mensuel à gauche, annuel mis en avant à droite), avec tout ce que comprend le plan payant.
 function wilPwActions(returnPath) {
   const P = WIL_PW.plans;
   const href = function (plan) { return wilPwEsc(wilSubscribeHref(returnPath, plan)); };
@@ -1001,8 +1001,9 @@ function wilPwActions(returnPath) {
   };
   let html = '<div class="wilpw-plans' + (P.hasYearly ? '' : ' wilpw-plans-one') + '">';
   if (P.hasYearly) {
-    html += card('yearly', WIL_PW.planYearly, P.yearly, WIL_PW.perYear, true, P.savePct > 0 ? WIL_PW.save.replace('{pct}', P.savePct) : '') +
-      card('monthly', WIL_PW.planMonthly, P.monthly, WIL_PW.perMonth, false, '');
+    // Mensuel à gauche, annuel (mis en avant) à droite.
+    html += card('monthly', WIL_PW.planMonthly, P.monthly, WIL_PW.perMonth, false, '') +
+      card('yearly', WIL_PW.planYearly, P.yearly, WIL_PW.perYear, true, P.savePct > 0 ? WIL_PW.save.replace('{pct}', P.savePct) : '');
   } else {
     html += card('monthly', WIL_PW.planMonthly, P.monthly, WIL_PW.perMonth, true, '');
   }
