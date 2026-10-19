@@ -49,6 +49,7 @@ _RULES: list[tuple[str, str]] = [
     ("analyse gratuite est utilisée", "quota_used"),
     ("session invalide ou expirée", "session_expired"),
     ("très sollicité aujourd'hui", "daily_cap"),
+    ("limite d'analyses atteinte", "daily_cap"),
     ("trop de demandes", "rate_limited"),
     ("trop d'envois", "rate_limited"),
     ("refusé par le service d'ia", "video_refused"),
