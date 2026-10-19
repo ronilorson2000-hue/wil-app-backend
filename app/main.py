@@ -24,6 +24,7 @@ import os
 import re
 import secrets
 import tempfile
+import threading
 import time
 import uuid
 from collections import Counter
@@ -2681,6 +2682,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 {paywall.ui_js(tt)}
 
           const LOADING_STAGES = ["{tt("loading_upload")}", "{tt("loading_watching")}", "{tt("loading_analyzing")}", "{tt("loading_insights")}"];
+          const OPTIMIZING = "{tt("loading_optimizing")}";
           const CAT_LABELS = {{
             hook: "{tt("cat_hook")}",
             visual_engagement: "{tt("cat_visual")}",
@@ -2807,25 +2809,89 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             throw lastError;
           }}
 
+          // ---- Optimisation avant envoi : le temps d'envoi dépend surtout de la ligne montante du téléphone, donc on envoie
+          // moins d'octets. Une vidéo de téléphone (10 à 20 Mb/s) est recodée en 720p / ~1,6 Mb/s (accélération matérielle,
+          // plusieurs fois plus vite que la durée de la vidéo) : 5 à 10 fois plus légère, largement suffisante pour l'IA.
+          // Le son est conservé tel quel. Au moindre souci (navigateur trop ancien, codec non géré, son perdu, trop long,
+          // gain faible), on envoie le fichier d'origine : jamais pire qu'avant.
+          const OPTIMIZE_MIN_BYTES = 20 * 1024 * 1024;
+          const OPTIMIZE_MIN_BITRATE = 3000000;
+          const OPTIMIZE_SHORT_SIDE = 720;
+          const OPTIMIZE_VIDEO_BITRATE = 1600000;
+          const MEDIABUNNY_URL = '/static/vendor/mediabunny-1.61.1.min.mjs';  // hébergé chez nous (empreinte vérifiée), licence MPL-2.0 : mediabunny-LICENSE.txt
+          async function prepareUploadBlob(file, onOptimize, force) {{
+            if (!force && file.size < OPTIMIZE_MIN_BYTES) return file;
+            if (!(window.VideoEncoder && window.VideoDecoder)) return file;
+            let conversion = null;
+            let timer = null;
+            try {{
+              const M = await import(MEDIABUNNY_URL);
+              const input = new M.Input({{source: new M.BlobSource(file), formats: M.ALL_FORMATS}});
+              const track = await input.getPrimaryVideoTrack();
+              if (!track) return file;
+              const duration = await input.computeDuration();
+              if (!force && file.size * 8 / Math.max(duration, 1) < OPTIMIZE_MIN_BITRATE) return file;  // déjà léger
+              const hadAudio = !!(await input.getPrimaryAudioTrack());
+              const video = {{codec: 'avc', bitrate: OPTIMIZE_VIDEO_BITRATE, frameRate: 30}};
+              const short = Math.min(track.displayWidth, track.displayHeight);
+              if (short > OPTIMIZE_SHORT_SIDE) {{
+                const k = OPTIMIZE_SHORT_SIDE / short;
+                video.width = Math.round(track.displayWidth * k / 2) * 2;
+                video.height = Math.round(track.displayHeight * k / 2) * 2;
+                video.fit = 'fill';
+              }}
+              const output = new M.Output({{format: new M.Mp4OutputFormat(), target: new M.BufferTarget()}});
+              conversion = await M.Conversion.init({{input: input, output: output, video: video}});
+              if (!conversion.isValid) return file;
+              if (hadAudio && (conversion.discardedTracks || []).some(function (d) {{ return d.track && d.track.type === 'audio'; }})) return file;
+              conversion.onProgress = function (p) {{ onOptimize(p); }};
+              let timedOut = false;
+              timer = setTimeout(function () {{ timedOut = true; try {{ conversion.cancel(); }} catch (e) {{}} }}, Math.max(45000, duration * 1500 + 30000));
+              await conversion.execute();
+              clearTimeout(timer);
+              if (timedOut) return file;
+              const blob = new Blob([output.target.buffer], {{type: 'video/mp4'}});
+              return blob.size > 0 && blob.size < file.size * 0.75 ? blob : file;
+            }} catch (e) {{
+              try {{ if (conversion) conversion.cancel(); }} catch (e2) {{}}
+              return file;
+            }} finally {{
+              if (timer) clearTimeout(timer);
+            }}
+          }}
+
           // 1) envoi de la vidéo par morceaux de 4 Mo (chacun réessayé), 2) analyse lancée en arrière-plan sur le serveur,
           // 3) petites requêtes toutes les 3 s jusqu'au résultat : plus aucune requête longue qui reste muette pendant des minutes.
-          async function runVideoAnalysis(onProgress, onUploaded) {{
+          const UPLOAD_PARALLEL = 3;
+          async function runVideoAnalysis(onProgress, onUploaded, onOptimize) {{
+            const file = await prepareUploadBlob(selectedFile, onOptimize || function () {{}});
             const startRes = await fetchRetry('/api/video-upload/start', {{
               method: 'POST', headers: {{'Content-Type': 'application/json'}},
-              body: JSON.stringify({{size: selectedFile.size, mime: selectedFile.type || 'video/mp4'}})
+              body: JSON.stringify({{size: file.size, mime: file.type || selectedFile.type || 'video/mp4'}})
             }}, 4);
             const start = await safeJson(startRes);
             if (!startRes.ok) return {{ok: false, status: startRes.status, data: start}};
-            const total = Math.max(1, Math.ceil(selectedFile.size / start.chunk_size));
-            for (let i = 0; i < total; i++) {{
-              const blob = selectedFile.slice(i * start.chunk_size, Math.min(selectedFile.size, (i + 1) * start.chunk_size));
-              const r = await fetchRetry('/api/video-upload/' + start.upload_id + '/' + i, {{
-                method: 'PUT', headers: {{'Content-Type': 'application/octet-stream'}}, body: blob
-              }}, 8);
-              if (r.status === 404) return {{ok: false, status: 404, data: {{detail: INTERRUPTED}}}};
-              if (!r.ok) return {{ok: false, status: r.status, data: await safeJson(r)}};
-              onProgress((i + 1) / total);
-            }}
+            const total = Math.max(1, Math.ceil(file.size / start.chunk_size));
+            // Plusieurs morceaux en même temps : la ligne reste toujours remplie (plus d'attente entre deux morceaux).
+            let nextChunk = 0;
+            let sent = 0;
+            let failure = null;
+            const worker = async function () {{
+              while (!failure) {{
+                const i = nextChunk++;
+                if (i >= total) return;
+                const blob = file.slice(i * start.chunk_size, Math.min(file.size, (i + 1) * start.chunk_size));
+                const r = await fetchRetry('/api/video-upload/' + start.upload_id + '/' + i, {{
+                  method: 'PUT', headers: {{'Content-Type': 'application/octet-stream'}}, body: blob
+                }}, 8);
+                if (r.status === 404) {{ failure = {{ok: false, status: 404, data: {{detail: INTERRUPTED}}}}; return; }}
+                if (!r.ok) {{ failure = {{ok: false, status: r.status, data: await safeJson(r)}}; return; }}
+                sent++;
+                onProgress(sent / total);
+              }}
+            }};
+            await Promise.all(Array.from({{length: Math.min(UPLOAD_PARALLEL, total)}}, worker));
+            if (failure) return failure;
             const form = new FormData();
             form.append('account_avg_views', accountAvgViewsFinal);
             form.append('niche_category', selectedNiches[0] || '');
@@ -2886,6 +2952,8 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               uploading = false;
               stageIdx = 1;
               setLoadingText(LOADING_STAGES[1]);
+            }}, function (fraction) {{
+              loadingEl.textContent = OPTIMIZING + ' ' + Math.round(fraction * 100) + '%';
             }})
               .then(function (res) {{
                 clearInterval(stageInterval);
@@ -7014,15 +7082,19 @@ async def video_upload_start(body: VideoUploadStart, request: Request):
         "created": time.time(),
         "job_id": None,
         "ip": ratelimit.client_ip(request),
+        "lock": threading.Lock(),
     }
     return JSONResponse(content={"upload_id": upload_id, "chunk_size": VIDEO_CHUNK_BYTES})
 
 
-def _write_chunk(path: Path, offset: int, data: bytes) -> None:
-    mode = "r+b" if path.exists() else "w+b"
-    with open(path, mode) as handle:
-        handle.seek(offset)
-        handle.write(data)
+def _write_chunk(path: Path, offset: int, data: bytes, lock: threading.Lock) -> None:
+    # Le navigateur envoie plusieurs morceaux EN MÊME TEMPS : sans verrou, deux écritures simultanées pouvaient
+    # ouvrir le fichier en « création » (w+b) et effacer les morceaux déjà reçus.
+    with lock:
+        mode = "r+b" if path.exists() else "w+b"
+        with open(path, mode) as handle:
+            handle.seek(offset)
+            handle.write(data)
 
 
 @app.put("/api/video-upload/{upload_id}/{index}", response_class=JSONResponse)
@@ -7040,7 +7112,7 @@ async def video_upload_chunk(upload_id: str, index: int, request: Request):
     data = await request.body()
     if len(data) != expected:
         raise HTTPException(status_code=400, detail="Morceau incomplet.")
-    await asyncio.to_thread(_write_chunk, upload["path"], offset, data)
+    await asyncio.to_thread(_write_chunk, upload["path"], offset, data, upload["lock"])
     upload["received"].add(index)
     return JSONResponse(content={"received": len(upload["received"])})
 
