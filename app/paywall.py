@@ -290,12 +290,14 @@ def _free_counts(request: Request) -> dict:
 
 def check_free_analysis(request: Request, kind: str, subscribed: bool) -> None:
     """
-    Les analyses sont gratuites pour tout le monde (seul le RAPPORT est verrouillé tant qu'on n'est pas abonné),
-    mais chaque analyse coûte de l'IA : un visiteur non abonné est limité à FREE_ANALYSES_PER_DAY (5 par défaut)
-    analyses par jour et par adresse IP. Au-delà : message « limite atteinte » + abonnement.
+    Chaque visiteur a droit à UNE analyse gratuite (vidéo, compte) ; la suivante est refusée tout de suite, avant
+    l'envoi de la vidéo, avec l'offre d'abonnement. Filet de sécurité en plus (le cookie peut être effacé) :
+    FREE_ANALYSES_PER_DAY (5 par défaut) analyses gratuites par jour et par adresse IP.
     """
     if subscribed:
         return
+    if free_quota_left(request, kind) <= 0:
+        raise HTTPException(status_code=402, detail="Votre analyse gratuite est utilisée. Abonnez-vous pour continuer.")
     try:
         ratelimit.check(request, f"free-{kind}", _free_per_day(), window=86400)
     except HTTPException:
@@ -404,6 +406,7 @@ async def get_analysis(analysis_id: str, request: Request):
 @router.get("/api/me", response_class=JSONResponse)
 async def me(request: Request):
     ent = await get_entitlement(request)
+    ent["free"] = {kind: free_quota_left(request, kind) for kind in FREE_LIMITS}
     # /api/me?check=1 (connecté uniquement) : teste en direct l'appel à Whop qui vérifie l'abonnement,
     # pour repérer une clé API sans les bonnes permissions AVANT d'activer le paywall.
     auth = read_auth(request)
@@ -1036,72 +1039,6 @@ function wilLoadUnlocked(id) {
   });
 }
 
-// ---------- Consentement à l'envoi du contenu aux IA (Claude / Anthropic, Gemini / Google) ----------
-// Demandé avant la première analyse (fenêtre bloquante à l'ouverture d'une page d'analyse ou de l'app). Mémorisé sur
-// l'appareil ; retirable depuis Profil. Sans consentement, on ne peut pas utiliser les pages d'analyse.
-(function () {
-  var KEY = 'wilAiConsent';
-  var memory = false;
-  function has() { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return memory; } }
-  function save(v) {
-    memory = !!v;
-    try { if (v) localStorage.setItem(KEY, '1'); else localStorage.removeItem(KEY); } catch (e) {}
-  }
-  function line(text) {
-    var i = text.indexOf(':');
-    var head = i > 0 ? '<strong>' + wilPwEsc(text.slice(0, i)) + '</strong>' + wilPwEsc(text.slice(i)) : wilPwEsc(text);
-    return '<li style="margin:0 0 6px">' + head + '</li>';
-  }
-  function show() {
-    if (document.getElementById('wil-ai-consent')) return;
-    var d = document.createElement('div');
-    d.id = 'wil-ai-consent';
-    d.setAttribute('role', 'dialog');
-    d.setAttribute('aria-modal', 'true');
-    d.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.65);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif';
-    d.innerHTML =
-      '<div style="background:#fff;color:#0F172A;max-width:440px;width:100%;border-radius:20px;padding:22px 20px;box-shadow:0 20px 50px rgba(0,0,0,.35);max-height:100%;overflow-y:auto">' +
-      '<p style="font-size:19px;font-weight:800;margin:0 0 10px">✨ ' + wilPwEsc(WIL_PW.aiTitle) + '</p>' +
-      '<p style="font-size:14px;line-height:1.5;margin:0 0 8px">' + wilPwEsc(WIL_PW.aiIntro) + '</p>' +
-      '<ul style="font-size:14px;line-height:1.5;margin:0 0 10px;padding-left:20px">' + line(WIL_PW.aiClaude) + line(WIL_PW.aiGemini) + '</ul>' +
-      '<p style="font-size:14px;line-height:1.5;margin:0 0 10px">' + wilPwEsc(WIL_PW.aiAccept) + '</p>' +
-      '<p style="font-size:12.5px;line-height:1.45;color:#64748B;margin:0 0 4px">' + wilPwEsc(WIL_PW.aiWithdraw) + '</p>' +
-      '<a href="/privacy" target="_blank" rel="noopener" style="display:inline-block;font-size:13.5px;font-weight:600;color:#2563EB;margin:4px 0 14px">' + wilPwEsc(WIL_PW.aiRead) + '</a>' +
-      '<button type="button" id="wil-ai-yes" style="display:block;width:100%;padding:14px;border:0;border-radius:12px;background:#2563EB;color:#fff;font-weight:700;font-size:16px;cursor:pointer">' + wilPwEsc(WIL_PW.aiContinue) + '</button>' +
-      '<button type="button" id="wil-ai-no" style="display:block;width:100%;margin-top:8px;padding:12px;border:0;border-radius:12px;background:#F1F5F9;color:#334155;font-weight:600;font-size:15px;cursor:pointer">' + wilPwEsc(WIL_PW.aiDecline) + '</button>' +
-      '</div>';
-    document.body.appendChild(d);
-    document.getElementById('wil-ai-yes').addEventListener('click', function () {
-      save(true);
-      d.remove();
-      flush();
-      if (typeof window.wilAiConsentChanged === 'function') window.wilAiConsentChanged(true);
-    });
-    document.getElementById('wil-ai-no').addEventListener('click', function () { location.href = '/'; });
-  }
-  window.wilAiConsentGranted = has;
-  window.wilAiConsentSet = save;
-  window.wilAiConsentShow = show;
-  // Aucun contenu ne part vers l'IA tant que le consentement manque : les appels aux routes d'analyse attendent
-  // la réponse (certaines pages lancent l'analyse dès le chargement, avant que la fenêtre soit acceptée).
-  // Refusé = la page est quittée, la requête n'est jamais envoyée.
-  var pending = [];
-  var AI_URL = /\/api\/(analyze-|generate-script|video-upload|trending-ideas|library|discover)/;
-  var origFetch = window.fetch;
-  if (origFetch) {
-    window.fetch = function (input) {
-      var url = typeof input === 'string' ? input : ((input && input.url) || '');
-      if (has() || !AI_URL.test(url)) return origFetch.apply(this, arguments);
-      var self = this, args = arguments;
-      return new Promise(function (resolve, reject) {
-        pending.push(function () { origFetch.apply(self, args).then(resolve, reject); });
-      });
-    };
-  }
-  function flush() { var queue = pending; pending = []; queue.forEach(function (run) { run(); }); }
-  function init() { if (!has()) show(); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-})();
 """
 
 
@@ -1131,14 +1068,5 @@ def ui_js(tt) -> str:
         "plans": plan_prices(),
         "feats": [tt("pw_pro_feat1"), tt("pw_pro_feat2"), tt("pw_pro_feat3")],
         "choose": tt("pw_choose"),
-        "aiTitle": tt("ai_consent_title"),
-        "aiIntro": tt("ai_consent_intro"),
-        "aiClaude": tt("ai_consent_claude"),
-        "aiGemini": tt("ai_consent_gemini"),
-        "aiAccept": tt("ai_consent_accept"),
-        "aiWithdraw": tt("ai_consent_withdraw"),
-        "aiRead": tt("ai_consent_read"),
-        "aiContinue": tt("ai_consent_continue"),
-        "aiDecline": tt("ai_consent_decline"),
     }
     return _UI_JS.replace("__L__", json.dumps(labels, ensure_ascii=False).replace("</", "<\\/")) + errors.error_js(tt)

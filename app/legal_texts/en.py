@@ -116,7 +116,7 @@ PRIVACY = {
                 "your <strong>TikTok profile</strong> information (name, username, bio) and your video statistics are sent to Anthropic (Claude);",
                 "<strong>trending ideas</strong> are produced by Claude (Anthropic) from web searches.",
             ]),
-            ("p", "This only happens when you start an analysis, and only after you agree: a consent window is shown before your first analysis, and you can withdraw your consent at any time in the settings (Profile). These providers are independent companies: they process the data under their own terms and privacy rules. We do not sell your content and do not use it to create the content shown to other users. If you do not want your content to be sent to these providers, do not use the analysis features."),
+            ("p", "This only happens when you start an analysis. On the website, starting an analysis means you agree to this transfer; in our mobile app, a consent window is shown before your first analysis, and you can withdraw your consent at any time in Profile. These providers are independent companies: they process the data under their own terms and privacy rules. We do not sell your content and do not use it to create the content shown to other users. If you do not want your content to be sent to these providers, do not use the analysis features."),
         ]),
         ("3. How we use your information", [
             ("p", "We use this information solely to provide the Service (account insights, video and script analysis, trends, managing your subscription), keep it secure, and improve its reliability and the accuracy of our estimates. We do not sell your personal data to third parties."),
