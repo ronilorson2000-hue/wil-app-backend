@@ -367,22 +367,13 @@ def load_analysis(analysis_id: str) -> dict | None:
 
 # Ordre d'affichage des titres : points forts / points faibles d'abord.
 _TEASER_SECTIONS = {
-    "video": ["weaknesses", "action_plan", "category_scores", "timeline", "hook_rewrites", "shooting_plan"],
+    "video": ["strengths", "weaknesses", "action_plan", "category_scores", "timeline", "hook_rewrites", "shooting_plan"],
     "account": ["strengths", "improvements", "stats", "suggested_hashtags"],
-}
-
-# Sections montrées EN CLAIR à un non-abonné pour donner envie de s'abonner (le reste n'est jamais envoyé).
-# Seule cette liste est exposée : ajouter une clé ici rend son contenu public.
-_PREVIEW_SECTIONS = {
-    "video": ["strengths"],
 }
 
 
 def build_teaser(kind: str, payload: dict, analysis_id: str) -> dict:
-    """
-    Ce que voit un non-abonné : les TITRES des sections verrouillées (jamais leur contenu) et, pour une vidéo,
-    le contenu des sections d'aperçu (pour une vidéo : les points forts) affichées en clair.
-    """
+    """Ce que voit un non-abonné : uniquement les TITRES des sections (jamais leur contenu). Tout se débloque après paiement."""
     source = payload.get("ai_report", {}) if kind == "account" else payload
     sections = []
     for key in _TEASER_SECTIONS[kind]:
@@ -393,11 +384,7 @@ def build_teaser(kind: str, payload: dict, analysis_id: str) -> dict:
             present = bool(value)
         if present:
             sections.append(key)
-    teaser = {"locked": True, "kind": kind, "unlock_id": analysis_id, "sections": sections}
-    preview = {key: source[key] for key in _PREVIEW_SECTIONS.get(kind, []) if source.get(key)}
-    if preview:
-        teaser["preview"] = preview
-    return teaser
+    return {"locked": True, "kind": kind, "unlock_id": analysis_id, "sections": sections}
 
 
 @router.get("/api/analysis/{analysis_id}", response_class=JSONResponse)
