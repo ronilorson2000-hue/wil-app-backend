@@ -1613,18 +1613,23 @@ _ONBOARDING_STYLE = """
   .score-track { background: #E2E8F0; border-radius: 999px; height: 8px; overflow: hidden; }
   .score-fill { height: 100%; border-radius: 999px; transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
   .niche-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .niche-btn { position: relative; display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: #C4B5FD; border: 2px solid #A78BFA; font-size: 13px; font-weight: 600; color: #334155; text-align: left; cursor: pointer; transition: all 0.15s ease; }
+  .niche-btn { position: relative; display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: #2563EB; border: 2px solid #2563EB; font-size: 13px; font-weight: 600; color: #fff; text-align: left; cursor: pointer; transition: all 0.15s ease; }
   .niche-btn.selected { background: #0F172A; color: #fff; border-color: #0F172A; }
+  /* Boutons de réponse : bleus, violets dès qu'on pointe dessus (ou qu'on appuie), bleu nuit une fois choisis. */
+  .niche-btn:not(.selected):hover, .niche-btn:not(.selected):active,
+  .challenge-btn:not(.selected):hover, .challenge-btn:not(.selected):active,
+  .simple-btn:not(.selected):hover, .simple-btn:not(.selected):active { background: #7C3AED; border-color: #7C3AED; }
+  .challenge-btn:not(.selected):hover .challenge-desc, .challenge-btn:not(.selected):active .challenge-desc { color: #EDE9FE; }
   .niche-btn.selected::after { content: '✓'; position: absolute; top: 6px; right: 8px; width: 16px; height: 16px; border-radius: 50%; background: #38BDF8; color: #fff; font-size: 10px; line-height: 16px; text-align: center; animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
   .challenge-btn, .simple-btn, .niche-btn { transition: all 0.15s ease, transform 0.1s ease; }
   .challenge-btn:active, .simple-btn:active, .niche-btn:active { transform: scale(0.97); }
-  .challenge-btn { display: block; width: 100%; padding: 16px; border-radius: 14px; background: #C4B5FD; border: 2px solid #A78BFA; text-align: left; cursor: pointer; margin-bottom: 12px; }
+  .challenge-btn { display: block; width: 100%; padding: 16px; border-radius: 14px; background: #2563EB; border: 2px solid #2563EB; text-align: left; cursor: pointer; margin-bottom: 12px; }
   .challenge-btn.selected { background: #0F172A; border-color: #0F172A; }
   .challenge-btn.selected .challenge-title { color: #fff; }
   .challenge-btn.selected .challenge-desc { color: #CBD5E1; }
-  .challenge-title { font-weight: 700; font-size: 15px; color: #0F172A; }
-  .challenge-desc { font-size: 13px; color: #334155; margin-top: 2px; }
-  .simple-btn { display: block; width: 100%; padding: 14px 16px; border-radius: 14px; background: #C4B5FD; border: 2px solid #A78BFA; text-align: left; cursor: pointer; margin-bottom: 10px; font-weight: 600; font-size: 14px; color: #0F172A; }
+  .challenge-title { font-weight: 700; font-size: 15px; color: #fff; }
+  .challenge-desc { font-size: 13px; color: #DBEAFE; margin-top: 2px; }
+  .simple-btn { display: block; width: 100%; padding: 14px 16px; border-radius: 14px; background: #2563EB; border: 2px solid #2563EB; text-align: left; cursor: pointer; margin-bottom: 10px; font-weight: 600; font-size: 14px; color: #fff; }
   .simple-btn.selected { background: #0F172A; color: #fff; border-color: #0F172A; }
   .glow-thumb { position: relative; width: 160px; margin: 0 auto; }
   .glow-thumb::before { content: ''; position: absolute; inset: -20px; background: radial-gradient(circle, rgba(37,99,235,0.25), transparent 70%); border-radius: 24px; z-index: 0; }
@@ -3631,8 +3636,9 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     .disc-btn { width: 68px; height: 68px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 26px; transition: transform 0.1s ease; }
     .disc-btn:active { transform: scale(0.92); }
     .chip { display: inline-block; padding: 6px 12px; border-radius: 999px; background: #EFF6FF; color: #1D4ED8; font-size: 12px; font-weight: 600; margin: 0 6px 6px 0; }
-    .niche-pill { padding: 8px 14px; border-radius: 999px; border: 2px solid #E2E8F0; background: #fff; font-size: 13px; font-weight: 600; color: #334155; white-space: nowrap; cursor: pointer; }
-    .niche-pill.active { background: #2563EB; border-color: #2563EB; color: #fff; }
+    .niche-pill { padding: 8px 14px; border-radius: 999px; border: 2px solid #2563EB; background: #2563EB; font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+    .niche-pill:not(.active):hover, .niche-pill:not(.active):active { background: #7C3AED; border-color: #7C3AED; }
+    .niche-pill.active { background: #0F172A; border-color: #0F172A; color: #fff; }
     .hscroll { scrollbar-width: none; -ms-overflow-style: none; }
     .hscroll::-webkit-scrollbar { display: none; }
     .lib-cat { padding: 10px 0 12px; font-size: 16px; font-weight: 700; color: #94A3B8; white-space: nowrap; border-bottom: 3px solid transparent; margin-bottom: -1px; }
