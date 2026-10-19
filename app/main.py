@@ -536,15 +536,15 @@ def home(request: Request):
             if i <= TESTIMONIAL_PROOF_IMAGE_COUNT
             else ""
         )
-        return f'''<div class="testimonial-card bg-blue-50 border border-blue-100 rounded-2xl overflow-hidden">
+        return f'''<div class="testimonial-card bg-violet-300 border border-violet-400 rounded-2xl overflow-hidden">
               {image_html}
               <div class="p-4 sm:p-6">
-                <p class="text-xs sm:text-sm text-slate-600 leading-relaxed mb-3 sm:mb-4">"{tt(f"testimonial_{i}_quote")}"</p>
+                <p class="text-xs sm:text-sm text-slate-800 leading-relaxed mb-3 sm:mb-4">"{tt(f"testimonial_{i}_quote")}"</p>
                 <div class="flex items-center gap-2 sm:gap-3">
                   <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br {gradient} flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">{name[0]}</div>
                   <div>
                     <p class="font-semibold text-xs sm:text-sm text-slate-900">{name}</p>
-                    <p class="text-[11px] sm:text-xs text-slate-500">{tt(f"testimonial_{i}_role")}</p>
+                    <p class="text-[11px] sm:text-xs text-slate-700">{tt(f"testimonial_{i}_role")}</p>
                   </div>
                 </div>
               </div>
@@ -734,16 +734,16 @@ def home(request: Request):
           </section>
         </div>
 
-        <footer class="bg-blue-900 text-blue-100 mt-10">
+        <footer class="bg-violet-300 text-violet-950 mt-10">
           <div class="max-w-6xl mx-auto px-6 py-8 sm:py-14 grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-10">
             <div class="col-span-2 sm:col-span-1">
               <div class="flex items-center gap-2 mb-3">
-                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-sky-300 flex items-center justify-center text-blue-900 font-bold text-sm">W</div>
-                <span class="font-bold text-lg text-white">Wil App</span>
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-violet-800 to-violet-600 flex items-center justify-center text-white font-bold text-sm">W</div>
+                <span class="font-bold text-lg text-violet-950">Wil App</span>
               </div>
-              <p class="text-sm text-blue-200 leading-relaxed mb-4">{tt("hero_subtitle")}</p>
+              <p class="text-sm text-violet-900 leading-relaxed mb-4">{tt("hero_subtitle")}</p>
               <a href="https://wa.me/447446953451" target="_blank" rel="noopener"
-                 class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-800 hover:bg-blue-700 transition text-sm font-medium text-white">
+                 class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-900 hover:bg-violet-800 transition text-sm font-medium text-white">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
                   <path d="M12.04 2c-5.52 0-10 4.48-10 10 0 1.77.46 3.44 1.26 4.89L2 22l5.25-1.28A9.96 9.96 0 0012.04 22c5.52 0 10-4.48 10-10s-4.48-10-10-10zm0 18.2c-1.6 0-3.14-.43-4.47-1.24l-.32-.19-3.12.76.79-3.04-.2-.31A8.18 8.18 0 013.84 12c0-4.53 3.68-8.2 8.2-8.2s8.2 3.68 8.2 8.2-3.67 8.2-8.2 8.2zm4.5-6.13c-.25-.12-1.45-.72-1.68-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.14.16-.29.18-.53.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.35-.77-1.85-.2-.48-.41-.42-.56-.43h-.48c-.16 0-.43.06-.65.31-.23.25-.86.84-.86 2.05s.88 2.38 1 2.55c.12.16 1.73 2.64 4.19 3.7.59.25 1.05.4 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.45-.59 1.66-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.47-.28z"/>
                 </svg>
@@ -751,24 +751,24 @@ def home(request: Request):
               </a>
             </div>
             <div>
-              <h4 class="font-semibold text-white mb-3 text-sm">{tt("footer_col_product")}</h4>
-              <ul class="space-y-2 text-sm text-blue-200">
-                <li><a href="/services" class="hover:text-white transition">{tt("nav_services")}</a></li>
-                <li><a href="/pricing" class="hover:text-white transition">{tt("nav_pricing")}</a></li>
-                <li><a href="#faq" class="hover:text-white transition">{tt("nav_faq")}</a></li>
+              <h4 class="font-semibold text-violet-950 mb-3 text-sm">{tt("footer_col_product")}</h4>
+              <ul class="space-y-2 text-sm text-violet-900">
+                <li><a href="/services" class="hover:text-black transition">{tt("nav_services")}</a></li>
+                <li><a href="/pricing" class="hover:text-black transition">{tt("nav_pricing")}</a></li>
+                <li><a href="#faq" class="hover:text-black transition">{tt("nav_faq")}</a></li>
               </ul>
             </div>
             <div>
-              <h4 class="font-semibold text-white mb-3 text-sm">{tt("footer_col_info")}</h4>
-              <ul class="space-y-2 text-sm text-blue-200">
-                <li><a href="/about" class="hover:text-white transition">{tt("nav_about")}</a></li>
-                <li><a href="/contact" class="hover:text-white transition">{tt("nav_contact")}</a></li>
-                <li><a href="/terms" class="hover:text-white transition">{tt("footer_terms")}</a></li>
-                <li><a href="/privacy" class="hover:text-white transition">{tt("footer_privacy")}</a></li>
+              <h4 class="font-semibold text-violet-950 mb-3 text-sm">{tt("footer_col_info")}</h4>
+              <ul class="space-y-2 text-sm text-violet-900">
+                <li><a href="/about" class="hover:text-black transition">{tt("nav_about")}</a></li>
+                <li><a href="/contact" class="hover:text-black transition">{tt("nav_contact")}</a></li>
+                <li><a href="/terms" class="hover:text-black transition">{tt("footer_terms")}</a></li>
+                <li><a href="/privacy" class="hover:text-black transition">{tt("footer_privacy")}</a></li>
               </ul>
             </div>
           </div>
-          <div class="border-t border-blue-800 text-center py-4 sm:py-6 px-6 text-xs text-blue-300">
+          <div class="border-t border-violet-400 text-center py-4 sm:py-6 px-6 text-xs text-violet-900">
             © 2026 Wil App. {tt("footer_rights")}
           </div>
         </footer>
@@ -1612,18 +1612,18 @@ _ONBOARDING_STYLE = """
   .score-track { background: #E2E8F0; border-radius: 999px; height: 8px; overflow: hidden; }
   .score-fill { height: 100%; border-radius: 999px; transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
   .niche-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .niche-btn { position: relative; display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: #F1F5F9; border: 2px solid transparent; font-size: 13px; font-weight: 600; color: #334155; text-align: left; cursor: pointer; transition: all 0.15s ease; }
+  .niche-btn { position: relative; display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: #C4B5FD; border: 2px solid #A78BFA; font-size: 13px; font-weight: 600; color: #334155; text-align: left; cursor: pointer; transition: all 0.15s ease; }
   .niche-btn.selected { background: #0F172A; color: #fff; border-color: #0F172A; }
   .niche-btn.selected::after { content: '✓'; position: absolute; top: 6px; right: 8px; width: 16px; height: 16px; border-radius: 50%; background: #38BDF8; color: #fff; font-size: 10px; line-height: 16px; text-align: center; animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
   .challenge-btn, .simple-btn, .niche-btn { transition: all 0.15s ease, transform 0.1s ease; }
   .challenge-btn:active, .simple-btn:active, .niche-btn:active { transform: scale(0.97); }
-  .challenge-btn { display: block; width: 100%; padding: 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; margin-bottom: 12px; }
+  .challenge-btn { display: block; width: 100%; padding: 16px; border-radius: 14px; background: #C4B5FD; border: 2px solid #A78BFA; text-align: left; cursor: pointer; margin-bottom: 12px; }
   .challenge-btn.selected { background: #0F172A; border-color: #0F172A; }
   .challenge-btn.selected .challenge-title { color: #fff; }
   .challenge-btn.selected .challenge-desc { color: #CBD5E1; }
   .challenge-title { font-weight: 700; font-size: 15px; color: #0F172A; }
-  .challenge-desc { font-size: 13px; color: #64748B; margin-top: 2px; }
-  .simple-btn { display: block; width: 100%; padding: 14px 16px; border-radius: 14px; background: #F1F5F9; border: 2px solid transparent; text-align: left; cursor: pointer; margin-bottom: 10px; font-weight: 600; font-size: 14px; color: #0F172A; }
+  .challenge-desc { font-size: 13px; color: #334155; margin-top: 2px; }
+  .simple-btn { display: block; width: 100%; padding: 14px 16px; border-radius: 14px; background: #C4B5FD; border: 2px solid #A78BFA; text-align: left; cursor: pointer; margin-bottom: 10px; font-weight: 600; font-size: 14px; color: #0F172A; }
   .simple-btn.selected { background: #0F172A; color: #fff; border-color: #0F172A; }
   .glow-thumb { position: relative; width: 160px; margin: 0 auto; }
   .glow-thumb::before { content: ''; position: absolute; inset: -20px; background: radial-gradient(circle, rgba(37,99,235,0.25), transparent 70%); border-radius: 24px; z-index: 0; }
