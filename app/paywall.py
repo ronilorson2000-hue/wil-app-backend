@@ -55,6 +55,17 @@ ACTIVE_STATUSES = ("active", "trialing", "canceling")
 FREE_LIMITS = {"video": 1, "account": 1}  # ancien essai unique (cookie), plus utilisé pour bloquer
 
 
+APP_TOKEN_HEADER = "x-wil-app-token"
+APP_TOKEN_TTL_SECONDS = 365 * 24 * 3600
+
+
+def _int_env(name: str, default: int) -> int:
+    try:
+        return max(1, int(os.getenv(name, str(default))))
+    except ValueError:
+        return default
+
+
 def _free_per_day() -> int:
     try:
         return max(1, int(os.getenv("FREE_ANALYSES_PER_DAY", "5")))
@@ -264,8 +275,31 @@ async def membership_status(user_id: str, force: bool = False) -> tuple[bool, st
     return active, manage_url
 
 
+# ----------------------------------------------------------------- application mobile (gratuite, sans achat)
+def app_device(request: Request) -> str | None:
+    """
+    Identifiant de l'appareil si la requête vient de l'application mobile (jeton signé délivré par /api/app/register).
+    L'application mobile est gratuite : elle ne vend ni ne montre aucun abonnement (règles Apple / Google), donc ses
+    rapports ne sont pas verrouillés. En contrepartie, chaque appareil a un plafond d'analyses par jour (coût d'IA).
+    """
+    if os.getenv("APP_ACCESS_ENABLED", "1").strip().lower() in ("0", "false", "no", "off"):
+        return None
+    data = _unsign(request.headers.get(APP_TOKEN_HEADER))
+    return data.get("dev") if data and data.get("app") and data.get("dev") else None
+
+
+@router.post("/api/app/register", response_class=JSONResponse)
+async def register_app_device(request: Request):
+    """Délivre à l'application mobile son jeton d'appareil (à conserver dans le stockage chiffré du téléphone)."""
+    ratelimit.check(request, "app-register", _int_env("APP_REGISTER_PER_DAY", 10), window=86400)
+    token = _sign({"app": 1, "dev": uuid.uuid4().hex, "exp": int(time.time()) + APP_TOKEN_TTL_SECONDS})
+    return JSONResponse(content={"token": token}, headers={"Cache-Control": "no-store"})
+
+
 async def get_entitlement(request: Request, force: bool = False) -> dict:
     auth = read_auth(request)
+    if paywall_enabled() and app_device(request):
+        return {"paywall": False, "subscribed": True, "logged_in": False, "email": None, "manage_url": None, "app": True}
     if not paywall_enabled():
         # Tout est ouvert, mais on indique quand même si le visiteur est connecté via Whop (utile pour tester la connexion).
         return {"paywall": False, "subscribed": True, "logged_in": bool(auth), "email": auth.get("email") if auth else None, "manage_url": None}
@@ -294,6 +328,16 @@ def check_free_analysis(request: Request, kind: str, subscribed: bool) -> None:
     l'envoi de la vidéo, avec l'offre d'abonnement. Filet de sécurité en plus (le cookie peut être effacé) :
     FREE_ANALYSES_PER_DAY (5 par défaut) analyses gratuites par jour et par adresse IP.
     """
+    device = app_device(request)
+    if device:
+        # Application mobile : jamais de paywall, mais un plafond par appareil ET par adresse IP et par jour.
+        detail = "Limite d'analyses atteinte pour aujourd'hui. Réessaie demain."
+        try:
+            ratelimit.check(request, f"app-{kind}", _int_env("APP_ANALYSES_PER_DAY", 10), window=86400, ident=device)
+            ratelimit.check(request, f"app-ip-{kind}", _int_env("APP_ANALYSES_PER_IP_PER_DAY", 40), window=86400)
+        except HTTPException as exc:
+            raise HTTPException(status_code=429, detail=detail, headers=exc.headers)
+        return
     if subscribed:
         return
     if free_quota_left(request, kind) <= 0:

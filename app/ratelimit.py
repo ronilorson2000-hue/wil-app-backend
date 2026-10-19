@@ -52,11 +52,11 @@ def _purge(now: float) -> None:
         _hits.pop(key, None)
 
 
-def check(request: Request, bucket: str, limit: int, window: int = 3600) -> None:
-    """Refuse (429) si cette IP a déjà fait `limit` appels sur ce bucket pendant la fenêtre."""
+def check(request: Request, bucket: str, limit: int, window: int = 3600, ident: str | None = None) -> None:
+    """Refuse (429) si cette IP (ou `ident`, ex. un appareil) a déjà fait `limit` appels sur ce bucket pendant la fenêtre."""
     now = time.time()
     _purge(now)
-    queue = _hits[f"{bucket}:{client_ip(request)}"]
+    queue = _hits[f"{bucket}:{ident or client_ip(request)}"]
     while queue and queue[0] < now - window:
         queue.popleft()
     if len(queue) >= limit:
