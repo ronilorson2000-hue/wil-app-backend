@@ -595,7 +595,7 @@ def home(request: Request):
 
           <nav class="flex items-center justify-between max-w-6xl mx-auto px-6 py-5 relative z-10">
             <div class="flex items-center gap-2">
-              <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white font-bold text-sm">W</div>
+              <img src="/static/logo-mark.png" alt="" width="36" height="36" class="w-9 h-9 rounded-full">
               <span class="font-bold text-lg text-white">Wil App</span>
             </div>
             <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-200">
@@ -739,7 +739,7 @@ def home(request: Request):
           <div class="max-w-6xl mx-auto px-6 py-8 sm:py-14 grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-10">
             <div class="col-span-2 sm:col-span-1">
               <div class="flex items-center gap-2 mb-3">
-                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-violet-800 to-violet-600 flex items-center justify-center text-white font-bold text-sm">W</div>
+                <img src="/static/logo-mark.png" alt="" width="36" height="36" class="w-9 h-9 rounded-full">
                 <span class="font-bold text-lg text-violet-950">Wil App</span>
               </div>
               <p class="text-sm text-violet-900 leading-relaxed mb-4">{tt("hero_subtitle")}</p>
@@ -884,7 +884,7 @@ def _secondary_page_nav_html(lang: str, current_path: str) -> str:
     return f"""
   <nav class="flex items-center justify-between max-w-6xl mx-auto px-4 sm:px-6 py-5">
     <a href="/" class="flex items-center gap-2 shrink-0">
-      <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white font-bold text-sm">W</div>
+      <img src="/static/logo-mark.png" alt="" width="36" height="36" class="w-9 h-9 rounded-full">
       <span class="font-bold text-lg text-slate-900 whitespace-nowrap">Wil App</span>
     </a>
     <div class="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm font-medium text-slate-600">
@@ -3724,7 +3724,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     <!-- ACCUEIL -->
     <section id="tab-home" class="app-tab">
       <div class="flex items-center gap-2 mb-6">
-        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white font-bold text-sm">W</div>
+        <img src="/static/logo-mark.png" alt="" width="36" height="36" class="w-9 h-9 rounded-full">
         <span class="font-extrabold text-lg">Wil App</span>
       </div>
       <h1 class="text-2xl font-extrabold">__T_app_welcome__</h1>
