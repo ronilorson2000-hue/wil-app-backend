@@ -558,7 +558,7 @@ def home(request: Request):
       <head>
         <meta charset="utf-8">
         <title>Wil App</title>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -866,7 +866,7 @@ _VIOLET_BUTTONS_CSS = """
 # uniquement via un clic depuis le menu de la page d'accueil, plus dans le flux de
 # scroll de la landing page elle-même (contenu identique à l'ancien affichage inline).
 _SECONDARY_PAGE_HEAD = """
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1319,7 +1319,7 @@ async def tiktok_callback(request: Request):
       <head>
         <meta charset="utf-8">
         <title>Wil App — Dashboard</title>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1476,7 +1476,7 @@ def report_page(request: Request, analysis_id: str):
     <html lang="{lang}">
       <head>
         <title>Wil App</title>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
         <style>
@@ -1897,7 +1897,7 @@ def _locked_feature_page(tt, lang: str, active: str, return_path: str) -> str:
     <html lang="{lang}">
       <head>
         <title>Wil App</title>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
         <style>{_ONBOARDING_STYLE}</style>
@@ -2470,7 +2470,7 @@ def tool_analyze_account_page(request: Request):
     <html lang="{lang}">
       <head>
         <title>{tt("tool_account_title")} — Wil App</title>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
         <style>{_ONBOARDING_STYLE}</style>
@@ -2541,7 +2541,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
     <html lang="{lang}">
       <head>
         <title>{tt("tool_video_title")} — Wil App</title>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
         <style>{_ONBOARDING_STYLE}</style>
@@ -3308,7 +3308,7 @@ async def tool_analyze_script_page(request: Request):
     <html lang="{lang}">
       <head>
         <title>{tt("tool_script_title")} — Wil App</title>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
         <style>{_ONBOARDING_STYLE}</style>
@@ -3531,7 +3531,7 @@ async def tool_trending_ideas_page(request: Request, niche_category: str = "", l
     <html lang="{ui_lang}">
       <head>
         <title>{tt("tool_trending_title")} — Wil App</title>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>{_TOOL_PAGE_STYLE}</style>
@@ -3617,7 +3617,7 @@ def onboarding_page(request: Request, next: str = ""):
     <html lang="{lang}">
       <head>
         <title>Wil App</title>
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
         <style>{_ONBOARDING_STYLE}</style>
@@ -3645,7 +3645,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="utf-8">
   <title>Wil App</title>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <script>
     // Pas d'onboarding mémorisé -> on y va d'abord (puis retour ici).
