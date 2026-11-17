@@ -2233,6 +2233,8 @@ def _onboarding_js_core(
           function saveHistoryEntry(entry) {{
             try {{
               const list = JSON.parse(localStorage.getItem(WIL_HISTORY_KEY) || '[]');
+              // Un rapport déjà dans l'historique n'y est pas ajouté une 2e fois (ex. rapport rouvert depuis l'historique).
+              if (entry.rid && list.some(function (e) {{ return e.rid === entry.rid; }})) return;
               list.unshift(entry);
               localStorage.setItem(WIL_HISTORY_KEY, JSON.stringify(list.slice(0, 50)));
             }} catch (e) {{}}
@@ -3232,7 +3234,8 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             if (!silent) {{
               saveHistoryEntry({{
                 type: 'video', score: score, niche: data.niche || selectedNiches[0] || '',
-                title: data.hook_excerpt || data.niche || selectedNiches[0] || '', ts: Date.now()
+                title: data.hook_excerpt || data.niche || selectedNiches[0] || '', ts: Date.now(),
+                rid: data.report_id || wilUnlockId() || ''
               }});
             }}
 
@@ -3919,9 +3922,14 @@ __PW_JS__
     function historyItemHtml(entry) {
       const typeLabel = entry.type === 'script' ? I18N.script : I18N.video;
       const date = entry.ts ? new Date(entry.ts).toLocaleDateString(LANG) : '';
-      return '<div class="history-item"><p class="font-bold text-base truncate">' + esc(entry.title || nicheLabel(entry.niche) || typeLabel) + '</p>' +
+      const body = '<p class="font-bold text-base truncate">' + esc(entry.title || nicheLabel(entry.niche) || typeLabel) + '</p>' +
         '<p class="text-sm mt-1"><span style="color:' + scoreColor(entry.score) + ';font-weight:700;">' + esc(entry.score) + I18N.scoreSuffix + '</span>' +
-        '<span class="text-slate-400"> · ' + esc(typeLabel) + (date ? ' · ' + esc(date) : '') + '</span></p></div>';
+        '<span class="text-slate-400"> · ' + esc(typeLabel) + (date ? ' · ' + esc(date) : '') + '</span></p>';
+      // Rapport enregistré : un clic le rouvre tel quel (rien n'est réanalysé, aucun jeton dépensé).
+      if (entry.rid && /^[0-9a-fA-F-]{36}$/.test(entry.rid) && entry.type !== 'script') {
+        return '<a class="history-item block" style="text-decoration:none;color:inherit;" href="/tools/analyze-video?unlock=' + esc(entry.rid) + '">' + body + '</a>';
+      }
+      return '<div class="history-item">' + body + '</div>';
     }
 
     function renderHistory() {
