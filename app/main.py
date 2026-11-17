@@ -2689,7 +2689,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               </div>
               <div class="insight-card">
                 <div class="flex items-center justify-between mb-1">
-                  <p class="font-semibold text-sm">Hashtags</p>
+                  <p class="sec-title" style="margin-bottom:0">Hashtags</p>
                   <span class="copy-btn text-xs" onclick="copyText(document.getElementById('result-hashtags-value').textContent)">📋</span>
                 </div>
                 <p id="result-hashtags-value" class="text-sm text-blue-600"></p>
@@ -2781,11 +2781,11 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 <div id="stats-timeline" class="space-y-4"></div>
               </div>
               <div id="policy-card" class="insight-card hidden">
-                <p class="font-bold text-sm mb-1">⚠️ {tt("results_policy_title")}</p>
+                <p class="sec-title">⚠️ {tt("results_policy_title")}</p>
                 <ul id="policy-issues" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
               </div>
               <div id="estimate-card" class="insight-card hidden">
-                <p class="font-semibold text-sm mb-1">{tt("est_title")}</p>
+                <p class="sec-title">{tt("est_title")}</p>
                 <p id="estimate-band" class="text-sm font-bold text-blue-600 mb-2"></p>
                 <div id="estimate-numbers" class="grid grid-cols-3 gap-2 text-center mb-2"></div>
                 <p id="estimate-basis" class="text-sm text-slate-600 mb-1"></p>
