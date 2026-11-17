@@ -1693,7 +1693,13 @@ _ONBOARDING_STYLE = """
   .tab-btn { flex: 1; text-align: center; padding: 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: #2563EB; color: #fff; cursor: pointer; transition: all 0.15s ease; }
   .tab-btn.active { background: #0F172A; color: #fff; }
   .tab-btn:not(.active):hover, .tab-btn:not(.active):active { background: #7C3AED; }
-  .insight-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 18px; margin-bottom: 12px; animation: cardIn 0.4s ease both; }
+  /* Cadres du rapport : violet, comme les autres cadres de l'application (accueil, zone d'import) ; textes foncés pour rester lisibles. */
+  .insight-card { background: #C4B5FD; border: 1px solid #A78BFA; border-radius: 16px; padding: 18px; margin-bottom: 12px; animation: cardIn 0.4s ease both; color: #1E1B4B; }
+  .insight-card .text-slate-400, .insight-card .text-slate-500 { color: #3B2A7A; }
+  .insight-card .text-slate-600, .insight-card .text-slate-700 { color: #2E1065; }
+  .insight-card .score-track { background: rgba(255,255,255,0.55); }
+  .insight-card .improve-icon { background: rgba(255,255,255,0.6); }
+  .insight-card .copy-btn { color: #4C1D95; }
   @keyframes cardIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .copy-btn { cursor: pointer; color: #94A3B8; transition: color 0.15s ease, transform 0.1s ease; }
   .copy-btn:hover { color: #2563EB; }
@@ -2822,7 +2828,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }};
           const PHASE_LABELS = {{ opening: "{tt("res_phase_opening")}", middle: "{tt("res_phase_middle")}", ending: "{tt("res_phase_ending")}" }};
           const VERDICT_LABELS = {{ strong: "{tt("res_verdict_strong")}", ok: "{tt("res_verdict_ok")}", weak: "{tt("res_verdict_weak")}" }};
-          const VERDICT_COLORS = {{ strong: "#16A34A", ok: "#2563EB", weak: "#DC2626" }};
+          const VERDICT_COLORS = {{ strong: "#166534", ok: "#4C1D95", weak: "#991B1B" }};
           const TIP_LABEL = "{tt("res_tip_label")}";
           const EXAMPLE_LABEL = "{tt("res_example_label")}";
           const EST_LABELS = {{ views: "{tt("est_views")}", likes: "{tt("est_likes")}", comments: "{tt("est_comments")}" }};
@@ -3158,12 +3164,17 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }}
 
           // « Détail du score » : une barre par catégorie (même rendu dans le rapport complet et dans l'aperçu gratuit).
+          // Couleurs du rapport (cadres violets) : teintes foncées, lisibles sur fond lavande.
+          function reportColor(score) {{
+            return score <= 40 ? '#991B1B' : '#4C1D95';
+          }}
+
           function categoriesHtml(cats) {{
             return Object.keys(CAT_LABELS).map(function (key) {{
               const c = cats[key] || {{score: 0, comment: ''}};
               return '<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-medium">' + CAT_LABELS[key] +
-                '</span><span class="text-sm font-extrabold" style="color:' + scoreColor(c.score) + '">' + c.score + '</span></div>' +
-                '<div class="score-track"><div class="score-fill" style="width:' + c.score + '%;background:' + scoreColor(c.score) + '"></div></div>' +
+                '</span><span class="text-sm font-extrabold" style="color:' + reportColor(c.score) + '">' + c.score + '</span></div>' +
+                '<div class="score-track"><div class="score-fill" style="width:' + c.score + '%;background:' + reportColor(c.score) + '"></div></div>' +
                 '<p class="text-xs text-slate-500 mt-1">' + escapeHtml(c.comment) + '</p>' +
                 (c.tip ? '<p class="text-xs text-slate-700 mt-1"><b>' + TIP_LABEL + ' :</b> ' + escapeHtml(c.tip) + '</p>' : '') +
                 (c.example ? '<p class="text-xs text-slate-500 italic mt-0.5">' + EXAMPLE_LABEL + ' : ' + escapeHtml(c.example) + '</p>' : '') + '</div>';
@@ -3188,7 +3199,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             document.getElementById('full-report').classList.remove('hidden');
             document.querySelector('#step-results .glow-thumb').style.display = thumbDataUrl ? '' : 'none';
             const score = data.virality_score != null ? data.virality_score : 0;
-            const color = scoreColor(score);
+            const color = reportColor(score);
             animateNumber(document.getElementById('viral-score-value'), score, 900);
             document.getElementById('viral-score-value').style.color = color;
             document.getElementById('viral-score-bar').style.width = score + '%';
