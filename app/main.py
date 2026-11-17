@@ -346,7 +346,7 @@ def _error_response(request: Request, status: int, detail, headers=None):
         message = t(lang, "err_" + payload["error_code"]) if payload["error_code"] not in ("quota_used", "subscription_required") else t(lang, "pw_feature_sub")
         message = message.replace("{max}", str(payload.get("max", "")))
         page = f"""<!DOCTYPE html><html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wil App</title><style>body{{font-family:system-ui,sans-serif;max-width:440px;margin:90px auto;padding:0 20px;text-align:center;color:#0F172A}}
+<title>Wil App</title><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); body{{font-family:Inter,system-ui,sans-serif;max-width:440px;margin:90px auto;padding:0 20px;text-align:center;color:#0F172A}}
 p{{line-height:1.5;color:#475569}}.btn{{display:inline-block;margin-top:14px;padding:14px 22px;border-radius:12px;background:#2563EB;color:#fff;font-weight:700;text-decoration:none}}
 .btn:hover{{background:#7C3AED}}</style></head><body><div style="font-size:44px">😕</div><h1 style="font-size:22px">Wil App</h1>
 <p>{_esc_html(message)}</p><a class="btn" href="/app">{_esc_html(t(lang, "back_home"))}</a></body></html>"""
@@ -612,7 +612,7 @@ def home(request: Request):
         <script src="/static/hero3d.js" defer></script>
         <style>
           html {{ overflow-x: hidden; }}
-          body {{ font-family: 'Inter', system-ui, sans-serif; }}
+          body {{ font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }}
           {_VIOLET_BUTTONS_CSS}
           #hero-3d {{ opacity: 0; transition: opacity 1.2s ease; }}
           #hero-3d.ready {{ opacity: 1; }}
@@ -670,7 +670,7 @@ def home(request: Request):
             <div class="inline-block px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-sky-200 text-xs font-semibold mb-6">
               {tt("hero_badge")}
             </div>
-            <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight mb-5 text-white">
+            <h1 class="text-3xl sm:text-5xl font-bold tracking-tight leading-tight mb-5 text-white">
               {tt("hero_title_1")}<span class="italic bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent" style="padding-right:.15em;-webkit-box-decoration-break:clone;box-decoration-break:clone">{tt("hero_title_2")}</span>
             </h1>
             <p class="text-sm sm:text-lg text-slate-300 mb-10 leading-relaxed">
@@ -919,7 +919,7 @@ _SECONDARY_PAGE_HEAD = """
   <script>
     tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } };
   </script>
-  <style>body { font-family: 'Inter', system-ui, sans-serif; }</style>
+  <style>body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }</style>
   <style>""" + _VIOLET_BUTTONS_CSS + """</style>
 """
 
@@ -991,7 +991,7 @@ def pricing_page(request: Request):
     tt = lambda key: t(lang, key)  # noqa: E731
     prices = paywall.plan_prices()
     features = "".join(
-        f'<li class="relative pl-5 mb-2"><span class="absolute left-0 text-green-600 font-extrabold">✓</span>{tt(key)}</li>'
+        f'<li class="relative pl-5 mb-2"><span class="absolute left-0 text-green-600 font-bold">✓</span>{tt(key)}</li>'
         for key in ("pw_pro_feat1", "pw_pro_feat2", "pw_pro_feat3")
     )
 
@@ -1006,7 +1006,7 @@ def pricing_page(request: Request):
             <div class="relative flex flex-col bg-white {border} rounded-2xl p-4 pt-6 sm:p-6 sm:pt-8">
               {badge}
               <h3 class="font-bold text-base text-center">{title}</h3>
-              <div class="text-3xl font-extrabold text-center text-blue-600 mt-1">{price}<span class="text-sm font-semibold text-slate-400"> {per}</span></div>
+              <div class="text-3xl font-bold text-center text-blue-600 mt-1">{price}<span class="text-sm font-semibold text-slate-400"> {per}</span></div>
               <p class="text-center text-xs font-bold text-green-600 min-h-[1rem] mt-1 mb-4">{save}</p>
               <ul class="text-[13px] leading-snug text-slate-700 mb-5 flex-1">{features}</ul>
               <a href="/subscribe?to=/app&plan={plan}" class="block text-center px-3 py-3 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition">{tt("pw_choose")}</a>
@@ -1374,7 +1374,7 @@ async def tiktok_callback(request: Request):
           tailwind.config = {{ theme: {{ extend: {{ fontFamily: {{ sans: ['Inter', 'system-ui', 'sans-serif'] }} }} }} }};
         </script>
         <style>
-          body {{ font-family: 'Inter', system-ui, sans-serif; text-align: center;
+          body {{ font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-align: center;
                   margin: 0; padding: 56px 20px; color: #0F172A; background: #EFF6FF; }}
           {_ACCOUNT_REPORT_CSS}{_VIOLET_BUTTONS_CSS}
           .card.profile {{ text-align: center; }}
@@ -1528,7 +1528,7 @@ def report_page(request: Request, analysis_id: str):
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">{_ONBOARDING_HEAD_ASSETS}
         <style>
-          body {{ font-family: 'Inter', system-ui, sans-serif; text-align: center; margin: 0; padding: 40px 20px; color: #0F172A; background: #EFF6FF; }}
+          body {{ font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-align: center; margin: 0; padding: 40px 20px; color: #0F172A; background: #EFF6FF; }}
           a.home {{ display: block; margin-top: 24px; color: #2563EB; text-decoration: none; font-size: 14px; font-weight: 500; }}
           {_ACCOUNT_REPORT_CSS}{_VIOLET_BUTTONS_CSS}
         </style>
@@ -1617,8 +1617,9 @@ def report_page(request: Request, analysis_id: str):
 # séparée du tableau de bord — voir /tools/analyze-video, /tools/analyze-script,
 # /tools/trending-ideas).
 _TOOL_PAGE_STYLE = """
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); 
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, Arial, sans-serif; margin: 0; padding: 40px 20px; color: #1a1a1a; }
+  body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; margin: 0; padding: 40px 20px; color: #1a1a1a; }
   .wrap { max-width: 460px; margin: 0 auto; }
   h1 { font-size: 22px; margin: 0 0 6px; }
   .subtitle { color: #666; font-size: 13px; margin: 0 0 24px; line-height: 1.5; }
@@ -1654,7 +1655,7 @@ _THEME_CSS = """
 # contenu (upload de fichier vidéo vs. zone de texte). Extrait ici pour
 # éviter de dupliquer ~400 lignes identiques entre les deux pages.
 _ONBOARDING_STYLE = """
-  body { font-family: 'Inter', system-ui, sans-serif; background: #F8FAFC; }
+  body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; background: #F8FAFC; }
   .step { display: none; }
   .step.active { display: block; }
   .step.active.dir-forward { animation: slideInRight 0.35s ease; }
@@ -1674,8 +1675,8 @@ _ONBOARDING_STYLE = """
   .simple-btn:not(.selected):hover, .simple-btn:not(.selected):active { background: #7C3AED; border-color: #7C3AED; }
   .challenge-btn:not(.selected):hover .challenge-desc, .challenge-btn:not(.selected):active .challenge-desc { color: #EDE9FE; }
   /* Coche sur le choix validé (les trois types de boutons) */
-  .challenge-btn.selected::after, .simple-btn.selected::after { content: '✓'; position: absolute; top: 50%; right: 16px; margin-top: -12px; width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #7C3AED; font-size: 14px; font-weight: 800; line-height: 24px; text-align: center; animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
-  .niche-btn.selected::after { content: '✓'; position: absolute; top: -9px; right: -7px; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid #5B21B6; color: #7C3AED; font-size: 12px; font-weight: 800; line-height: 18px; text-align: center; animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .challenge-btn.selected::after, .simple-btn.selected::after { content: '✓'; position: absolute; top: 50%; right: 16px; margin-top: -12px; width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #7C3AED; font-size: 14px; font-weight:700; line-height: 24px; text-align: center; animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .niche-btn.selected::after { content: '✓'; position: absolute; top: -9px; right: -7px; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid #5B21B6; color: #7C3AED; font-size: 12px; font-weight:700; line-height: 18px; text-align: center; animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
   .challenge-btn, .simple-btn, .niche-btn { transition: all 0.15s ease, transform 0.1s ease; }
   .challenge-btn:active, .simple-btn:active, .niche-btn:active { transform: scale(0.97); }
   .challenge-btn { display: block; position: relative; width: 100%; padding: 18px 54px 18px 20px; border-radius: 16px; background: #2563EB; border: 2px solid #2563EB; text-align: left; cursor: pointer; margin-bottom: 14px; }
@@ -1824,7 +1825,7 @@ function wilAccountReportHtml(data) {
       ? '<p style="font-size:12px;color:#94A3B8;margin:2px 0 0;">' + wilFmt(WIL_ACC.likesRatio, {ratio: stats.likes_followers_ratio}) + '</p>'
       : '';
     html += '<div class="card">' +
-      '<p style="font-size:30px;font-weight:800;margin:0;">' + scoreIcon(stats.account_virality_score) + ' ' + stats.account_virality_score + '/100</p>' +
+      '<p style="font-size:30px;font-weight:700;margin:0;">' + scoreIcon(stats.account_virality_score) + ' ' + stats.account_virality_score + '/100</p>' +
       '<p style="font-size:12px;color:#64748B;margin:2px 0 14px;">' + WIL_ACC.viralityLabel + '</p>' +
       '<p style="font-size:13px;color:#475569;">' + wilFmt(WIL_ACC.videosAnalyzed, {count: stats.total_videos_analyzed, threshold: stats.viral_threshold_views / 1000}) + '</p>' +
       '<div class="bar-bg" style="margin-top:8px;"><div class="bar-fill" style="width:' + stats.viral_percentage + '%"></div></div>' +
@@ -1863,7 +1864,7 @@ function wilAccountReportHtml(data) {
         const color = sc <= 40 ? '#DC2626' : '#2563EB';
         return '<div style="margin-bottom:16px;"><div style="display:flex;justify-content:space-between;margin-bottom:4px;">' +
           '<span style="font-size:14px;font-weight:600;">' + esc(WIL_ACC.cat[k]) + '</span>' +
-          '<span style="font-size:14px;font-weight:800;color:' + color + ';">' + sc + '</span></div>' +
+          '<span style="font-size:14px;font-weight:700;color:' + color + ';">' + sc + '</span></div>' +
           '<div class="bar-bg"><div class="bar-fill" style="width:' + sc + '%;background:' + color + ';"></div></div>' +
           (c.comment ? '<p style="font-size:12.5px;color:#64748B;margin:6px 0 0;">' + esc(c.comment) + '</p>' : '') +
           (c.tip ? '<p style="font-size:12.5px;color:#334155;margin:4px 0 0;"><b>' + esc(WIL_ACC.tip) + ' :</b> ' + esc(c.tip) + '</p>' : '') +
@@ -1994,7 +1995,7 @@ def _onboarding_steps_html(
 
           <!-- ÉTAPE 1 : objectif principal -->
           <div id="step-goal" class="step active">
-            <h1 class="text-xl font-extrabold mb-1">{tt("onboarding_goal_title")}</h1>
+            <h1 class="text-xl font-bold mb-1">{tt("onboarding_goal_title")}</h1>
             <p class="text-sm text-slate-500 mb-6">{tt("onboarding_goal_subtitle")}</p>
             <button type="button" class="simple-btn goal-btn" onclick="selectGoal('views', this)">{tt("onboarding_goal_views")}</button>
             <button type="button" class="simple-btn goal-btn" onclick="selectGoal('engagement', this)">{tt("onboarding_goal_engagement")}</button>
@@ -2013,7 +2014,7 @@ def _onboarding_steps_html(
 
           <!-- ÉTAPE 2 : plus gros défi -->
           <div id="step-challenge" class="step">
-            <h1 class="text-xl font-extrabold mb-6">{tt("onboarding_challenge_title")}</h1>
+            <h1 class="text-xl font-bold mb-6">{tt("onboarding_challenge_title")}</h1>
             <button type="button" class="challenge-btn" onclick="selectChallenge('followers', this)">
               <div class="challenge-title">👤 {tt("onboarding_challenge_followers_title")}</div>
               <div class="challenge-desc">{tt("onboarding_challenge_followers_desc")}</div>
@@ -2034,7 +2035,7 @@ def _onboarding_steps_html(
 
           <!-- ÉTAPE 3 : niche (sélection multiple) -->
           <div id="step-niche" class="step">
-            <h1 class="text-xl font-extrabold mb-1">{tt("onboarding_niche_title")}</h1>
+            <h1 class="text-xl font-bold mb-1">{tt("onboarding_niche_title")}</h1>
             <p class="text-sm text-slate-500 mb-1">{tt("onboarding_niche_subtitle")}</p>
             <p class="text-xs text-slate-400 mb-4">{tt("onboarding_niche_multi_hint")}</p>
             <div class="niche-grid">{niche_buttons}</div>
@@ -2046,7 +2047,7 @@ def _onboarding_steps_html(
 
           <!-- ÉTAPE 4 : âge de l'audience -->
           <div id="step-audience" class="step">
-            <h1 class="text-xl font-extrabold mb-1">{tt("onboarding_audience_title")}</h1>
+            <h1 class="text-xl font-bold mb-1">{tt("onboarding_audience_title")}</h1>
             <p class="text-sm text-slate-500 mb-6">{tt("onboarding_audience_subtitle")}</p>
             <button type="button" class="challenge-btn audience-opt" onclick="selectAudience('teens', this)">
               <div class="challenge-title">{tt("onboarding_audience_teens")}</div>
@@ -2072,7 +2073,7 @@ def _onboarding_steps_html(
 
           <!-- ÉTAPE 5 : provenance -->
           <div id="step-source" class="step">
-            <h1 class="text-xl font-extrabold mb-6">{tt("onboarding_source_title")}</h1>
+            <h1 class="text-xl font-bold mb-6">{tt("onboarding_source_title")}</h1>
             <button type="button" class="simple-btn source-btn" onclick="selectSource('tiktok', this)">🎵 {tt("onboarding_source_tiktok")}</button>
             <button type="button" class="simple-btn source-btn" onclick="selectSource('instagram', this)">📸 {tt("onboarding_source_instagram")}</button>
             <button type="button" class="simple-btn source-btn" onclick="selectSource('reddit', this)">👽 {tt("onboarding_source_reddit")}</button>
@@ -2087,7 +2088,7 @@ def _onboarding_steps_html(
 
           <!-- ÉTAPE 6 : vues moyennes (sautée si déjà connue via le tableau de bord) -->
           <div id="step-views" class="step">
-            <h1 class="text-xl font-extrabold mb-1">{tt("onboarding_views_title")}</h1>
+            <h1 class="text-xl font-bold mb-1">{tt("onboarding_views_title")}</h1>
             <p class="text-sm text-slate-500 mb-6">{tt("onboarding_views_subtitle")}</p>
             <button type="button" class="simple-btn views-btn" onclick="selectViews(500, this)">{tt("onboarding_views_lt1000")}</button>
             <button type="button" class="simple-btn views-btn" onclick="selectViews(3000, this)">{tt("onboarding_views_1k_5k")}</button>
@@ -2102,7 +2103,7 @@ def _onboarding_steps_html(
 
           <!-- ÉTAPE 7 : niveau d'expérience -->
           <div id="step-experience" class="step">
-            <h1 class="text-xl font-extrabold mb-6">{tt("onboarding_experience_title")}</h1>
+            <h1 class="text-xl font-bold mb-6">{tt("onboarding_experience_title")}</h1>
             <button type="button" class="challenge-btn experience-opt" onclick="selectExperience('beginner', this)">
               <div class="challenge-title">{tt("onboarding_experience_beginner")}</div>
               <div class="challenge-desc">{tt("onboarding_experience_beginner_desc")}</div>
@@ -2142,7 +2143,7 @@ def _onboarding_steps_html(
               </div>
             </div>
             <p class="inline-block bg-green-50 text-green-700 text-xs font-bold px-3 py-1 rounded-full mb-4">✅ {tt("onboarding_complete_badge")}</p>
-            <h1 class="text-2xl font-extrabold mb-3">{tt("onboarding_complete_title")}</h1>
+            <h1 class="text-2xl font-bold mb-3">{tt("onboarding_complete_title")}</h1>
             <p class="text-sm text-slate-500 mb-8">{tt("onboarding_complete_subtitle")}</p>
             <button onclick="{complete_action}"
                     class="w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700">
@@ -2540,7 +2541,7 @@ def tool_analyze_account_page(request: Request):
           <!-- ÉTAPE 10 : connexion TikTok -->
           <div id="step-account" class="step text-center">
             <div class="text-6xl mt-10 mb-6">🔗</div>
-            <h1 class="text-xl font-extrabold mb-1">{tt("tool_account_title")}</h1>
+            <h1 class="text-xl font-bold mb-1">{tt("tool_account_title")}</h1>
             <p class="text-sm text-slate-500 mb-8">{tt("tool_account_subtitle")}</p>
             <button onclick="connectTikTok()"
                     class="w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700">
@@ -2612,7 +2613,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
           <!-- ÉTAPE 10 : upload -->
           <div id="step-upload" class="step">
-            <h1 class="text-xl font-extrabold mb-1">{tt("tool_video_title")}</h1>
+            <h1 class="text-xl font-bold mb-1">{tt("tool_video_title")}</h1>
             <p class="text-sm text-slate-500 mb-6">{tt("tool_video_subtitle")}</p>
             <label for="upload-video-input" id="upload-dropzone" class="block cursor-pointer text-center"
                    style="border:3px dashed #8B5CF6;border-radius:28px;background:#C4B5FD;padding:36px 20px;">
@@ -2652,7 +2653,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           <!-- ÉTAPE 12 : résultat -->
           <div id="step-results" class="step">
             <div class="flex items-center justify-between mb-4">
-              <span class="font-extrabold text-lg">Wil App</span>
+              <span class="font-bold text-lg">Wil App</span>
               <button onclick="resetFlow()" class="text-xs font-semibold text-blue-600 hover:text-blue-700">{tt("tool_video_analyze_btn")}</button>
             </div>
 
@@ -2667,7 +2668,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             <div class="insight-card">
               <div class="flex items-center justify-between mb-2">
                 <span class="font-semibold text-sm">{tt("results_viral_potential")}</span>
-                <span id="viral-score-value" class="font-extrabold text-blue-600">—/100</span>
+                <span id="viral-score-value" class="font-bold text-blue-600">—/100</span>
               </div>
               <div class="score-track"><div id="viral-score-bar" class="score-fill" style="width:0%"></div></div>
               <p id="score-basis-text" class="text-xs text-slate-400 mt-2"></p>
@@ -2760,7 +2761,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             <div id="tab-stats">
               <div class="insight-card">
                 <p class="font-semibold text-sm mb-2">{tt("results_viral_potential")}</p>
-                <p id="stats-score-value" class="text-3xl font-extrabold text-blue-600 mb-1">—/100</p>
+                <p id="stats-score-value" class="text-3xl font-bold text-blue-600 mb-1">—/100</p>
                 <p id="stats-score-basis" class="text-xs text-slate-400"></p>
               </div>
               <div class="insight-card">
@@ -3173,7 +3174,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             return Object.keys(CAT_LABELS).map(function (key) {{
               const c = cats[key] || {{score: 0, comment: ''}};
               return '<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-medium">' + CAT_LABELS[key] +
-                '</span><span class="text-sm font-extrabold" style="color:' + reportColor(c.score) + '">' + c.score + '</span></div>' +
+                '</span><span class="text-sm font-bold" style="color:' + reportColor(c.score) + '">' + c.score + '</span></div>' +
                 '<div class="score-track"><div class="score-fill" style="width:' + c.score + '%;background:' + reportColor(c.score) + '"></div></div>' +
                 '<p class="text-xs text-slate-500 mt-1">' + escapeHtml(c.comment) + '</p>' +
                 (c.tip ? '<p class="text-xs text-slate-700 mt-1"><b>' + TIP_LABEL + ' :</b> ' + escapeHtml(c.tip) + '</p>' : '') +
@@ -3260,7 +3261,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               document.getElementById('estimate-numbers').innerHTML = est.views
                 ? ['views', 'likes', 'comments'].map(function (k) {{
                     return '<div class="rounded-xl bg-slate-50 py-2"><p class="text-xs text-slate-500">' + EST_LABELS[k] + '</p>' +
-                      '<p class="text-sm font-extrabold">' + fmt.format(est[k][0]) + ' – ' + fmt.format(est[k][1]) + '</p></div>';
+                      '<p class="text-sm font-bold">' + fmt.format(est[k][0]) + ' – ' + fmt.format(est[k][1]) + '</p></div>';
                   }}).join('')
                 : '<p class="col-span-3 text-xs text-slate-500">' + escapeHtml("{tt("est_no_avg")}") + '</p>';
               document.getElementById('estimate-basis').textContent = est.basis || '';
@@ -3386,7 +3387,7 @@ async def tool_analyze_script_page(request: Request):
 
           <!-- ÉTAPE 10 : script -->
           <div id="step-script" class="step">
-            <h1 class="text-xl font-extrabold mb-1">{tt("tool_script_title")}</h1>
+            <h1 class="text-xl font-bold mb-1">{tt("tool_script_title")}</h1>
             <p class="text-sm text-slate-500 mb-6">{tt("tool_script_subtitle")}</p>
             <textarea id="script-text" placeholder="{tt("tool_script_placeholder")}" rows="10"
                       class="w-full rounded-xl border-2 border-slate-200 p-3 text-sm focus:outline-none focus:border-blue-500"
@@ -3408,7 +3409,7 @@ async def tool_analyze_script_page(request: Request):
           <!-- ÉTAPE 12 : résultat -->
           <div id="step-results" class="step">
             <div class="flex items-center justify-between mb-4">
-              <span class="font-extrabold text-lg">Wil App</span>
+              <span class="font-bold text-lg">Wil App</span>
               <button onclick="resetFlow()" class="text-xs font-semibold text-blue-600 hover:text-blue-700">{tt("tool_script_analyze_btn")}</button>
             </div>
 
@@ -3417,7 +3418,7 @@ async def tool_analyze_script_page(request: Request):
             <div class="insight-card">
               <div class="flex items-center justify-between mb-2">
                 <span class="font-semibold text-sm">{tt("tool_script_virality_estimated")}</span>
-                <span id="script-score-value" class="font-extrabold text-blue-600">—/100</span>
+                <span id="script-score-value" class="font-bold text-blue-600">—/100</span>
               </div>
               <div class="score-track"><div id="script-score-bar" class="score-fill" style="width:0%"></div></div>
             </div>
@@ -3738,7 +3739,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
   </script>
   __HEAD_ASSETS__
   <style>
-    body { font-family: 'Inter', system-ui, sans-serif; background: #F8FAFC; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; background: #F8FAFC; -webkit-tap-highlight-color: transparent; }
     .tool-card { display: flex; align-items: center; gap: 14px; padding: 16px; background: #2563EB; border: 1.5px solid transparent; border-radius: 20px; margin-bottom: 12px; text-decoration: none; color: #fff; box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25); transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease; }
     .tool-card:hover { background: #7C3AED; box-shadow: 0 8px 20px rgba(124, 58, 237, 0.35); transform: translateY(-2px); }
     .tool-card:active { transform: scale(0.98); }
@@ -3798,9 +3799,9 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     <section id="tab-home" class="app-tab">
       <div class="flex items-center gap-2 mb-6">
         <img src="/static/logo-mark.png" alt="" width="36" height="36" class="w-9 h-9 rounded-full">
-        <span class="font-extrabold text-lg">Wil App</span>
+        <span class="font-bold text-lg">Wil App</span>
       </div>
-      <h1 class="text-2xl font-extrabold">__T_app_welcome__</h1>
+      <h1 class="text-2xl font-bold">__T_app_welcome__</h1>
       <p class="text-sm text-slate-500 mt-1 mb-5">__T_app_home_subtitle__</p>
 
       <a class="tool-card" href="/tools/analyze-video">
@@ -3815,7 +3816,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
       </a>
 
       <div class="flex items-center justify-between mt-8 mb-3">
-        <h2 class="text-xl font-extrabold">__T_app_history_title__</h2>
+        <h2 class="text-xl font-bold">__T_app_history_title__</h2>
         <button type="button" onclick="openHistory()" class="text-sm font-semibold text-blue-600">__T_app_see_all__ ›</button>
       </div>
       <div id="home-history"></div>
@@ -3823,7 +3824,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
 
     <!-- BIBLIOTHÈQUE -->
     <section id="tab-library" class="app-tab hidden">
-      <h1 class="text-2xl font-extrabold text-center mb-5">__T_app_tab_library__</h1>
+      <h1 class="text-2xl font-bold text-center mb-5">__T_app_tab_library__</h1>
       <div id="lib-cats" class="hscroll flex gap-6 overflow-x-auto border-b border-slate-200 mb-4"></div>
       <div id="lib-niches" class="hscroll flex gap-2 overflow-x-auto pb-3"></div>
       <div id="lib-banner" class="flex items-start gap-3 rounded-2xl bg-sky-50 text-sky-800 text-sm font-medium leading-snug p-4 my-3">
@@ -3835,7 +3836,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
     <!-- DÉCOUVRIR -->
     <section id="tab-discover" class="app-tab hidden">
       <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-extrabold">__T_app_tab_discover__</h1>
+        <h1 class="text-2xl font-bold">__T_app_tab_discover__</h1>
         <span class="badge" style="background:#DBEAFE;color:#1D4ED8;padding:8px 16px;font-size:13px;">__T_disc_new_today__</span>
       </div>
       <div class="flex items-start gap-3 rounded-2xl bg-sky-50 text-sky-800 text-sm font-medium leading-snug p-4 mb-5">
@@ -3846,7 +3847,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
 
     <!-- PROFIL -->
     <section id="tab-profile" class="app-tab hidden">
-      <h1 class="text-2xl font-extrabold mb-5">__T_set_title__</h1>
+      <h1 class="text-2xl font-bold mb-5">__T_set_title__</h1>
       <div id="profile-content"></div>
     </section>
 
@@ -3963,14 +3964,14 @@ __PW_JS__
         const lvl = levelFor(idea.score);
         gauge = '<div class="rounded-2xl bg-slate-50 p-4 flex items-center gap-4">' + ringSvg(idea.score, lvl.color) +
           '<div><p class="text-xs text-slate-400">' + esc(I18N.discPotential) + '</p>' +
-          '<p class="font-extrabold text-lg" style="color:' + lvl.color + '">' + esc(lvl.label) + '</p>' +
+          '<p class="font-bold text-lg" style="color:' + lvl.color + '">' + esc(lvl.label) + '</p>' +
           (idea.reason ? '<p class="text-sm text-slate-500 leading-snug">' + esc(idea.reason) + '</p>' : '') + '</div></div>' +
           '<p class="text-[11px] text-slate-400 mt-3">' + esc(I18N.discEstimate) + '</p>';
       }
       const transform = depth ? 'transform:translateY(' + (depth * 14) + 'px) scale(' + (1 - depth * 0.05) + ');' : '';
       return '<div class="disc-card" data-depth="' + depth + '" style="z-index:' + (10 - depth) + ';' + transform + '">' +
         '<div class="flex gap-2 mb-4">' + badge + '<span class="badge badge-niche">' + esc(nicheLabel(idea.niche)) + '</span></div>' +
-        '<p class="font-extrabold text-xl leading-snug mb-3">' + esc(idea.idea) + '</p>' + hook + gauge + '</div>';
+        '<p class="font-bold text-xl leading-snug mb-3">' + esc(idea.idea) + '</p>' + hook + gauge + '</div>';
     }
 
     function openSaved() { libCat = 'saved'; libNiche = 'all'; showTab('library'); }
@@ -4146,7 +4147,7 @@ __PW_JS__
 
     function openAppearanceSheet() {
       const modes = ['system', 'light', 'dark'];
-      openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setAppearance) + '</p>' + modes.map(function (m) {
+      openSheet('<p class="font-bold text-lg mb-2">' + esc(I18N.setAppearance) + '</p>' + modes.map(function (m) {
         return '<button type="button" class="sheet-option" data-theme="' + m + '"><span>' + esc(themeLabel(m)) + '</span><span class="text-blue-600">' + (m === currentTheme() ? '✓' : '') + '</span></button>';
       }).join(''));
       document.querySelectorAll('#sheet-panel [data-theme]').forEach(function (b) {
@@ -4154,7 +4155,7 @@ __PW_JS__
       });
     }
     function openLanguageSheet() {
-      openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setLanguage) + '</p>' + I18N.languages.map(function (l) {
+      openSheet('<p class="font-bold text-lg mb-2">' + esc(I18N.setLanguage) + '</p>' + I18N.languages.map(function (l) {
         return '<a class="sheet-option" href="/set-language?lang=' + l.code + '&to=' + encodeURIComponent('/app#profile') + '"><span>' + l.flag + ' ' + esc(l.name) + '</span><span class="text-blue-600">' + (l.code === LANG ? '✓' : '') + '</span></a>';
       }).join(''));
     }
@@ -4162,20 +4163,20 @@ __PW_JS__
       if (ME.paywall && ME.subscribed) {
         const manage = (ME.manage_url && ME.manage_url.indexOf('https://') === 0)
           ? '<a href="' + esc(ME.manage_url) + '" target="_blank" rel="noopener" class="block w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm text-center mb-3">' + esc(WIL_PW.manage) + '</a>' : '';
-        openSheet('<p class="font-extrabold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
+        openSheet('<p class="font-bold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
           '<p class="font-semibold text-green-600 mb-1">✅ ' + esc(WIL_PW.active) + '</p>' +
           (ME.email ? '<p class="text-sm text-slate-500 mb-5">' + esc(ME.email) + '</p>' : '<div class="mb-5"></div>') + manage +
           '<a href="/auth/logout" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm text-center">' + esc(WIL_PW.logout) + '</a>');
         return;
       }
       if (ME.paywall) {
-        openSheet('<p class="font-extrabold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
+        openSheet('<p class="font-bold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
           '<p class="font-semibold text-blue-600 mb-2">' + esc(I18N.setSubPlan) + '</p>' +
           '<p class="text-sm text-slate-500 leading-relaxed mb-2">' + esc(WIL_PW.sub) + '</p>' +
           '<div class="wilpw" style="margin-bottom:0;">' + wilPwActions('/app#profile') + '</div>');
         return;
       }
-      openSheet('<p class="font-extrabold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
+      openSheet('<p class="font-bold text-lg mb-1">' + esc(I18N.setManageSub) + '</p>' +
         '<p class="font-semibold text-blue-600 mb-2">' + esc(I18N.setSubPlan) + '</p>' +
         '<p class="text-sm text-slate-500 leading-relaxed mb-5">' + esc(I18N.setSubDesc) + '</p>' +
         '<button type="button" disabled class="block w-full py-3.5 rounded-xl bg-blue-200 text-white font-bold text-sm text-center mb-3 cursor-not-allowed">' + esc(I18N.setSubActivate) + ' · ' + esc(I18N.setSoon) + '</button>' +
@@ -4185,14 +4186,14 @@ __PW_JS__
       // La restauration passe par l'App Store / Google Play : disponible dans l'application mobile.
       const store = shareUrl();
       const hasStore = store !== CFG.site;
-      openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setRestore) + '</p>' +
+      openSheet('<p class="font-bold text-lg mb-2">' + esc(I18N.setRestore) + '</p>' +
         '<p class="text-sm text-slate-500 leading-relaxed mb-5">' + esc(I18N.setRestoreDesc) + '</p>' +
         (hasStore ? '<a href="' + esc(store) + '" target="_blank" rel="noopener" class="block w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm text-center mb-3">' + esc(I18N.setGetApp) + '</a>' : '') +
         '<button type="button" id="restore-close" class="block w-full py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm">' + esc(I18N.setDismiss) + '</button>');
       document.getElementById('restore-close').addEventListener('click', closeSheet);
     }
     function openDisconnectSheet() {
-      openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setDisconnect) + '</p>' +
+      openSheet('<p class="font-bold text-lg mb-2">' + esc(I18N.setDisconnect) + '</p>' +
         '<p class="text-sm text-slate-500 leading-relaxed mb-4">' + esc(I18N.setDisconnectDesc) + '</p>' +
         '<p id="disconnect-error" class="text-sm text-red-600 mb-3 hidden">' + esc(I18N.setActionError) + '</p>' +
         '<button type="button" id="disconnect-confirm" class="block w-full py-3.5 rounded-xl bg-slate-900 text-white font-bold text-sm mb-3">' + esc(I18N.setDisconnectConfirm) + '</button>' +
@@ -4213,7 +4214,7 @@ __PW_JS__
         .catch(function () { document.getElementById('disconnect-error').classList.remove('hidden'); });
     }
     function openCloseAccountSheet() {
-      openSheet('<p class="font-extrabold text-lg mb-2">' + esc(I18N.setCloseTitle) + '</p>' +
+      openSheet('<p class="font-bold text-lg mb-2">' + esc(I18N.setCloseTitle) + '</p>' +
         '<p class="text-sm text-slate-500 leading-relaxed mb-4">' + esc(I18N.setCloseDesc) + '</p>' +
         '<p id="close-error" class="text-sm text-red-600 mb-3 hidden">' + esc(I18N.setCloseError) + '</p>' +
         '<button type="button" id="close-confirm" class="block w-full py-3.5 rounded-xl bg-red-600 text-white font-bold text-sm mb-3">' + esc(I18N.setCloseConfirm) + '</button>' +
@@ -4238,11 +4239,11 @@ __PW_JS__
       const tiktok = readJson('wilTikTok', null);
       const account = tiktok
         ? '<div class="history-item text-center"><img src="' + esc(tiktok.avatar_url) + '" alt="" class="w-20 h-20 rounded-full object-cover mx-auto mb-3" onerror="this.style.display=&quot;none&quot;">' +
-          '<p class="font-extrabold text-lg">' + esc(tiktok.display_name) + (tiktok.is_verified ? ' <span style="color:#0EA5E9">✔</span>' : '') + '</p>' +
+          '<p class="font-bold text-lg">' + esc(tiktok.display_name) + (tiktok.is_verified ? ' <span style="color:#0EA5E9">✔</span>' : '') + '</p>' +
           '<p class="text-sm text-slate-500">@' + esc(tiktok.username) + '</p>' +
           '<p class="text-xs font-semibold text-green-600 mt-2">✅ ' + esc(I18N.profileConnected) + '</p></div>'
         : '<div class="history-item text-center"><div class="w-16 h-16 mx-auto rounded-full bg-blue-50 flex items-center justify-center text-2xl mb-3">👤</div>' +
-          '<p class="font-extrabold text-lg">' + esc(I18N.profileNotConnected) + '</p>' +
+          '<p class="font-bold text-lg">' + esc(I18N.profileNotConnected) + '</p>' +
           '<p class="text-sm text-slate-500 mt-1 mb-4">' + esc(I18N.profileNotConnectedDesc) + '</p>' +
           '<a href="/tools/analyze-account" class="block w-full py-3.5 rounded-xl bg-slate-900 text-white font-bold text-sm">' + esc(I18N.profileConnectBtn) + '</a></div>';
 
@@ -4365,7 +4366,7 @@ __PW_JS__
 
     function emptyState(icon, title, desc) {
       return '<div class="text-center py-14"><div class="w-20 h-20 mx-auto rounded-full bg-blue-50 flex items-center justify-center text-3xl mb-5">' + icon + '</div>' +
-        '<p class="font-extrabold text-lg mb-2">' + esc(title) + '</p>' +
+        '<p class="font-bold text-lg mb-2">' + esc(title) + '</p>' +
         (desc ? '<p class="text-sm text-slate-500 leading-relaxed px-6">' + esc(desc) + '</p>' : '') + '</div>';
     }
 

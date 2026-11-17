@@ -15,7 +15,8 @@ WHATSAPP_LABEL = "WhatsApp"
 FALLBACK_LANG = "en"
 
 LEGAL_STYLE = """
-  body { font-family: -apple-system, Arial, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #222; }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); 
+  body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #222; }
   h1 { font-size: 28px; }
   h2 { font-size: 20px; margin-top: 32px; }
   footer { margin-top: 60px; color: #777; font-size: 14px; }
