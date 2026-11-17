@@ -1703,6 +1703,8 @@ _ONBOARDING_STYLE = """
   .insight-card .improve-icon { background: rgba(255,255,255,0.1); }
   .insight-card .copy-btn { color: #C4B5FD; }
   .insight-card .copy-btn:hover { color: #FFFFFF; }
+  /* Titres de section : petits cadres bleus ajustés au texte. */
+  .sec-title { display: inline-block; background: #2563EB; color: #FFFFFF !important; font-size: 12px; font-weight: 600; line-height: 1.2; padding: 3px 10px; border-radius: 8px; margin-bottom: 10px; letter-spacing: 0.01em; }
   /* Encadrés internes (ex. accroches réécrites) : bleus, textes blancs. */
   .insight-card .bg-slate-50, .insight-card .bg-slate-100 { background: #2563EB; }
   .insight-card .bg-slate-50 p, .insight-card .bg-slate-100 p, .insight-card .bg-slate-50 span:not(.copy-btn), .insight-card .bg-slate-100 span:not(.copy-btn) { color: #FFFFFF; }
@@ -2673,7 +2675,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
             <div class="insight-card">
               <div class="flex items-center justify-between mb-2">
-                <span class="font-semibold text-sm">{tt("results_viral_potential")}</span>
+                <span class="sec-title" style="margin-bottom:0">{tt("results_viral_potential")}</span>
                 <span id="viral-score-value" class="font-bold text-blue-600">—/100</span>
               </div>
               <div class="score-track"><div id="viral-score-bar" class="score-fill" style="width:0%"></div></div>
@@ -2682,7 +2684,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
             <div class="grid grid-cols-2 gap-3">
               <div class="insight-card">
-                <p class="font-semibold text-sm mb-1">{tt("results_niche_label")}</p>
+                <p class="sec-title">{tt("results_niche_label")}</p>
                 <p id="result-niche-value" class="text-sm text-slate-600"></p>
               </div>
               <div class="insight-card">
@@ -2696,7 +2698,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
             <div class="insight-card">
               <div class="flex items-center justify-between mb-1">
-                <p class="font-semibold text-sm">{tt("results_caption_label")}</p>
+                <p class="sec-title">{tt("results_caption_label")}</p>
                 <span class="copy-btn text-xs" onclick="copyText(document.getElementById('result-caption-value').textContent)">📋</span>
               </div>
               <p id="result-caption-value" class="text-sm text-slate-600"></p>
@@ -2712,7 +2714,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 <div class="flex items-start gap-3">
                   <div class="improve-icon">🎬</div>
                   <div class="flex-1">
-                    <p class="font-bold text-sm mb-1">{tt("tool_video_hook_real")}</p>
+                    <p class="sec-title">{tt("tool_video_hook_real")}</p>
                     <p id="result-hook-value" class="text-sm text-slate-600 italic"></p>
                   </div>
                 </div>
@@ -2721,7 +2723,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 <div class="flex items-start gap-3">
                   <div class="improve-icon">✅</div>
                   <div class="flex-1">
-                    <p class="font-bold text-sm mb-1">{tt("dash_strengths")}</p>
+                    <p class="sec-title">{tt("dash_strengths")}</p>
                     <ul id="result-strengths-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
                   </div>
                 </div>
@@ -2730,7 +2732,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 <div class="flex items-start gap-3">
                   <div class="improve-icon">⚠️</div>
                   <div class="flex-1">
-                    <p class="font-bold text-sm mb-1">{tt("tool_video_weaknesses")}</p>
+                    <p class="sec-title">{tt("tool_video_weaknesses")}</p>
                     <ul id="result-weaknesses-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
                   </div>
                 </div>
@@ -2739,7 +2741,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 <div class="flex items-start gap-3">
                   <div class="improve-icon">🎯</div>
                   <div class="flex-1">
-                    <p class="font-bold text-sm mb-1">{tt("tool_video_to_break_through")}</p>
+                    <p class="sec-title">{tt("tool_video_to_break_through")}</p>
                     <ul id="result-actions-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
                   </div>
                 </div>
@@ -2748,7 +2750,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 <div class="flex items-start gap-3">
                   <div class="improve-icon">✍️</div>
                   <div class="flex-1">
-                    <p class="font-bold text-sm mb-2">{tt("res_rewrites_title")}</p>
+                    <p class="sec-title">{tt("res_rewrites_title")}</p>
                     <div id="result-rewrites-value" class="space-y-2"></div>
                   </div>
                 </div>
@@ -2757,7 +2759,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 <div class="flex items-start gap-3">
                   <div class="improve-icon">🎬</div>
                   <div class="flex-1">
-                    <p class="font-bold text-sm mb-1">{tt("res_plan_title")}</p>
+                    <p class="sec-title">{tt("res_plan_title")}</p>
                     <ol id="result-plan-value" class="text-sm text-slate-600 list-decimal pl-4 space-y-1"></ol>
                   </div>
                 </div>
@@ -2766,16 +2768,16 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
 
             <div id="tab-stats">
               <div class="insight-card">
-                <p class="font-semibold text-sm mb-2">{tt("results_viral_potential")}</p>
+                <p class="sec-title">{tt("results_viral_potential")}</p>
                 <p id="stats-score-value" class="text-3xl font-bold text-blue-600 mb-1">—/100</p>
                 <p id="stats-score-basis" class="text-xs text-slate-400"></p>
               </div>
               <div class="insight-card">
-                <p class="font-semibold text-sm mb-3">{tt("results_categories_title")}</p>
+                <p class="sec-title">{tt("results_categories_title")}</p>
                 <div id="stats-categories" class="space-y-4"></div>
               </div>
               <div id="timeline-card" class="insight-card hidden">
-                <p class="font-semibold text-sm mb-3">{tt("res_timeline_title")}</p>
+                <p class="sec-title">{tt("res_timeline_title")}</p>
                 <div id="stats-timeline" class="space-y-4"></div>
               </div>
               <div id="policy-card" class="insight-card hidden">
@@ -2799,7 +2801,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 </div>
               </div>
               <div class="insight-card">
-                <p class="font-semibold text-sm mb-1">{tt("results_niche_label")}</p>
+                <p class="sec-title">{tt("results_niche_label")}</p>
                 <p id="stats-niche-value" class="text-sm text-slate-600"></p>
                 <p id="niche-mismatch-note" class="hidden text-xs text-blue-600 mt-1">{tt("niche_detected_note")}</p>
               </div>
@@ -3463,7 +3465,7 @@ async def tool_analyze_script_page(request: Request):
               <div class="flex items-start gap-3">
                 <div class="improve-icon">✅</div>
                 <div class="flex-1">
-                  <p class="font-bold text-sm mb-1">{tt("dash_strengths")}</p>
+                  <p class="sec-title">{tt("dash_strengths")}</p>
                   <ul id="script-strengths-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
                 </div>
               </div>
