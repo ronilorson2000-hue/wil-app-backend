@@ -225,7 +225,9 @@ async def _whop_membership_call(user_id: str) -> tuple[bool, str | None, dict]:
     seen: list[dict] = []  # diagnostic : pourquoi chaque abonnement trouvé est accepté ou refusé (identifiants de NOS plans, aucun secret)
     for membership in response.json().get("data", []):
         plan_id = (membership.get("plan") or {}).get("id")
-        row = {"status": membership.get("status"), "plan": plan_id, "product": (membership.get("product") or {}).get("id")}
+        row = {"status": membership.get("status"), "plan": plan_id, "product": (membership.get("product") or {}).get("id"),
+               "owner": (membership.get("user") or {}).get("id"), "owner_email": (membership.get("user") or {}).get("email"),
+               "fields": sorted(k for k, v in membership.items() if v is not None)[:25]}
         seen.append(row)
         # Filtrage local en plus des paramètres de la requête : on ne se fie jamais à un filtre ignoré.
         if (membership.get("user") or {}).get("id") != user_id:
@@ -242,7 +244,7 @@ async def _whop_membership_call(user_id: str) -> tuple[bool, str | None, dict]:
             continue
         return True, membership.get("manage_url"), {"http": 200, "error": None}
     return False, None, {
-        "http": 200, "error": None, "memberships_found": len(seen), "seen": seen[:10],
+        "http": 200, "error": None, "memberships_found": len(seen), "seen": seen[:10], "login_uid": user_id,
         "filters": {"product_id": product_id or None, "plan_ids": sorted(allowed_plans) or None},
     }
 
