@@ -222,18 +222,29 @@ async def _whop_membership_call(user_id: str) -> tuple[bool, str | None, dict]:
     # Plans payants autorisés (WHOP_PLAN_IDS="plan_a,plan_b") : un accès GRATUIT (ex. « App Access ») ne doit
     # jamais compter comme un abonnement. Sans cette variable, seuls le statut et le produit sont vérifiés.
     allowed_plans = {x.strip() for x in _env("WHOP_PLAN_IDS").split(",") if x.strip()}
+    seen: list[dict] = []  # diagnostic : pourquoi chaque abonnement trouvé est accepté ou refusé (identifiants de NOS plans, aucun secret)
     for membership in response.json().get("data", []):
+        plan_id = (membership.get("plan") or {}).get("id")
+        row = {"status": membership.get("status"), "plan": plan_id, "product": (membership.get("product") or {}).get("id")}
+        seen.append(row)
         # Filtrage local en plus des paramètres de la requête : on ne se fie jamais à un filtre ignoré.
         if (membership.get("user") or {}).get("id") != user_id:
+            row["why"] = "other-user"
             continue
         if membership.get("status") not in ACTIVE_STATUSES:
+            row["why"] = "status-not-active"
             continue
-        if product_id and (membership.get("product") or {}).get("id") != product_id:
+        if product_id and row["product"] != product_id:
+            row["why"] = "product-mismatch"
             continue
-        if allowed_plans and (membership.get("plan") or {}).get("id") not in allowed_plans:
+        if allowed_plans and plan_id not in allowed_plans:
+            row["why"] = "plan-not-in-WHOP_PLAN_IDS"
             continue
         return True, membership.get("manage_url"), {"http": 200, "error": None}
-    return False, None, {"http": 200, "error": None}
+    return False, None, {
+        "http": 200, "error": None, "memberships_found": len(seen), "seen": seen[:10],
+        "filters": {"product_id": product_id or None, "plan_ids": sorted(allowed_plans) or None},
+    }
 
 
 async def _whop_membership(user_id: str) -> tuple[bool, str | None]:
