@@ -224,13 +224,14 @@ async def _whop_membership_call(user_id: str) -> tuple[bool, str | None, dict]:
     allowed_plans = {x.strip() for x in _env("WHOP_PLAN_IDS").split(",") if x.strip()}
     seen: list[dict] = []  # diagnostic : pourquoi chaque abonnement trouvé est accepté ou refusé (identifiants de NOS plans, aucun secret)
     for membership in response.json().get("data", []):
-        plan_id = (membership.get("plan") or {}).get("id")
-        row = {"status": membership.get("status"), "plan": plan_id, "product": (membership.get("product") or {}).get("id"),
-               "owner": (membership.get("user") or {}).get("id"), "owner_email": (membership.get("user") or {}).get("email"),
-               "fields": sorted(k for k, v in membership.items() if v is not None)[:25]}
+        # Whop renvoie l'identifiant du propriétaire / du plan soit à plat (user_id, plan_id), soit en objet (user, plan).
+        plan_id = (membership.get("plan") or {}).get("id") or membership.get("plan_id")
+        owner = (membership.get("user") or {}).get("id") or membership.get("user_id")
+        product = (membership.get("product") or {}).get("id") or membership.get("product_id")
+        row = {"status": membership.get("status"), "plan": plan_id, "product": product, "owner": owner}
         seen.append(row)
         # Filtrage local en plus des paramètres de la requête : on ne se fie jamais à un filtre ignoré.
-        if (membership.get("user") or {}).get("id") != user_id:
+        if owner != user_id:
             row["why"] = "other-user"
             continue
         if membership.get("status") not in ACTIVE_STATUSES:
