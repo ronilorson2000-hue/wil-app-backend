@@ -1703,6 +1703,10 @@ _ONBOARDING_STYLE = """
   .insight-card .improve-icon { background: rgba(255,255,255,0.1); }
   .insight-card .copy-btn { color: #C4B5FD; }
   .insight-card .copy-btn:hover { color: #FFFFFF; }
+  /* Encadrés internes (ex. accroches réécrites) : bleus, textes blancs. */
+  .insight-card .bg-slate-50, .insight-card .bg-slate-100 { background: #2563EB; }
+  .insight-card .bg-slate-50 p, .insight-card .bg-slate-100 p, .insight-card .bg-slate-50 span:not(.copy-btn), .insight-card .bg-slate-100 span:not(.copy-btn) { color: #FFFFFF; }
+  .insight-card .bg-slate-50 .copy-btn, .insight-card .bg-slate-100 .copy-btn { color: #FFFFFF; }
   @keyframes cardIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .copy-btn { cursor: pointer; color: #94A3B8; transition: color 0.15s ease, transform 0.1s ease; }
   .copy-btn:hover { color: #2563EB; }
