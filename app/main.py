@@ -1694,13 +1694,15 @@ _ONBOARDING_STYLE = """
   .tab-btn { flex: 1; text-align: center; padding: 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: #2563EB; color: #fff; cursor: pointer; transition: all 0.15s ease; }
   .tab-btn.active { background: #0F172A; color: #fff; }
   .tab-btn:not(.active):hover, .tab-btn:not(.active):active { background: #7C3AED; }
-  /* Cadres du rapport : violet, comme les autres cadres de l'application (accueil, zone d'import) ; textes foncés pour rester lisibles. */
-  .insight-card { background: #C4B5FD; border: 1px solid #A78BFA; border-radius: 16px; padding: 18px; margin-bottom: 12px; animation: cardIn 0.4s ease both; color: #1E1B4B; }
-  .insight-card .text-slate-400, .insight-card .text-slate-500 { color: #3B2A7A; }
-  .insight-card .text-slate-600, .insight-card .text-slate-700 { color: #2E1065; }
-  .insight-card .score-track { background: rgba(255,255,255,0.55); }
-  .insight-card .improve-icon { background: rgba(255,255,255,0.6); }
-  .insight-card .copy-btn { color: #4C1D95; }
+  /* Cadres du rapport : fond sombre (comme les cartes de tarifs de référence), textes blancs. */
+  .insight-card { background: #141414; border: 1px solid #2A2A2A; border-radius: 16px; padding: 18px; margin-bottom: 12px; animation: cardIn 0.4s ease both; color: #FFFFFF; }
+  .insight-card .text-slate-400, .insight-card .text-slate-500 { color: #B4B4BC; }
+  .insight-card .text-slate-600, .insight-card .text-slate-700, .insight-card .text-slate-800, .insight-card .text-slate-900 { color: #FFFFFF; }
+  .insight-card .text-blue-600, .insight-card .text-blue-700 { color: #C4B5FD; }
+  .insight-card .score-track { background: rgba(255,255,255,0.14); }
+  .insight-card .improve-icon { background: rgba(255,255,255,0.1); }
+  .insight-card .copy-btn { color: #C4B5FD; }
+  .insight-card .copy-btn:hover { color: #FFFFFF; }
   @keyframes cardIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .copy-btn { cursor: pointer; color: #94A3B8; transition: color 0.15s ease, transform 0.1s ease; }
   .copy-btn:hover { color: #2563EB; }
@@ -2829,7 +2831,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }};
           const PHASE_LABELS = {{ opening: "{tt("res_phase_opening")}", middle: "{tt("res_phase_middle")}", ending: "{tt("res_phase_ending")}" }};
           const VERDICT_LABELS = {{ strong: "{tt("res_verdict_strong")}", ok: "{tt("res_verdict_ok")}", weak: "{tt("res_verdict_weak")}" }};
-          const VERDICT_COLORS = {{ strong: "#166534", ok: "#4C1D95", weak: "#991B1B" }};
+          const VERDICT_COLORS = {{ strong: "#4ADE80", ok: "#A78BFA", weak: "#F87171" }};
           const TIP_LABEL = "{tt("res_tip_label")}";
           const EXAMPLE_LABEL = "{tt("res_example_label")}";
           const EST_LABELS = {{ views: "{tt("est_views")}", likes: "{tt("est_likes")}", comments: "{tt("est_comments")}" }};
@@ -3165,9 +3167,9 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
           }}
 
           // « Détail du score » : une barre par catégorie (même rendu dans le rapport complet et dans l'aperçu gratuit).
-          // Couleurs du rapport (cadres violets) : teintes foncées, lisibles sur fond lavande.
+          // Couleurs du rapport (cadres sombres) : teintes claires, lisibles sur fond noir.
           function reportColor(score) {{
-            return score <= 40 ? '#991B1B' : '#4C1D95';
+            return score <= 40 ? '#F87171' : '#A78BFA';
           }}
 
           function categoriesHtml(cats) {{
