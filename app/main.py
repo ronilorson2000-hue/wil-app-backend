@@ -1695,7 +1695,7 @@ _ONBOARDING_STYLE = """
   .tab-btn.active { background: #0F172A; color: #fff; }
   .tab-btn:not(.active):hover, .tab-btn:not(.active):active { background: #7C3AED; }
   /* Cadres du rapport : fond sombre (comme les cartes de tarifs de référence), textes blancs. */
-  .insight-card { background: #141414; border: 1px solid #2A2A2A; border-radius: 16px; padding: 18px; margin-bottom: 12px; animation: cardIn 0.4s ease both; color: #FFFFFF; }
+  .insight-card { background: #211932; border: 1px solid #3A2F55; border-radius: 16px; padding: 18px; margin-bottom: 12px; animation: cardIn 0.4s ease both; color: #FFFFFF; }
   .insight-card .text-slate-400, .insight-card .text-slate-500 { color: #B4B4BC; }
   .insight-card .text-slate-600, .insight-card .text-slate-700, .insight-card .text-slate-800, .insight-card .text-slate-900 { color: #FFFFFF; }
   .insight-card .text-blue-600, .insight-card .text-blue-700 { color: #C4B5FD; }
