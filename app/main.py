@@ -2679,7 +2679,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 <span id="viral-score-value" class="font-bold text-blue-600">—/100</span>
               </div>
               <div class="score-track"><div id="viral-score-bar" class="score-fill" style="width:0%"></div></div>
-              <p id="score-basis-text" class="text-xs text-slate-400 mt-2"></p>
+              <p id="score-basis-text" class="text-sm text-slate-400 mt-2"></p>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
@@ -3184,9 +3184,9 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
               return '<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-medium">' + CAT_LABELS[key] +
                 '</span><span class="text-sm font-bold" style="color:' + reportColor(c.score) + '">' + c.score + '</span></div>' +
                 '<div class="score-track"><div class="score-fill" style="width:' + c.score + '%;background:' + reportColor(c.score) + '"></div></div>' +
-                '<p class="text-xs text-slate-500 mt-1">' + escapeHtml(c.comment) + '</p>' +
-                (c.tip ? '<p class="text-xs text-slate-700 mt-1"><b>' + TIP_LABEL + ' :</b> ' + escapeHtml(c.tip) + '</p>' : '') +
-                (c.example ? '<p class="text-xs text-slate-500 italic mt-0.5">' + EXAMPLE_LABEL + ' : ' + escapeHtml(c.example) + '</p>' : '') + '</div>';
+                '<p class="text-sm text-slate-500 mt-1">' + escapeHtml(c.comment) + '</p>' +
+                (c.tip ? '<p class="text-sm text-slate-700 mt-1"><b>' + TIP_LABEL + ' :</b> ' + escapeHtml(c.tip) + '</p>' : '') +
+                (c.example ? '<p class="text-sm text-slate-500 italic mt-0.5">' + EXAMPLE_LABEL + ' : ' + escapeHtml(c.example) + '</p>' : '') + '</div>';
             }}).join('');
           }}
 
