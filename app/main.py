@@ -3356,6 +3356,7 @@ _WRITE_SCRIPT_KEYS = (
     "ws_tone_direct", "ws_tone_funny", "ws_tone_educational", "ws_tone_emotional", "ws_tone_storytelling",
     "ws_write_btn", "ws_loading_1", "ws_loading_2", "ws_loading_3", "ws_result_title", "ws_hook", "ws_scenes",
     "ws_say", "ws_show", "ws_on_screen", "ws_full", "ws_tips", "ws_copy_all", "ws_again", "ws_new", "ws_seconds",
+    "ws_custom", "ws_custom_label", "ws_custom_max",
     "results_caption_label", "m_hashtags", "loading_done", "common_network_error",
 )
 
@@ -3378,6 +3379,14 @@ __STEPS__
               <div class="tab-btn" data-duration="15" onclick="pickDuration(15)">15 __T_ws_seconds__</div>
               <div class="tab-btn active" data-duration="30" onclick="pickDuration(30)">30 __T_ws_seconds__</div>
               <div class="tab-btn" data-duration="60" onclick="pickDuration(60)">60 __T_ws_seconds__</div>
+              <div class="tab-btn" data-duration="custom" onclick="pickDuration('custom')">__T_ws_custom__</div>
+            </div>
+            <div id="custom-duration" class="hidden mt-2">
+              <label for="custom-seconds" class="text-xs text-slate-500">__T_ws_custom_label__</label>
+              <input id="custom-seconds" type="number" inputmode="numeric" min="5" max="120" step="1" placeholder="45"
+                     class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3 text-sm focus:outline-none focus:border-blue-500"
+                     oninput="updateWriteBtn()">
+              <p id="custom-max-note" class="text-xs text-red-600 mt-1 hidden">__T_ws_custom_max__</p>
             </div>
 
             <p class="sec-title mt-4">__T_ws_tone_label__</p>
@@ -3470,11 +3479,23 @@ __ERRJS__
             });
           }
 
+          // Durée libre : de 5 à 120 secondes (2 minutes maximum, aussi imposé par le serveur).
+          function customSeconds() {
+            const n = parseInt(document.getElementById('custom-seconds').value, 10);
+            return isNaN(n) ? 0 : n;
+          }
+
+          function currentDuration() {
+            return writeDuration === 'custom' ? customSeconds() : writeDuration;
+          }
+
           function pickDuration(d) {
             writeDuration = d;
             document.querySelectorAll('#duration-row .tab-btn').forEach(function (el) {
-              el.classList.toggle('active', Number(el.dataset.duration) === d);
+              el.classList.toggle('active', el.dataset.duration === String(d));
             });
+            document.getElementById('custom-duration').classList.toggle('hidden', d !== 'custom');
+            updateWriteBtn();
           }
 
           function pickTone(t) {
@@ -3485,7 +3506,11 @@ __ERRJS__
           }
 
           function updateWriteBtn() {
-            const valid = document.getElementById('script-topic').value.trim().length > 0;
+            const seconds = currentDuration();
+            const tooLong = writeDuration === 'custom' && seconds > 120;
+            document.getElementById('custom-max-note').classList.toggle('hidden', !tooLong);
+            const durationOk = writeDuration !== 'custom' || (seconds >= 5 && seconds <= 120);
+            const valid = document.getElementById('script-topic').value.trim().length > 0 && durationOk;
             const btn = document.getElementById('script-write-btn');
             btn.disabled = !valid;
             btn.className = valid
@@ -3514,7 +3539,7 @@ __ERRJS__
 
             const params = new URLSearchParams({
               topic: topic,
-              duration: String(writeDuration),
+              duration: String(currentDuration()),
               tone: writeTone,
               niche_category: selectedNiches[0] || '',
               ui_lang: uiLang
@@ -7810,7 +7835,9 @@ exactement ces champs :
     return JSONResponse(content=analysis)
 
 
-SCRIPT_DURATIONS = {15: 38, 30: 75, 60: 150}  # durée de la vidéo (s) -> nombre de mots à dire (~2,5 mots/s)
+SCRIPT_WORDS_PER_SECOND = 2.5  # débit oral moyen
+SCRIPT_MIN_SECONDS = 5
+SCRIPT_MAX_SECONDS = 120  # une vidéo écrite ici ne dépasse jamais 2 minutes
 SCRIPT_TONES = {
     "direct": "direct et franc : va droit au but, phrases courtes, aucun blabla",
     "funny": "drôle et léger : humour naturel, autodérision, jamais lourd",
@@ -7858,6 +7885,44 @@ def _clean_script(raw) -> dict | None:
     }
 
 
+@app.get("/api/ai-check", response_class=JSONResponse)
+async def ai_check(request: Request):
+    """
+    Diagnostic (abonnés) : un appel minimal à l'IA de texte pour savoir pourquoi « fonctionnalité indisponible » s'affiche
+    (clé absente, clé refusée, crédit épuisé, modèle inconnu, service saturé…). Ne renvoie que le code HTTP et le type
+    d'erreur : jamais la clé ni le détail brut.
+    """
+    await paywall.require_subscription(request)
+    ratelimit.check(request, "ai-check", 20)
+    if not ANTHROPIC_API_KEY:
+        return JSONResponse(content={"anthropic": {"key": False}}, headers={"Cache-Control": "no-store"})
+    result: dict = {"key": True, "model": "claude-sonnet-5"}
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": "claude-sonnet-5", "max_tokens": 5, "messages": [{"role": "user", "content": "ok"}]},
+            )
+        result["http"] = response.status_code
+        if response.status_code != 200:
+            try:
+                err = (response.json() or {}).get("error") or {}
+                result["type"] = str(err.get("type") or "")[:60]
+                message = str(err.get("message") or "").lower()
+                # Raisons connues, résumées en un mot (aucun texte brut renvoyé)
+                for needle, slug in (("credit balance", "credit-balance-too-low"), ("api key", "api-key-problem"),
+                                     ("model", "model-problem"), ("overloaded", "overloaded"), ("rate", "rate-limit")):
+                    if needle in message:
+                        result["reason"] = slug
+                        break
+            except Exception:
+                pass
+    except httpx.HTTPError as exc:
+        result["network"] = type(exc).__name__
+    return JSONResponse(content={"anthropic": result}, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/write-script", response_class=JSONResponse)
 async def write_script(
     request: Request,
@@ -7879,9 +7944,8 @@ async def write_script(
     topic = _clean_text(topic, MAX_SCRIPT_TOPIC_CHARS)
     if not topic:
         raise HTTPException(status_code=422, detail="Décris l'idée de la vidéo avant d'écrire le script.")
-    if duration not in SCRIPT_DURATIONS:
-        duration = 30
-    words = SCRIPT_DURATIONS[duration]
+    duration = max(SCRIPT_MIN_SECONDS, min(SCRIPT_MAX_SECONDS, duration))  # durée libre, 2 minutes au maximum
+    words = round(duration * SCRIPT_WORDS_PER_SECOND)
     tone_text = SCRIPT_TONES.get(tone, "naturel et simple, comme si tu parlais à un ami")
     lang = ui_lang if ui_lang in SUPPORTED_LANGS else DEFAULT_LANG
     lang_instruction = "EN FRANÇAIS" if lang == "fr" else f'dans la langue de code ISO 639-1 "{lang}"'

@@ -510,6 +510,9 @@ TRANSLATIONS = {
         "ws_again": "Une autre version",
         "ws_new": "Nouveau script",
         "ws_seconds": "s",
+        "ws_custom": "Personnalisée",
+        "ws_custom_label": "Durée en secondes (2 minutes maximum)",
+        "ws_custom_max": "Maximum 120 secondes (2 minutes)",
         "err_topic_empty": "Décris d'abord l'idée de ta vidéo.",
 
         "tool_trending_title": "Idées de vidéo",
@@ -996,6 +999,9 @@ TRANSLATIONS = {
         "ws_again": "Another version",
         "ws_new": "New script",
         "ws_seconds": "s",
+        "ws_custom": "Custom",
+        "ws_custom_label": "Length in seconds (2 minutes maximum)",
+        "ws_custom_max": "Maximum 120 seconds (2 minutes)",
         "err_topic_empty": "First describe your video idea.",
 
         "tool_trending_title": "Video ideas",
@@ -1482,6 +1488,9 @@ TRANSLATIONS = {
         "ws_again": "Andere Version",
         "ws_new": "Neues Skript",
         "ws_seconds": "s",
+        "ws_custom": "Eigene",
+        "ws_custom_label": "Länge in Sekunden (maximal 2 Minuten)",
+        "ws_custom_max": "Maximal 120 Sekunden (2 Minuten)",
         "err_topic_empty": "Beschreibe zuerst deine Videoidee.",
 
         "tool_trending_title": "Video-Ideen",
@@ -1968,6 +1977,9 @@ TRANSLATIONS = {
         "ws_again": "Otra versión",
         "ws_new": "Nuevo guion",
         "ws_seconds": "s",
+        "ws_custom": "Personalizada",
+        "ws_custom_label": "Duración en segundos (máximo 2 minutos)",
+        "ws_custom_max": "Máximo 120 segundos (2 minutos)",
         "err_topic_empty": "Primero describe la idea de tu vídeo.",
 
         "tool_trending_title": "Ideas de vídeo",
@@ -2454,6 +2466,9 @@ TRANSLATIONS = {
         "ws_again": "Outra versão",
         "ws_new": "Novo roteiro",
         "ws_seconds": "s",
+        "ws_custom": "Personalizada",
+        "ws_custom_label": "Duração em segundos (máximo 2 minutos)",
+        "ws_custom_max": "Máximo de 120 segundos (2 minutos)",
         "err_topic_empty": "Primeiro descreve a ideia do teu vídeo.",
 
         "tool_trending_title": "Ideias de vídeo",
@@ -2940,6 +2955,9 @@ TRANSLATIONS = {
         "ws_again": "Un'altra versione",
         "ws_new": "Nuovo script",
         "ws_seconds": "s",
+        "ws_custom": "Personalizzata",
+        "ws_custom_label": "Durata in secondi (massimo 2 minuti)",
+        "ws_custom_max": "Massimo 120 secondi (2 minuti)",
         "err_topic_empty": "Prima descrivi l'idea del tuo video.",
 
         "tool_trending_title": "Idee video",
