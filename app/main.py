@@ -7894,8 +7894,24 @@ async def ai_check(request: Request):
     """
     await paywall.require_subscription(request)
     ratelimit.check(request, "ai-check", 20)
+    gemini: dict = {"key": bool(GEMINI_API_KEY), "model": GEMINI_MODEL}
+    if GEMINI_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                probe = await client.post(
+                    f"{GEMINI_API_BASE}/v1beta/models/{GEMINI_MODEL}:generateContent", headers=_gemini_headers(),
+                    json={"contents": [{"role": "user", "parts": [{"text": "ok"}]}], "generationConfig": {"maxOutputTokens": 5}})
+            gemini["http"] = probe.status_code
+            if probe.status_code != 200:
+                try:
+                    err = (probe.json() or {}).get("error") or {}
+                    gemini["status"] = str(err.get("status") or "")[:40]
+                except Exception:
+                    pass
+        except httpx.HTTPError as exc:
+            gemini["network"] = type(exc).__name__
     if not ANTHROPIC_API_KEY:
-        return JSONResponse(content={"anthropic": {"key": False}}, headers={"Cache-Control": "no-store"})
+        return JSONResponse(content={"gemini": gemini, "anthropic": {"key": False}}, headers={"Cache-Control": "no-store"})
     result: dict = {"key": True, "model": "claude-sonnet-5"}
     try:
         async with httpx.AsyncClient(timeout=30) as client:
@@ -7920,7 +7936,84 @@ async def ai_check(request: Request):
                 pass
     except httpx.HTTPError as exc:
         result["network"] = type(exc).__name__
-    return JSONResponse(content={"anthropic": result}, headers={"Cache-Control": "no-store"})
+    return JSONResponse(content={"gemini": gemini, "anthropic": result}, headers={"Cache-Control": "no-store"})
+
+
+def _json_from_text(raw: str):
+    """Extrait l'objet JSON d'une réponse d'IA (avec ou sans balises de code)."""
+    cleaned = (raw or "").strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+    return json.loads(cleaned)
+
+
+async def _script_via_gemini(prompt: str) -> dict | None:
+    """Script écrit par Gemini (même clé que l'analyse de vidéo). None si la clé manque ou si l'appel échoue."""
+    if not GEMINI_API_KEY:
+        return None
+    body = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.8, "maxOutputTokens": 4000, "responseMimeType": "application/json"},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            for attempt in range(3):
+                response = await client.post(
+                    f"{GEMINI_API_BASE}/v1beta/models/{GEMINI_MODEL}:generateContent", headers=_gemini_headers(), json=body)
+                if response.status_code not in (429, 500, 503, 504) or attempt == 2:
+                    break
+                await asyncio.sleep(3 * (attempt + 1))
+        if response.status_code != 200:
+            print(f"[script] Gemini {response.status_code}: {response.text[:200]}")
+            return None
+        data = response.json()
+        candidates = data.get("candidates") or []
+        parts = (candidates[0].get("content", {}).get("parts") if candidates else None) or []
+        raw = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+        return _clean_script(_json_from_text(raw))
+    except (httpx.HTTPError, ValueError, KeyError, IndexError) as exc:
+        print(f"[script] Gemini a échoué : {exc!r}")
+        return None
+
+
+async def _script_via_anthropic(prompt: str) -> dict | None:
+    if not ANTHROPIC_API_KEY:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": "claude-sonnet-5", "max_tokens": 2500, "output_config": {"effort": "low"},
+                      "messages": [{"role": "user", "content": prompt}]},
+            )
+        if response.status_code != 200:
+            print(f"[script] Anthropic {response.status_code}: {response.text[:200]}")
+            return None
+        return _clean_script(_json_from_text(_extract_text_block(response.json())))
+    except (httpx.HTTPError, ValueError, KeyError, IndexError) as exc:
+        print(f"[script] Anthropic a échoué : {exc!r}")
+        return None
+
+
+async def _generate_script_json(prompt: str) -> dict:
+    """
+    Écrit le script avec le premier fournisseur d'IA disponible : Gemini d'abord (clé déjà utilisée pour l'analyse de
+    vidéo), puis Anthropic en secours. SCRIPT_AI=anthropic inverse l'ordre. Erreur claire si aucun ne répond.
+    """
+    order = [_script_via_gemini, _script_via_anthropic]
+    if os.getenv("SCRIPT_AI", "").strip().lower() == "anthropic":
+        order.reverse()
+    if not (GEMINI_API_KEY or ANTHROPIC_API_KEY):
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY manquant dans .env")
+    for provider in order:
+        script = await provider(prompt)
+        if script:
+            return script
+    raise HTTPException(status_code=502, detail="Erreur API IA: aucun service n'a pu écrire le script.")
 
 
 @app.get("/api/write-script", response_class=JSONResponse)
@@ -7939,8 +8032,6 @@ async def write_script(
     """
     await paywall.require_subscription(request)
     await _guard_ai(request)
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
     topic = _clean_text(topic, MAX_SCRIPT_TOPIC_CHARS)
     if not topic:
         raise HTTPException(status_code=422, detail="Décris l'idée de la vidéo avant d'écrire le script.")
@@ -7984,37 +8075,5 @@ Réponds avec un objet JSON (pas de markdown, pas de balises de code), RÉDIGÉ 
   "tips": ["1 à 3 conseils courts de tournage ou de montage propres à CE script"]
 }}"""
 
-    try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-                json={
-                    "model": "claude-sonnet-5",
-                    "max_tokens": 2500,
-                    "output_config": {"effort": "low"},
-                    "messages": [{"role": "user", "content": prompt}],
-                },
-            )
-    except httpx.HTTPError:
-        raise HTTPException(status_code=502, detail="Erreur réseau vers l'API Anthropic.")
-    if response.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"Erreur API Anthropic: {response.status_code} {response.text}")
-
-    cleaned = _extract_text_block(response.json()).strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        if cleaned.startswith("json"):
-            cleaned = cleaned[4:]
-        cleaned = cleaned.strip()
-    try:
-        script = _clean_script(json.loads(cleaned))
-    except json.JSONDecodeError:
-        script = None
-    if not script:
-        raise HTTPException(status_code=502, detail="Réponse IA invalide, impossible de l'analyser.")
+    script = await _generate_script_json(prompt)
     return JSONResponse(content=script)
