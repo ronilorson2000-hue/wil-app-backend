@@ -1399,7 +1399,7 @@ async def tiktok_callback(request: Request):
                   class="btn-pill">
             🎬 {tt("dash_btn_analyze_video")}
           </button>
-          <button onclick="location.href='/tools/analyze-script'"
+          <button onclick="location.href='/tools/write-script'"
                   class="btn-pill">
             📝 {tt("dash_btn_analyze_script")}
           </button>
@@ -1783,7 +1783,7 @@ def _app_topbar_html(tt, active: str = "home") -> str:
     }
     lock_attr = " data-lock=" + chr(34) + "1" + chr(34)
     items = "".join(
-        f'''<a href="{"/tools/analyze-script" if key == "script" else f"/app#{key}"}"{lock_attr if key in ("library", "script") else ""} class="nav-item{" active" if key == active else ""} flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
+        f'''<a href="{"/tools/write-script" if key == "script" else f"/app#{key}"}"{lock_attr if key in ("library", "script") else ""} class="nav-item{" active" if key == active else ""} flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{_TOPBAR_ICONS[key]}</svg>
           <span>{labels[key]}</span></a>'''
         for key in ("home", "library", "script", "profile")
@@ -3351,40 +3351,272 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
     """
 
 
-@app.get("/tools/analyze-script", response_class=HTMLResponse)
-async def tool_analyze_script_page(request: Request):
-    """
-    Page dédiée pour l'analyse d'un script déjà écrit (avant tournage).
-    Réutilise directement /api/analyze-transcript — la même route qui
-    analyse le texte parlé d'une vidéo déjà tournée/postée — pour donner
-    un score de viralité et un rapport cohérent avec celui des vidéos.
+_WRITE_SCRIPT_KEYS = (
+    "ws_title", "ws_subtitle", "ws_topic_label", "ws_topic_placeholder", "ws_duration_label", "ws_tone_label",
+    "ws_tone_direct", "ws_tone_funny", "ws_tone_educational", "ws_tone_emotional", "ws_tone_storytelling",
+    "ws_write_btn", "ws_loading_1", "ws_loading_2", "ws_loading_3", "ws_result_title", "ws_hook", "ws_scenes",
+    "ws_say", "ws_show", "ws_on_screen", "ws_full", "ws_tips", "ws_copy_all", "ws_again", "ws_new", "ws_seconds",
+    "results_caption_label", "m_hashtags", "loading_done", "common_network_error",
+)
 
-    Même onboarding complet que "Analyser la vidéo" (objectif -> défi ->
-    niche -> audience -> provenance -> vues moyennes -> expérience ->
-    configuration -> complétion), qui alimente ici `niche_category` et
-    `main_challenge` envoyés à /api/analyze-transcript. Le résultat garde
-    volontairement son propre format, plus riche qu'un simple score
-    (accroche, rythme, structure, pourquoi ça marche ou pas) plutôt que
-    d'être aligné de force sur celui des vidéos.
+_WRITE_SCRIPT_BODY = r"""
+        <div class="max-w-md mx-auto px-5 py-6">
+__STEPS__
+
+          <!-- ÉTAPE 10 : idée de la vidéo -->
+          <div id="step-script" class="step">
+            <h1 class="text-xl font-bold mb-1">__T_ws_title__</h1>
+            <p class="text-sm text-slate-500 mb-6">__T_ws_subtitle__</p>
+
+            <label for="script-topic" class="sec-title" style="background:#2563EB;color:#fff;">__T_ws_topic_label__</label>
+            <textarea id="script-topic" rows="4" maxlength="400" placeholder="__T_ws_topic_placeholder__"
+                      class="w-full rounded-xl border-2 border-slate-200 p-3 text-sm focus:outline-none focus:border-blue-500"
+                      oninput="updateWriteBtn()"></textarea>
+
+            <p class="sec-title mt-4">__T_ws_duration_label__</p>
+            <div id="duration-row" class="flex gap-2 mb-1">
+              <div class="tab-btn" data-duration="15" onclick="pickDuration(15)">15 __T_ws_seconds__</div>
+              <div class="tab-btn active" data-duration="30" onclick="pickDuration(30)">30 __T_ws_seconds__</div>
+              <div class="tab-btn" data-duration="60" onclick="pickDuration(60)">60 __T_ws_seconds__</div>
+            </div>
+
+            <p class="sec-title mt-4">__T_ws_tone_label__</p>
+            <div id="tone-row" class="flex flex-wrap gap-2">
+              <div class="tab-btn active" style="flex:0 0 auto;padding:10px 16px;" data-tone="direct" onclick="pickTone('direct')">__T_ws_tone_direct__</div>
+              <div class="tab-btn" style="flex:0 0 auto;padding:10px 16px;" data-tone="funny" onclick="pickTone('funny')">__T_ws_tone_funny__</div>
+              <div class="tab-btn" style="flex:0 0 auto;padding:10px 16px;" data-tone="educational" onclick="pickTone('educational')">__T_ws_tone_educational__</div>
+              <div class="tab-btn" style="flex:0 0 auto;padding:10px 16px;" data-tone="emotional" onclick="pickTone('emotional')">__T_ws_tone_emotional__</div>
+              <div class="tab-btn" style="flex:0 0 auto;padding:10px 16px;" data-tone="storytelling" onclick="pickTone('storytelling')">__T_ws_tone_storytelling__</div>
+            </div>
+
+            <button id="script-write-btn" disabled onclick="writeScript()"
+                    class="w-full mt-6 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
+              __T_ws_write_btn__
+            </button>
+            <div id="script-error" class="text-center text-sm text-red-600 mt-3"></div>
+          </div>
+
+          <!-- ÉTAPE 11 : chargement -->
+          <div id="step-loading" class="step text-center">
+            <div class="dot-bounce mt-24"><span></span><span></span><span></span></div>
+            <p id="loading-status-text" class="mt-8 font-semibold text-slate-700">__T_ws_loading_1__</p>
+          </div>
+
+          <!-- ÉTAPE 12 : script écrit -->
+          <div id="step-results" class="step">
+            <div class="flex items-center justify-between mb-4">
+              <span class="font-bold text-lg">Wil App</span>
+              <button onclick="newScript()" class="text-xs font-semibold text-blue-600 hover:text-blue-700">__T_ws_new__</button>
+            </div>
+
+            <h2 id="script-title" class="text-lg font-bold mb-4"></h2>
+
+            <div class="insight-card">
+              <div class="flex items-center justify-between mb-2">
+                <p class="sec-title" style="margin-bottom:0">__T_ws_hook__</p>
+                <span class="copy-btn text-xs" onclick="copyText(document.getElementById('script-hook').textContent)">📋</span>
+              </div>
+              <p id="script-hook" class="text-base font-semibold"></p>
+            </div>
+
+            <div class="insight-card">
+              <p class="sec-title">__T_ws_scenes__</p>
+              <div id="script-scenes" class="space-y-4"></div>
+            </div>
+
+            <div class="insight-card">
+              <div class="flex items-center justify-between mb-2">
+                <p class="sec-title" style="margin-bottom:0">__T_ws_full__</p>
+                <span class="copy-btn text-xs" onclick="copyText(document.getElementById('script-full').textContent)">📋</span>
+              </div>
+              <p id="script-full" class="text-sm leading-relaxed" style="white-space:pre-wrap;"></p>
+            </div>
+
+            <div id="script-caption-card" class="insight-card">
+              <div class="flex items-center justify-between mb-2">
+                <p class="sec-title" style="margin-bottom:0">__T_results_caption_label__</p>
+                <span class="copy-btn text-xs" onclick="copyText(document.getElementById('script-caption').textContent + ' ' + document.getElementById('script-hashtags').textContent)">📋</span>
+              </div>
+              <p id="script-caption" class="text-sm"></p>
+              <p id="script-hashtags" class="text-sm mt-2" style="color:#C4B5FD;"></p>
+            </div>
+
+            <div id="script-tips-card" class="insight-card">
+              <p class="sec-title">__T_ws_tips__</p>
+              <ul id="script-tips" class="text-sm list-disc pl-4 space-y-1"></ul>
+            </div>
+
+            <div class="flex gap-2 mt-2">
+              <button onclick="writeScript()" class="flex-1 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-violet-600 transition">__T_ws_again__</button>
+              <button onclick="copyText(document.getElementById('script-full').textContent)" class="flex-1 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-violet-600 transition">__T_ws_copy_all__</button>
+            </div>
+          </div>
+
+        </div>
+
+        <script>
+__JSCORE__
+__ERRJS__
+
+          const WS = __WS_JSON__;
+          const LOADING_STAGES = [WS.ws_loading_1, WS.ws_loading_2, WS.ws_loading_3];
+          let writeDuration = 30;
+          let writeTone = 'direct';
+          let lastScript = null;
+
+          function escapeHtml(text) {
+            return String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {
+              return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+            });
+          }
+
+          function pickDuration(d) {
+            writeDuration = d;
+            document.querySelectorAll('#duration-row .tab-btn').forEach(function (el) {
+              el.classList.toggle('active', Number(el.dataset.duration) === d);
+            });
+          }
+
+          function pickTone(t) {
+            writeTone = t;
+            document.querySelectorAll('#tone-row .tab-btn').forEach(function (el) {
+              el.classList.toggle('active', el.dataset.tone === t);
+            });
+          }
+
+          function updateWriteBtn() {
+            const valid = document.getElementById('script-topic').value.trim().length > 0;
+            const btn = document.getElementById('script-write-btn');
+            btn.disabled = !valid;
+            btn.className = valid
+              ? 'w-full mt-6 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-violet-600'
+              : 'w-full mt-6 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition';
+          }
+
+          function newScript() {
+            document.getElementById('script-topic').value = '';
+            updateWriteBtn();
+            document.getElementById('script-error').textContent = '';
+            try { history.replaceState(null, '', location.pathname); } catch (e) {}
+            goToStep('step-script', 100, true);
+          }
+
+          function writeScript() {
+            const topic = document.getElementById('script-topic').value.trim();
+            if (!topic) return;
+            let stageIdx = 0;
+            document.getElementById('loading-status-text').textContent = LOADING_STAGES[0];
+            goToStep('step-loading', 100, false);
+            const stageInterval = setInterval(function () {
+              stageIdx = Math.min(stageIdx + 1, LOADING_STAGES.length - 1);
+              setLoadingText(LOADING_STAGES[stageIdx]);
+            }, 3500);
+
+            const params = new URLSearchParams({
+              topic: topic,
+              duration: String(writeDuration),
+              tone: writeTone,
+              niche_category: selectedNiches[0] || '',
+              ui_lang: uiLang
+            });
+
+            fetch('/api/write-script?' + params.toString())
+              .then(function (r) { return r.json().then(function (data) { return {ok: r.ok, status: r.status, data: data}; }); })
+              .then(function (res) {
+                clearInterval(stageInterval);
+                if (!res.ok) {
+                  document.getElementById('script-error').textContent = wilErrText(res.data, res.status);
+                  goToStep('step-script', 100, true);
+                  return;
+                }
+                setLoadingText(WS.loading_done);
+                renderScript(res.data);
+                saveHistoryEntry({
+                  type: 'script', niche: selectedNiches[0] || '', title: res.data.title || topic.slice(0, 70),
+                  ts: Date.now(), topic: topic, script: res.data
+                });
+                setTimeout(function () { goToStep('step-results', 100, false); }, 400);
+              })
+              .catch(function (e) {
+                clearInterval(stageInterval);
+                document.getElementById('script-error').textContent = WS.common_network_error + ' ' + (e && e.message ? e.message : e);
+                goToStep('step-script', 100, true);
+              });
+          }
+
+          function sceneHtml(sc) {
+            const head = [sc.label, sc.time].filter(Boolean).map(escapeHtml).join(' · ');
+            return '<div>' +
+              (head ? '<p class="text-xs font-semibold mb-1" style="color:#C4B5FD;">' + head + '</p>' : '') +
+              '<p class="text-sm"><b>' + escapeHtml(WS.ws_say) + ' :</b> ' + escapeHtml(sc.say) + '</p>' +
+              (sc.show ? '<p class="text-sm text-slate-500 mt-1"><b>' + escapeHtml(WS.ws_show) + ' :</b> ' + escapeHtml(sc.show) + '</p>' : '') +
+              (sc.on_screen ? '<p class="text-sm text-slate-500 mt-1"><b>' + escapeHtml(WS.ws_on_screen) + ' :</b> ' + escapeHtml(sc.on_screen) + '</p>' : '') +
+              '</div>';
+          }
+
+          function renderScript(data) {
+            lastScript = data;
+            document.getElementById('script-title').textContent = data.title || WS.ws_result_title;
+            document.getElementById('script-hook').textContent = data.hook || '';
+            document.getElementById('script-scenes').innerHTML = (data.scenes || []).map(sceneHtml).join('');
+            document.getElementById('script-full').textContent = data.full_script || '';
+            const tags = (data.hashtags || []).map(function (h) { return '#' + h; }).join(' ');
+            document.getElementById('script-caption').textContent = data.caption || '';
+            document.getElementById('script-hashtags').textContent = tags;
+            document.getElementById('script-caption-card').classList.toggle('hidden', !(data.caption || tags));
+            document.getElementById('script-tips').innerHTML = (data.tips || []).map(function (t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('');
+            document.getElementById('script-tips-card').classList.toggle('hidden', !(data.tips || []).length);
+          }
+
+          // Script rouvert depuis l'historique (?history=<date>) : affiché tel qu'il avait été écrit, sans nouvel appel à l'IA.
+          (function () {
+            let ts = null;
+            try { ts = new URLSearchParams(location.search).get('history'); } catch (e) {}
+            if (!ts) return;
+            let list = [];
+            try { list = JSON.parse(localStorage.getItem('wilHistory') || '[]'); } catch (e) {}
+            const entry = list.filter(function (e) { return String(e.ts) === ts && e.script; })[0];
+            if (!entry) return;
+            document.getElementById('script-topic').value = entry.topic || '';
+            updateWriteBtn();
+            renderScript(entry.script);
+            goToStep('step-results', 100, false);
+          })();
+        </script>
+"""
+
+
+@app.get("/tools/write-script", response_class=HTMLResponse)
+async def tool_write_script_page(request: Request):
+    """
+    Onglet « Script » : l'utilisateur décrit l'idée de sa vidéo, l'IA écrit le script (accroche, scènes, texte à dire,
+    description, hashtags, conseils). Même questionnaire de départ que les autres outils (niche, objectif), puis une
+    page simple : idée, durée, ton. L'analyse d'une vidéo existe déjà à part (/tools/analyze-video).
     """
     lang = _detect_ui_lang(request)
     tt = lambda key: t(lang, key)  # noqa: E731
     if not (await paywall.get_entitlement(request))["subscribed"]:
-        return HTMLResponse(_locked_feature_page(tt, lang, "script", "/tools/analyze-script"))
-    words_suffix = tt("tool_script_words_suffix")
+        return HTMLResponse(_locked_feature_page(tt, lang, "script", "/tools/write-script"))
 
     niche_buttons = "".join(
-        f'''<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
+        f"""<button type="button" class="niche-btn" data-niche="{n}" onclick="toggleNiche('{n}', this)">
               <span class="text-lg">{NICHE_EMOJIS.get(n, "✨")}</span>
               <span>{niche_label(lang, n)}</span>
-            </button>'''
+            </button>"""
         for n in NICHE_CATEGORIES
     )
+    body = _WRITE_SCRIPT_BODY
+    for key in _WRITE_SCRIPT_KEYS:
+        body = body.replace(f"__T_{key}__", _esc_html(tt(key)))
+    body = body.replace("__STEPS__", _onboarding_steps_html(tt, niche_buttons, "step-script"))
+    body = body.replace("__JSCORE__", _onboarding_js_core("", "", lang, "step-script"))
+    body = body.replace("__ERRJS__", errors.error_js(tt))
+    body = body.replace("__WS_JSON__", _js_json({key: tt(key) for key in _WRITE_SCRIPT_KEYS}))
 
     return f"""
     <html lang="{lang}">
       <head>
-        <title>{tt("tool_script_title")} — Wil App</title>
+        <title>{_esc_html(tt("ws_title"))} — Wil App</title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
         <link rel="icon" type="image/png" sizes="192x192" href="/static/favicon-192.png?v=2">
         <link rel="apple-touch-icon" href="/static/favicon-192.png?v=2">
@@ -3393,206 +3625,16 @@ async def tool_analyze_script_page(request: Request):
         <style>{_ONBOARDING_STYLE}</style>
       </head>
       <body class="text-slate-900">{_ONBOARDING_MUTE_BUTTON_HTML}{_app_topbar_html(tt, "script")}
-        <div class="max-w-md mx-auto px-5 py-6">
-{_onboarding_steps_html(tt, niche_buttons, "step-script")}
-
-          <!-- ÉTAPE 10 : script -->
-          <div id="step-script" class="step">
-            <h1 class="text-xl font-bold mb-1">{tt("tool_script_title")}</h1>
-            <p class="text-sm text-slate-500 mb-6">{tt("tool_script_subtitle")}</p>
-            <textarea id="script-text" placeholder="{tt("tool_script_placeholder")}" rows="10"
-                      class="w-full rounded-xl border-2 border-slate-200 p-3 text-sm focus:outline-none focus:border-blue-500"
-                      oninput="updateScriptWordCount()"></textarea>
-            <p id="script-word-count" class="text-xs text-slate-400 mt-2">0 / {MAX_TRANSCRIPT_WORDS} {words_suffix}</p>
-            <button id="script-analyze-btn" disabled onclick="launchAnalysis()"
-                    class="w-full mt-4 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition">
-              {tt("tool_script_analyze_btn")}
-            </button>
-            <div id="script-error" class="text-center text-sm text-red-600 mt-3"></div>
-          </div>
-
-          <!-- ÉTAPE 11 : chargement -->
-          <div id="step-loading" class="step text-center">
-            <div class="dot-bounce mt-24"><span></span><span></span><span></span></div>
-            <p id="loading-status-text" class="mt-8 font-semibold text-slate-700">{tt("loading_script_reading")}</p>
-          </div>
-
-          <!-- ÉTAPE 12 : résultat -->
-          <div id="step-results" class="step">
-            <div class="flex items-center justify-between mb-4">
-              <span class="font-bold text-lg">Wil App</span>
-              <button onclick="resetFlow()" class="text-xs font-semibold text-blue-600 hover:text-blue-700">{tt("tool_script_analyze_btn")}</button>
-            </div>
-
-            <h2 class="text-lg font-bold mb-4">{tt("results_smart_insights")}</h2>
-
-            <div class="insight-card">
-              <div class="flex items-center justify-between mb-2">
-                <span class="font-semibold text-sm">{tt("tool_script_virality_estimated")}</span>
-                <span id="script-score-value" class="font-bold text-blue-600">—/100</span>
-              </div>
-              <div class="score-track"><div id="script-score-bar" class="score-fill" style="width:0%"></div></div>
-            </div>
-
-            <div class="insight-card">
-              <div class="flex items-start gap-3">
-                <div class="improve-icon">🎬</div>
-                <div class="flex-1">
-                  <p class="font-bold text-sm mb-1">{tt("tool_script_hook")}</p>
-                  <p id="script-hook-value" class="text-sm text-slate-600"></p>
-                </div>
-              </div>
-            </div>
-
-            <div class="insight-card">
-              <div class="flex items-start gap-3">
-                <div class="improve-icon">⏱️</div>
-                <div class="flex-1">
-                  <p class="font-bold text-sm mb-1">{tt("tool_script_rhythm")}</p>
-                  <p id="script-rhythm-value" class="text-sm text-slate-600"></p>
-                </div>
-              </div>
-            </div>
-
-            <div class="insight-card">
-              <div class="flex items-start gap-3">
-                <div class="improve-icon">🧩</div>
-                <div class="flex-1">
-                  <p class="font-bold text-sm mb-1">{tt("tool_script_structure")}</p>
-                  <ul id="script-structure-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
-                </div>
-              </div>
-            </div>
-
-            <div class="insight-card">
-              <div class="flex items-start gap-3">
-                <div class="improve-icon">✅</div>
-                <div class="flex-1">
-                  <p class="sec-title">{tt("dash_strengths")}</p>
-                  <ul id="script-strengths-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
-                </div>
-              </div>
-            </div>
-
-            <div class="insight-card">
-              <div class="flex items-start gap-3">
-                <div class="improve-icon">⚠️</div>
-                <div class="flex-1">
-                  <p class="font-bold text-sm mb-1">{tt("tool_script_to_fix")}</p>
-                  <ul id="script-weaknesses-value" class="text-sm text-slate-600 list-disc pl-4 space-y-1"></ul>
-                </div>
-              </div>
-            </div>
-
-            <div class="insight-card">
-              <div class="flex items-start gap-3">
-                <div class="improve-icon">🎯</div>
-                <div class="flex-1">
-                  <p class="font-bold text-sm mb-1">{tt("tool_script_why")}</p>
-                  <p id="script-why-value" class="text-sm text-slate-600"></p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <script>
-{_onboarding_js_core("", "", lang, "step-script")}
-{errors.error_js(tt)}
-
-          const MAX_SCRIPT_WORDS = {MAX_TRANSCRIPT_WORDS};
-          const LOADING_STAGES = ["{tt("loading_script_reading")}", "{tt("loading_script_analyzing")}", "{tt("loading_insights")}"];
-
-          function countWords(text) {{
-            const trimmed = text.trim();
-            return trimmed ? trimmed.split(/\\s+/).length : 0;
-          }}
-
-          function updateScriptWordCount() {{
-            const text = document.getElementById('script-text').value;
-            const count = countWords(text);
-            const counter = document.getElementById('script-word-count');
-            counter.textContent = count + ' / ' + MAX_SCRIPT_WORDS + ' {words_suffix}';
-            counter.className = count > MAX_SCRIPT_WORDS ? 'text-xs text-red-600 mt-2' : 'text-xs text-slate-400 mt-2';
-            const valid = count > 0 && count <= MAX_SCRIPT_WORDS;
-            const btn = document.getElementById('script-analyze-btn');
-            btn.disabled = !valid;
-            btn.className = valid
-              ? 'w-full mt-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-sm transition hover:bg-blue-700'
-              : 'w-full mt-4 py-3.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-sm transition';
-          }}
-
-          function resetFlow() {{
-            document.getElementById('script-text').value = '';
-            updateScriptWordCount();
-            document.getElementById('script-error').textContent = '';
-            goToStep('step-script', 100, true);
-          }}
-
-          function launchAnalysis() {{
-            const transcript = document.getElementById('script-text').value.trim();
-            if (!transcript) return;
-
-            let stageIdx = 0;
-            document.getElementById('loading-status-text').textContent = LOADING_STAGES[0];
-            goToStep('step-loading', 100, false);
-            const stageInterval = setInterval(function () {{
-              stageIdx = Math.min(stageIdx + 1, LOADING_STAGES.length - 1);
-              setLoadingText(LOADING_STAGES[stageIdx]);
-            }}, 3000);
-
-            const params = new URLSearchParams({{
-              transcript: transcript,
-              niche_category: selectedNiches[0] || '',
-              main_challenge: selectedChallenge,
-              ui_lang: uiLang
-            }});
-
-            fetch('/api/analyze-transcript?' + params.toString())
-              .then(function (r) {{ return r.json().then(function (data) {{ return {{ok: r.ok, status: r.status, data: data}}; }}); }})
-              .then(function (res) {{
-                clearInterval(stageInterval);
-                if (!res.ok) {{
-                  document.getElementById('script-error').textContent = wilErrText(res.data, res.status);
-                  goToStep('step-script', 100, true);
-                  return;
-                }}
-                setLoadingText('{tt("loading_done")}');
-                renderScriptResults(res.data);
-                setTimeout(function () {{ goToStep('step-results', 100, false); }}, 500);
-              }})
-              .catch(function (e) {{
-                clearInterval(stageInterval);
-                document.getElementById('script-error').textContent = '{tt("common_network_error")} ' + (e && e.message ? e.message : e);
-                goToStep('step-script', 100, true);
-              }});
-          }}
-
-          function renderScriptResults(data) {{
-            const score = data.virality_score != null ? data.virality_score : 0;
-            const color = scoreColor(score);
-            animateNumber(document.getElementById('script-score-value'), score, 900);
-            document.getElementById('script-score-value').style.color = color;
-            document.getElementById('script-score-bar').style.width = score + '%';
-            document.getElementById('script-score-bar').style.background = color;
-
-            document.getElementById('script-hook-value').textContent = data.hook_analysis || '';
-            document.getElementById('script-rhythm-value').textContent = data.rhythm_analysis || '';
-            document.getElementById('script-structure-value').innerHTML = (data.structure_breakdown || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
-            document.getElementById('script-strengths-value').innerHTML = (data.strengths || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
-            document.getElementById('script-weaknesses-value').innerHTML = (data.weaknesses || []).map(function (s) {{ return '<li>' + s + '</li>'; }}).join('');
-            document.getElementById('script-why-value').textContent = data.why_it_worked_or_not || '';
-
-            saveHistoryEntry({{
-              type: 'script', score: score, niche: selectedNiches[0] || '',
-              title: document.getElementById('script-text').value.trim().slice(0, 70), ts: Date.now()
-            }});
-          }}
-        </script>
+{body}
       </body>
     </html>
     """
+
+
+@app.get("/tools/analyze-script")
+async def tool_analyze_script_redirect():
+    """Ancienne adresse (analyse de script) : l'onglet sert maintenant à écrire un script."""
+    return RedirectResponse("/tools/write-script", status_code=301)
 
 
 @app.get("/tools/trending-ideas", response_class=HTMLResponse)
@@ -3739,7 +3781,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         var stored = JSON.parse(localStorage.getItem('wilOnboarding') || 'null');
         var done = stored && stored.niches && stored.niches.length > 0 && stored.ageConfirmed;
         var open = new URLSearchParams(location.search).get('open');
-        var tools = { video: '/tools/analyze-video', script: '/tools/analyze-script', account: '/tools/analyze-account' };
+        var tools = { video: '/tools/analyze-video', script: '/tools/write-script', account: '/tools/analyze-account' };
         if (!done) {
           location.replace('/onboarding' + (tools[open] ? '?next=' + encodeURIComponent('/app?open=' + open) : ''));
         } else if (tools[open]) {
@@ -3882,7 +3924,7 @@ _APP_SHELL_HTML = """<!DOCTYPE html>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/></svg>
         <span>__T_app_tab_library__</span>
       </button>
-      <a href="/tools/analyze-script" data-lock="1" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
+      <a href="/tools/write-script" data-lock="1" class="nav-item flex-1 flex flex-col items-center justify-center gap-0.5 py-2">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/></svg>
         <span>__T_app_tab_script__</span>
       </a>
@@ -3922,9 +3964,14 @@ __PW_JS__
     function historyItemHtml(entry) {
       const typeLabel = entry.type === 'script' ? I18N.script : I18N.video;
       const date = entry.ts ? new Date(entry.ts).toLocaleDateString(LANG) : '';
+      const hasScore = entry.score != null;
       const body = '<p class="font-bold text-base truncate">' + esc(entry.title || nicheLabel(entry.niche) || typeLabel) + '</p>' +
-        '<p class="text-sm mt-1"><span style="color:' + scoreColor(entry.score) + ';font-weight:700;">' + esc(entry.score) + I18N.scoreSuffix + '</span>' +
-        '<span class="text-slate-400"> · ' + esc(typeLabel) + (date ? ' · ' + esc(date) : '') + '</span></p>';
+        '<p class="text-sm mt-1">' + (hasScore ? '<span style="color:' + scoreColor(entry.score) + ';font-weight:700;">' + esc(entry.score) + I18N.scoreSuffix + '</span>' : '') +
+        '<span class="text-slate-400">' + (hasScore ? ' · ' : '') + esc(typeLabel) + (date ? ' · ' + esc(date) : '') + '</span></p>';
+      // Script écrit : un clic le rouvre tel quel (aucun nouvel appel à l'IA).
+      if (entry.type === 'script' && entry.script && entry.ts) {
+        return '<a class="history-item block" style="text-decoration:none;color:inherit;" href="/tools/write-script?history=' + esc(entry.ts) + '">' + body + '</a>';
+      }
       // Rapport enregistré : un clic le rouvre tel quel (rien n'est réanalysé, aucun jeton dépensé).
       if (entry.rid && /^[0-9a-fA-F-]{36}$/.test(entry.rid) && entry.type !== 'script') {
         return '<a class="history-item block" style="text-decoration:none;color:inherit;" href="/tools/analyze-video?unlock=' + esc(entry.rid) + '">' + body + '</a>';
@@ -7763,109 +7810,147 @@ exactement ces champs :
     return JSONResponse(content=analysis)
 
 
-@app.get("/api/generate-script", response_class=JSONResponse)
-async def generate_script(
+SCRIPT_DURATIONS = {15: 38, 30: 75, 60: 150}  # durée de la vidéo (s) -> nombre de mots à dire (~2,5 mots/s)
+SCRIPT_TONES = {
+    "direct": "direct et franc : va droit au but, phrases courtes, aucun blabla",
+    "funny": "drôle et léger : humour naturel, autodérision, jamais lourd",
+    "educational": "pédagogue : explique simplement, étape par étape, avec un exemple concret",
+    "emotional": "émotion et authenticité : sincère, personnel, qui touche",
+    "storytelling": "storytelling : raconte une courte histoire avec une tension et un dénouement",
+}
+MAX_SCRIPT_TOPIC_CHARS = 400
+
+
+def _clean_text(value, limit: int) -> str:
+    return " ".join(str(value or "").split())[:limit]
+
+
+def _clean_script(raw) -> dict | None:
+    """Garde uniquement les champs attendus (texte borné) : jamais une réponse brute de l'IA envoyée au client."""
+    if not isinstance(raw, dict):
+        return None
+    scenes = []
+    for item in (raw.get("scenes") or [])[:8]:
+        if not isinstance(item, dict):
+            continue
+        say = _clean_text(item.get("say"), 600)
+        if not say:
+            continue
+        scenes.append({
+            "label": _clean_text(item.get("label"), 60),
+            "time": _clean_text(item.get("time"), 20),
+            "say": say,
+            "show": _clean_text(item.get("show"), 300),
+            "on_screen": _clean_text(item.get("on_screen"), 120),
+        })
+    hook = _clean_text(raw.get("hook"), 300)
+    full = str(raw.get("full_script") or "").strip()[:3000] or " ".join(sc["say"] for sc in scenes)
+    if not (hook and scenes and full):
+        return None
+    return {
+        "title": _clean_text(raw.get("title"), 120),
+        "hook": hook,
+        "scenes": scenes,
+        "full_script": full,
+        "caption": _clean_text(raw.get("caption"), 300),
+        "hashtags": [h for h in (_clean_text(x, 40).lstrip("#").replace(" ", "") for x in (raw.get("hashtags") or [])[:10]) if h],
+        "tips": [t for t in (_clean_text(x, 250) for x in (raw.get("tips") or [])[:4]) if t],
+    }
+
+
+@app.get("/api/write-script", response_class=JSONResponse)
+async def write_script(
     request: Request,
     topic: str,
+    duration: int = 30,
     tone: str = "",
-    limits: str = "",
-    niche: str = "",
-    bio: str = "",
+    niche_category: str = "",
+    ui_lang: str = DEFAULT_LANG,
 ):
     """
-    Génère un script de vidéo TikTok VRAIMENT personnalisé, en respectant
-    strictement le ton et les limites définies par le créateur — pour
-    éviter le principal défaut des générateurs concurrents (scripts
-    génériques calqués sur des tendances, qui ne collent pas à la vraie
-    personne).
-
-    Paramètres :
-    - topic  : le sujet/l'idée de la vidéo (obligatoire)
-    - tone   : comment le créateur parle à son audience (ex: "humoristique et direct")
-    - limits : ce que le créateur ne veut jamais dire/faire (ex: "pas de gros mots, jamais de politique")
-    - niche  : niche de contenu détectée (optionnel, améliore la pertinence)
-    - bio    : bio du compte (optionnel, contexte supplémentaire)
+    Rédige le script d'une vidéo TikTok à partir de l'idée de l'utilisateur : accroche, scènes minutées (ce qu'on dit,
+    ce qu'on montre, texte à l'écran), texte complet à lire, description, hashtags et conseils de tournage.
+    L'onglet « Script » sert maintenant à écrire (l'analyse d'une vidéo existe déjà à part).
     """
     await paywall.require_subscription(request)
     await _guard_ai(request)
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY manquant dans .env")
+    topic = _clean_text(topic, MAX_SCRIPT_TOPIC_CHARS)
+    if not topic:
+        raise HTTPException(status_code=422, detail="Décris l'idée de la vidéo avant d'écrire le script.")
+    if duration not in SCRIPT_DURATIONS:
+        duration = 30
+    words = SCRIPT_DURATIONS[duration]
+    tone_text = SCRIPT_TONES.get(tone, "naturel et simple, comme si tu parlais à un ami")
+    lang = ui_lang if ui_lang in SUPPORTED_LANGS else DEFAULT_LANG
+    lang_instruction = "EN FRANÇAIS" if lang == "fr" else f'dans la langue de code ISO 639-1 "{lang}"'
+    niche = niche_category if niche_category in NICHE_CATEGORIES else ""
 
-    prompt = f"""Tu es un scénariste spécialisé dans les vidéos courtes TikTok,
-qui écrit des scripts qui sonnent VRAIMENT comme la personne qui va les
-dire — jamais des scripts génériques copiés sur des tendances virales.
+    prompt = f"""Tu es un scénariste TikTok senior : tu écris des scripts de vidéos courtes qui retiennent dès la première
+seconde et que le créateur peut tourner tout de suite, sans retouche.
 
-Contexte du créateur :
-- Niche : {niche or "non précisée"}
-- Bio : "{bio or "non précisée"}"
-- Ton habituel du créateur : "{tone or "non précisé, reste neutre et naturel"}"
-- Limites strictes à respecter (ne JAMAIS enfreindre) : "{limits or "aucune limite précisée"}"
+IDÉE DE LA VIDÉO : "{topic}"
+Niche : {niche or "non précisée"}
+Durée visée : {duration} secondes (environ {words} mots à dire en tout, débit oral naturel).
+Ton demandé : {tone_text}.
 
-Sujet de la vidéo à écrire : "{topic}"
+RÈGLES D'ÉCRITURE :
+- Accroche (les 3 premières secondes) : une phrase courte qui dit de quoi ça parle ET pourquoi rester (curiosité,
+  promesse, tension, contraste). Jamais un simple résumé du sujet ni « Salut tout le monde ».
+- Le texte est fait pour être DIT À VOIX HAUTE : phrases courtes, mots simples, rythme vivant, aucun jargon.
+- Chaque scène a un rôle clair (accroche, développement, point clé, conclusion avec appel à l'action) et suit le fil
+  de l'idée : n'invente aucun chiffre, aucune statistique, aucune citation, aucun fait que tu ne peux pas garantir.
+- L'appel à l'action découle du sujet précis (poser une question, inviter à commenter son avis, à enregistrer la vidéo…),
+  jamais un « like et abonne-toi » générique.
+- Pour chaque scène : ce qu'on DIT, ce qu'on MONTRE (plan, geste, décor, rythme de montage) et, si utile, un TEXTE COURT
+  À L'ÉCRAN (5 mots maximum).
+- Le total des textes à dire fait environ {words} mots (marge de 20 %).
 
-TECHNIQUES D'ÉCRITURE (distillées d'un corpus de scripts créateurs réels
-qui ont performé — à appliquer sans jamais trahir le ton/les limites
-ci-dessus, qui restent prioritaires) :
-- Hook (les 3 premières secondes) : répond à "de quoi ça parle" ET
-  "pourquoi je devrais rester" en une phrase courte. Un mot-charnière
-  (mais, en réalité, sauf que) aide à créer du contraste si le ton s'y
-  prête — jamais un simple résumé du sujet.
-- Adresse-toi à "tu"/"toi", pas "je"/"moi" — sauf si le sujet EST une
-  anecdote personnelle du créateur, auquel cas "je" est légitime.
-- Si le sujet est une histoire personnelle : structure conflit ->
-  moment clé -> ce que ça change pour le spectateur (version courte
-  d'une structure narrative, pas besoin des 7 actes complets sur un
-  format aussi court).
-- Le call_to_action doit découler du sujet précis, jamais un
-  "like et abonne-toi" générique.
-
-Écris un script structuré en 3 parties, RÉDIGÉ ENTIÈREMENT EN FRANÇAIS,
-qui respecte STRICTEMENT le ton et les limites ci-dessus. N'invente pas
-un ton différent de celui précisé. Si aucun ton n'est précisé, reste
-simple et naturel plutôt que d'imposer un style "viral" générique.
-
-Réponds avec un objet JSON (pas de markdown, pas de balises de code,
-juste du JSON brut) avec exactement ces champs :
+Réponds avec un objet JSON (pas de markdown, pas de balises de code), RÉDIGÉ {lang_instruction}, avec exactement ces champs :
 {{
-  "hook": "l'accroche des 3 premières secondes, percutante mais fidèle au ton du créateur",
-  "body": "le corps du script, 3-5 phrases maximum, adapté au format TikTok court",
-  "call_to_action": "une phrase de fin naturelle (pas forcément 'like et abonne-toi', adapte au sujet)",
-  "notes": "1-2 conseils courts de mise en scène/tournage propres à CE script précis"
+  "title": "titre court de la vidéo (60 caractères max)",
+  "hook": "l'accroche, telle qu'elle sera dite",
+  "scenes": [
+    {{"label": "rôle de la scène (accroche, développement, conclusion…)", "time": "0-3 s", "say": "ce qui est dit", "show": "ce qu'on voit à l'image", "on_screen": "texte à l'écran ou chaîne vide"}}
+  ],
+  "full_script": "le texte complet à lire d'une traite (tous les « say » bout à bout, sans indications de scène)",
+  "caption": "description TikTok suggérée (1 à 2 phrases)",
+  "hashtags": ["5 à 8 hashtags pertinents, sans le symbole #"],
+  "tips": ["1 à 3 conseils courts de tournage ou de montage propres à CE script"]
 }}"""
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": "claude-sonnet-5",
-                "max_tokens": 1200,
-                "output_config": {"effort": "low"},
-                "messages": [{"role": "user", "content": prompt}],
-            },
-        )
-
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-sonnet-5",
+                    "max_tokens": 2500,
+                    "output_config": {"effort": "low"},
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="Erreur réseau vers l'API Anthropic.")
     if response.status_code != 200:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Erreur API Anthropic: {response.status_code} {response.text}",
-        )
+        raise HTTPException(status_code=502, detail=f"Erreur API Anthropic: {response.status_code} {response.text}")
 
-    raw_text = _extract_text_block(response.json())
-    cleaned = raw_text.strip()
+    cleaned = _extract_text_block(response.json()).strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`")
         if cleaned.startswith("json"):
             cleaned = cleaned[4:]
         cleaned = cleaned.strip()
-
     try:
-        script = json.loads(cleaned)
+        script = _clean_script(json.loads(cleaned))
     except json.JSONDecodeError:
-        raise HTTPException(status_code=502, detail="Réponse IA invalide.")
-
+        script = None
+    if not script:
+        raise HTTPException(status_code=502, detail="Réponse IA invalide, impossible de l'analyser.")
     return JSONResponse(content=script)
