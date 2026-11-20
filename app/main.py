@@ -1519,7 +1519,8 @@ async def tiktok_callback(request: Request):
                 // Non-abonné : seuls les titres du rapport sont affichés, le reste est grisé.
                 document.getElementById('next-step').style.display = 'none';
                 const titles = (data.sections || []).map(k => ACCOUNT_LOCK_TITLES[k]).filter(Boolean);
-                document.getElementById('analysis-result').innerHTML = wilLockedReportHtml(titles, '/report/' + data.unlock_id);
+                const free = (data.free && data.free.strengths) ? wilFreeCardHtml(ACCOUNT_LOCK_TITLES.strengths, data.free.strengths) : '';
+                document.getElementById('analysis-result').innerHTML = wilLockedReportHtml(titles, '/report/' + data.unlock_id, free);
                 return;
               }}
               document.getElementById('analysis-result').innerHTML = wilAccountReportHtml(data);
@@ -1605,7 +1606,8 @@ def report_page(request: Request, analysis_id: str):
             document.getElementById('report-loading').style.display = 'none';
             if (entry.locked) {{
               const titles = (entry.payload.sections || []).map(function (k) {{ return ACCOUNT_LOCK_TITLES[k]; }}).filter(Boolean);
-              document.getElementById('analysis-result').innerHTML = wilLockedReportHtml(titles, reportPath);
+              const free = (entry.payload.free && entry.payload.free.strengths) ? wilFreeCardHtml(ACCOUNT_LOCK_TITLES.strengths, entry.payload.free.strengths) : '';
+              document.getElementById('analysis-result').innerHTML = wilLockedReportHtml(titles, reportPath, free);
               document.getElementById('next-step').style.display = 'none';
             }} else {{
               document.getElementById('analysis-result').innerHTML = wilAccountReportHtml(entry.payload);
@@ -1624,7 +1626,7 @@ def report_page(request: Request, analysis_id: str):
           wilLoadUnlocked(reportId)
             .then(function (d) {{
               const entry = d.locked
-                ? {{kind: d.kind, locked: true, payload: {{locked: true, kind: d.kind, unlock_id: reportId, sections: d.teaser.sections}}}}
+                ? {{kind: d.kind, locked: true, payload: {{locked: true, kind: d.kind, unlock_id: reportId, sections: d.teaser.sections, free: d.teaser.free}}}}
                 : {{kind: d.kind, locked: false, payload: d.report}};
               wilCacheReport(reportId, entry);
               if (cached && !cached.locked && !entry.locked) return;  // déjà affiché
@@ -3175,7 +3177,8 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
             const box = document.getElementById('locked-report');
             box.classList.remove('hidden');
             const titles = (data.sections || []).map(function (k) {{ return LOCK_TITLES[k]; }}).filter(Boolean);
-            box.innerHTML = wilLockedReportHtml(titles, '/tools/analyze-video?unlock=' + data.unlock_id);
+            const free = (data.free && data.free.strengths) ? wilFreeCardHtml(LOCK_TITLES.strengths, data.free.strengths) : '';
+            box.innerHTML = wilLockedReportHtml(titles, '/tools/analyze-video?unlock=' + data.unlock_id, free);
           }}
 
           // Miniature réduite : gardée avec le rapport pour que la page se réaffiche à l'identique après une actualisation.
@@ -3362,7 +3365,7 @@ def tool_analyze_video_page(request: Request, niche_category: str = "", account_
                 if (d.kind !== 'video') throw new Error('kind');
                 const thumb = cached ? cached.thumb : '';
                 const entry = d.locked
-                  ? {{kind: 'video', locked: true, payload: {{locked: true, kind: 'video', unlock_id: reportId, sections: d.teaser.sections}}, thumb: thumb}}
+                  ? {{kind: 'video', locked: true, payload: {{locked: true, kind: 'video', unlock_id: reportId, sections: d.teaser.sections, free: d.teaser.free}}, thumb: thumb}}
                   : {{kind: 'video', locked: false, payload: d.report, thumb: thumb}};
                 wilCacheReport(reportId, entry);
                 if (cached && !cached.locked && !entry.locked) return;  // déjà affiché

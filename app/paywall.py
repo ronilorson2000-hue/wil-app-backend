@@ -431,10 +431,19 @@ _TEASER_SECTIONS = {
 
 
 def build_teaser(kind: str, payload: dict, analysis_id: str) -> dict:
-    """Ce que voit un non-abonné : uniquement les TITRES des sections (jamais leur contenu). Tout se débloque après paiement."""
+    """
+    Ce que voit un non-abonné : les POINTS FORTS en clair (gratuits), et uniquement les TITRES des autres sections
+    (jamais leur contenu). Tout le reste se débloque après paiement.
+    """
     source = payload.get("ai_report", {}) if kind == "account" else payload
     sections = []
+    free: dict = {}
     for key in _TEASER_SECTIONS[kind]:
+        if key == "strengths":
+            items = [str(x) for x in (source.get("strengths") or []) if isinstance(x, str) and x.strip()]
+            if items:
+                free["strengths"] = items[:3]
+            continue
         if key == "stats":
             present = bool(payload.get("stats"))
         else:
@@ -442,7 +451,7 @@ def build_teaser(kind: str, payload: dict, analysis_id: str) -> dict:
             present = bool(value)
         if present:
             sections.append(key)
-    return {"locked": True, "kind": kind, "unlock_id": analysis_id, "sections": sections}
+    return {"locked": True, "kind": kind, "unlock_id": analysis_id, "sections": sections, "free": free}
 
 
 @router.get("/api/analysis/{analysis_id}", response_class=JSONResponse)
@@ -999,6 +1008,12 @@ const WIL_PW = __L__;
     '.wilpw-head p{font-size:14px;color:#64748B;margin:0;line-height:1.5}' +
     '.wilpw-card{background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:16px 18px;margin-bottom:10px}' +
     '.wilpw-row{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px;color:#0F172A}' +
+    '.wilpw-free{background:#211932;border:1px solid #3A2F55;border-radius:16px;padding:16px 18px;margin:0 0 18px;color:#fff}' +
+    '.wilpw-free-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}' +
+    '.wilpw-free-title{display:inline-block;background:#2563EB;color:#fff;font-size:12px;font-weight:600;line-height:1.25;padding:3px 10px;border-radius:8px}' +
+    '.wilpw-free-tag{font-size:11px;font-weight:700;color:#4ADE80}' +
+    '.wilpw-free ul{margin:0;padding-left:18px;font-size:14px;line-height:1.5;color:#fff}' +
+    '.wilpw-free li{margin-bottom:6px}' +
     '.wilpw-skel{margin-top:12px;filter:blur(3px);opacity:.7}' +
     '.wilpw-skel i{display:block;height:9px;border-radius:6px;background:#CBD5E1;margin-bottom:8px}' +
     '.wilpw-btn{display:block;text-align:center;margin-top:18px;padding:16px;border-radius:12px;background:#2563EB;color:#fff!important;font-weight:700;font-size:18px;text-decoration:none;box-shadow:0 6px 16px rgba(37,99,235,.25);transition:background .2s}' +
@@ -1055,12 +1070,19 @@ function wilPwActions(returnPath) {
   return html + '</div><p class="wilpw-note">' + wilPwEsc(WIL_PW.cancel) + '</p>' +
     '<a class="wilpw-link" href="' + wilPwEsc('/subscribe/done?to=' + encodeURIComponent(returnPath)) + '">' + wilPwEsc(WIL_PW.have) + '</a>';
 }
-function wilLockedReportHtml(titles, returnPath) {
+// Carte gratuite (points forts) : lisible par tous, au-dessus des sections verrouillées.
+function wilFreeCardHtml(title, items) {
+  if (!items || !items.length) return '';
+  return '<div class="wilpw-free"><div class="wilpw-free-top"><span class="wilpw-free-title">' + wilPwEsc(title) + '</span>' +
+    '<span class="wilpw-free-tag">' + wilPwEsc(WIL_PW.free) + '</span></div><ul>' +
+    items.map(function (i) { return '<li>' + wilPwEsc(i) + '</li>'; }).join('') + '</ul></div>';
+}
+function wilLockedReportHtml(titles, returnPath, freeHtml) {
   const cards = titles.map(function (title) {
     return '<div class="wilpw-card"><div class="wilpw-row"><span>' + wilPwEsc(title) + '</span><span>🔒</span></div>' +
       '<div class="wilpw-skel"><i style="width:94%"></i><i style="width:78%"></i><i style="width:62%"></i></div></div>';
   }).join('');
-  return '<div class="wilpw"><div class="wilpw-head"><div class="wilpw-ic">🔒</div><h2>' + wilPwEsc(WIL_PW.title) + '</h2><p>' +
+  return '<div class="wilpw">' + (freeHtml || '') + '<div class="wilpw-head"><div class="wilpw-ic">🔒</div><h2>' + wilPwEsc(WIL_PW.title) + '</h2><p>' +
     wilPwEsc(WIL_PW.sub) + '</p></div>' + cards + wilPwActions(returnPath) + '</div>';
 }
 // Fonctionnalité réservée aux abonnés (ou essai gratuit déjà utilisé).
