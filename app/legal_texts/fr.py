@@ -20,10 +20,10 @@ TERMS = {
             ("ul", [
                 "connecter son compte TikTok pour obtenir un diagnostic automatique (score de viralité, taux d'engagement, points forts, points à améliorer, hashtags suggérés) ;",
                 "analyser une vidéo (déjà publiée ou non) importée manuellement par l'utilisateur, à partir de son contenu visuel et sonore ;",
-                "analyser le script d'une vidéo pas encore tournée, ou en générer un ;",
+                "écrire le script d'une vidéo à partir de l'idée que vous décrivez ;",
                 "consulter une bibliothèque et des idées du jour (hooks, idées de vidéos, hashtags) issues de recherches web réalisées par intelligence artificielle, et enregistrer celles qui vous intéressent.",
             ]),
-            ("p", "Les rapports et contenus sont générés par des modèles d'intelligence artificielle fournis par des prestataires tiers : Claude (Anthropic) pour l'analyse de compte, l'analyse et la génération de script et la bibliothèque, et Gemini (Google) pour l'analyse de vidéo. Ils s'appuient sur les données que vous fournissez, sur les données réellement récupérées via l'API officielle de TikTok, ou sur des recherches web."),
+            ("p", "Les rapports et contenus sont générés par des modèles d'intelligence artificielle fournis par des prestataires tiers : Claude (Anthropic) pour l'analyse de compte et la bibliothèque, et Gemini (Google) pour l'analyse de vidéo et l'écriture de script ; chacun peut servir de secours à l'autre. Ils s'appuient sur les données que vous fournissez, sur les données réellement récupérées via l'API officielle de TikTok, ou sur des recherches web."),
         ]),
         ("2. Âge minimum, connexion et accès au compte", [
             ("p", "<strong>Âge minimum.</strong> Le Service est réservé aux personnes âgées de 18 ans révolus ou plus. En utilisant le Service, vous déclarez avoir au moins 18 ans. Si vous avez moins de 18 ans, vous n'êtes pas autorisé à utiliser le Service, et en particulier à importer des vidéos ou des scripts pour analyse. Si nous apprenons qu'un utilisateur a moins de 18 ans, nous pouvons suspendre son accès et supprimer ses données."),
@@ -31,18 +31,18 @@ TERMS = {
             ("p", "L'accès aux fonctionnalités payantes est lié à votre compte Whop, identifié par l'adresse e-mail utilisée lors du paiement. Vous êtes responsable de la confidentialité de votre compte Whop."),
         ]),
         ("3. Contenu importé par l'utilisateur", [
-            ("p", "Lorsque vous importez un fichier vidéo ou un texte de script pour analyse, vous garantissez :"),
+            ("p", "Lorsque vous importez un fichier vidéo pour analyse ou décrivez l'idée d'un script, vous garantissez :"),
             ("ul", [
                 "être titulaire des droits sur ce contenu, ou disposer des autorisations nécessaires pour l'utiliser (y compris pour le contenu d'un autre créateur, à condition de l'avoir obtenu légalement — jamais par extraction automatisée depuis un simple lien) ;",
                 "que ce contenu ne viole aucune loi, aucun droit de tiers, ni les règles de la communauté TikTok.",
             ]),
             ("p", "Wil App ne collecte, ne télécharge et ne scrape aucune vidéo directement depuis TikTok à l'insu de l'utilisateur : chaque fichier ou texte analysé est fourni volontairement par vous."),
-            ("p", "Pour être analysé, le fichier vidéo est transmis à Google (API Gemini), qui en analyse les images et le son ; le texte d'un script est transmis à Anthropic (Claude). Wil App ne conserve pas votre fichier vidéo après l'analyse, mais conserve le rapport généré, comme décrit dans notre Politique de confidentialité. Ces prestataires traitent les données selon leurs propres conditions. Vos vidéos et vos scripts ne sont pas utilisés pour alimenter les contenus montrés aux autres utilisateurs."),
+            ("p", "Pour être analysé, le fichier vidéo est transmis à Google (API Gemini), qui en analyse les images et le son ; l'idée de script que vous décrivez est transmise à Google (Gemini) ou, en secours, à Anthropic (Claude). Wil App ne conserve pas votre fichier vidéo après l'analyse, mais conserve le rapport généré, comme décrit dans notre Politique de confidentialité. Ces prestataires traitent les données selon leurs propres conditions. Vos vidéos et vos scripts ne sont pas utilisés pour alimenter les contenus montrés aux autres utilisateurs."),
         ]),
         ("4. Usage autorisé", [
             ("p", "Vous vous engagez à utiliser le Service à des fins strictement personnelles et légales, et à ne pas :"),
             ("ul", [
-                "tenter de contourner les limites techniques du Service (par exemple la limite de mots pour l'analyse de script, ou les limites de fréquence des demandes) ;",
+                "tenter de contourner les limites techniques du Service (par exemple la limite de durée des scripts, ou les limites de fréquence des demandes) ;",
                 "utiliser le Service à des fins d'ingénierie inverse, de revente, ou d'extraction automatisée massive des rapports générés ;",
                 "utiliser le Service pour analyser du contenu que vous n'avez pas le droit d'utiliser ;",
                 "partager votre accès payant avec des tiers.",
@@ -56,7 +56,7 @@ TERMS = {
         ]),
         ("6. Annulation et remboursement", [
             ("p", "<strong>Annulation.</strong> Vous pouvez annuler votre abonnement à tout moment, depuis Paramètres &gt; Gérer l'abonnement (lien vers votre espace Whop) ou en nous écrivant. L'annulation prend effet à la fin de la période déjà payée : vous conservez l'accès jusqu'à cette date et plus aucun prélèvement n'est effectué ensuite. La période en cours n'est pas remboursée, sous réserve de la règle suivante."),
-            ("p", "<strong>Remboursement sous 14 jours.</strong> Vous pouvez demander le remboursement de votre abonnement dans les 14 jours suivant votre achat, à condition qu'<strong>aucune analyse</strong> (vidéo, compte TikTok ou script) n'ait été réalisée avec cet abonnement. Pour cela, écrivez-nous (article 15) en indiquant l'adresse e-mail utilisée pour l'achat. Le remboursement est effectué sur le moyen de paiement d'origine, par l'intermédiaire de notre prestataire de paiement."),
+            ("p", "<strong>Remboursement sous 14 jours.</strong> Vous pouvez demander le remboursement de votre abonnement dans les 14 jours suivant votre achat, à condition qu'<strong>aucune analyse</strong> (vidéo, compte TikTok ou script écrit) n'ait été réalisée avec cet abonnement. Pour cela, écrivez-nous (article 15) en indiquant l'adresse e-mail utilisée pour l'achat. Le remboursement est effectué sur le moyen de paiement d'origine, par l'intermédiaire de notre prestataire de paiement."),
             ("p", "Dès qu'une analyse a été réalisée, le service numérique est considéré comme fourni et le montant payé n'est plus remboursable, sauf obligation légale contraire. Cette règle ne limite pas les droits impératifs dont vous bénéficiez selon la loi de votre pays de résidence, notamment le droit de rétractation applicable aux consommateurs de l'Union européenne. L'accès au Service commence immédiatement après votre paiement."),
         ]),
         ("7. Nature des analyses fournies", [
@@ -107,7 +107,7 @@ PRIVACY = {
             ]),
             ("p", "Nous n'accédons ni à vos messages privés, ni à vos informations de paiement, ni à aucune donnée au-delà de ce que permettent les autorisations que vous accordez. De votre compte connecté, nous conservons une session d'accès (le jeton est chiffré) et des relevés périodiques de vos statistiques (taux d'engagement, taux de viralité), pour comparer votre compte à lui-même dans le temps."),
             ("p", "<strong>Compte Whop et abonnement.</strong> Pour gérer les abonnements, nous utilisons Whop : nous recevons votre identifiant Whop, votre adresse e-mail et l'état de votre abonnement (actif ou non, plan). Les paiements sont traités par Whop : nous ne recevons ni ne conservons vos données de carte bancaire."),
-            ("p", "<strong>Vidéos et scripts que vous fournissez.</strong> Lorsque vous importez une vidéo ou collez un script pour analyse, il est transmis à nos prestataires d'intelligence artificielle (article 2) pour générer votre rapport. Nous ne conservons pas votre fichier vidéo après l'analyse. Nous n'utilisons pas vos vidéos ou scripts pour constituer les contenus montrés aux autres utilisateurs."),
+            ("p", "<strong>Vidéos et scripts que vous fournissez.</strong> Lorsque vous importez une vidéo pour analyse ou décrivez l'idée d'un script à écrire, ce contenu est transmis à nos prestataires d'intelligence artificielle (article 2) pour générer votre rapport ou votre script. Nous ne conservons pas votre fichier vidéo après l'analyse. Nous n'utilisons pas vos vidéos ou scripts pour constituer les contenus montrés aux autres utilisateurs."),
             ("p", "<strong>Rapports d'analyse.</strong> Le rapport généré est conservé sur nos serveurs sous un identifiant aléatoire, sans lien direct avec votre identité, pour que vous puissiez le retrouver (par exemple après avoir actualisé la page ou souscrit un abonnement). Les rapports sont supprimés automatiquement après 180 jours."),
             ("p", "<strong>Retour sur les estimations.</strong> Si vous nous indiquez qu'une vidéo était déjà publiée et répondez si notre estimation était proche des résultats réels, nous enregistrons cette réponse de façon anonyme (niche, score, niveau estimé et votre réponse), sans la vidéo et sans identifiant."),
             ("p", "<strong>Données conservées sur votre appareil.</strong> Vos réponses d'onboarding, l'historique de vos analyses, vos éléments enregistrés, vos choix de langue et d'apparence, ainsi qu'une copie de vos derniers rapports, sont stockés dans votre navigateur (stockage local), sur votre appareil. Si vous connectez TikTok, votre navigateur conserve aussi votre profil public (nom, pseudonyme, photo) et un identifiant de session."),
@@ -117,14 +117,14 @@ PRIVACY = {
             ("p", "Pour produire vos analyses, Wil App <strong>transmet le contenu que vous fournissez à des fournisseurs externes d'intelligence artificielle</strong>, qui le traitent pour l'analyser et le classer. Concrètement :"),
             ("ul", [
                 "vos <strong>vidéos</strong> (images et son) sont envoyées à Google (Gemini) ;",
-                "vos <strong>scripts</strong> sont envoyés à Anthropic (Claude) ;",
-                "les informations de votre <strong>profil TikTok</strong> (nom, nom d'utilisateur, description) et les statistiques de vos vidéos sont envoyées à Anthropic (Claude) ;",
+                "l'<strong>idée de script</strong> que vous décrivez est envoyée à Google (Gemini) ou, en secours, à Anthropic (Claude) ;",
+                "les informations de votre <strong>profil TikTok</strong> (nom, nom d'utilisateur, description) et les statistiques de vos vidéos sont envoyées à Anthropic (Claude) ou, en secours, à Google (Gemini) ;",
                 "les <strong>idées tendance</strong> sont produites par Claude (Anthropic) à partir de recherches web.",
             ]),
             ("p", "Ces envois n'ont lieu que lorsque vous lancez une analyse. Sur le site, lancer une analyse vaut accord pour cet envoi ; dans notre application mobile, une fenêtre de consentement s'affiche avant la première analyse, et vous pouvez retirer votre consentement à tout moment dans Profil. Ces fournisseurs sont des entreprises indépendantes : elles traitent les données selon leurs propres conditions et leurs propres règles de confidentialité. Nous ne vendons pas vos contenus et ne les utilisons pas pour fabriquer les contenus montrés aux autres utilisateurs. Si vous ne souhaitez pas que votre contenu soit transmis à ces fournisseurs, n'utilisez pas les fonctions d'analyse."),
         ]),
         ("3. Comment nous utilisons vos informations", [
-            ("p", "Nous utilisons ces informations uniquement pour fournir le Service (diagnostic de compte, analyse de vidéo et de script, tendances, gestion de votre abonnement), assurer sa sécurité et améliorer sa fiabilité et la précision de nos estimations. Nous ne vendons pas vos données personnelles à des tiers."),
+            ("p", "Nous utilisons ces informations uniquement pour fournir le Service (diagnostic de compte, analyse de vidéo, rédaction de script, tendances, gestion de votre abonnement), assurer sa sécurité et améliorer sa fiabilité et la précision de nos estimations. Nous ne vendons pas vos données personnelles à des tiers."),
         ]),
         ("4. Bases juridiques", [
             ("p", "Selon les cas, le traitement repose sur l'exécution du contrat (fournir le Service et gérer votre abonnement), votre consentement (connexion de votre compte TikTok, que vous pouvez retirer à tout moment), notre intérêt légitime (sécurité, prévention des abus, amélioration du Service) et le respect de nos obligations légales (comptabilité et paiements)."),
@@ -142,8 +142,8 @@ PRIVACY = {
             ("p", "Notre Service s'appuie sur les prestataires suivants, chacun soumis à ses propres conditions et à sa politique de confidentialité :"),
             ("ul", [
                 "TikTok (API officielles et Login Kit) ;",
-                "Anthropic (Claude), qui traite les données de compte, les scripts et les recherches web servant à générer les rapports et tendances ;",
-                "Google (API Gemini), qui traite les vidéos que vous importez pour en analyser les images et le son ;",
+                "Anthropic (Claude), qui traite les données de compte et les recherches web servant à générer les rapports et tendances, et, en secours, les idées de script ;",
+                "Google (API Gemini), qui traite les vidéos que vous importez (images et son), les idées de script que vous décrivez et, en secours, les données de compte ;",
                 "Whop, qui traite les paiements et la connexion à votre compte Whop ;",
                 "Sentry, qui reçoit les rapports techniques d'erreur du serveur (sans cookie, sans adresse e-mail, sans contenu de vos vidéos ou scripts) pour nous permettre de corriger les pannes ;",
                 "nos prestataires d'hébergement, de base de données et de sécurité réseau (Render, Supabase, Cloudflare), qui stockent ou transmettent les données décrites ci-dessus.",

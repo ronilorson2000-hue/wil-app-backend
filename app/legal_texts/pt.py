@@ -15,10 +15,10 @@ TERMS = {
             ("ul", [
                 "conectar a sua conta do TikTok para obter um diagnóstico automático (pontuação de viralidade, taxa de engajamento, pontos fortes, pontos a melhorar, hashtags sugeridas);",
                 "analisar um vídeo (já publicado ou não) que você importe manualmente, com base no seu conteúdo visual e sonoro;",
-                "analisar o roteiro de um vídeo que ainda não gravou, ou gerar um;",
+                "escrever o roteiro de um vídeo a partir da ideia que descreve;",
                 "consultar uma biblioteca e ideias diárias (ganchos, ideias de vídeo, hashtags) baseadas em pesquisas na web feitas por inteligência artificial, e guardar as que mais gostar.",
             ]),
-            ("p", "Os relatórios e conteúdos são gerados por modelos de inteligência artificial de fornecedores externos: Claude (Anthropic) para a análise de conta, a análise e geração de roteiros e a biblioteca, e Gemini (Google) para a análise de vídeo. Baseiam-se nos dados que você fornece, em dados efetivamente obtidos através da API oficial do TikTok ou em pesquisas na web."),
+            ("p", "Os relatórios e conteúdos são gerados por modelos de inteligência artificial de fornecedores externos: Claude (Anthropic) para a análise de conta e a biblioteca, e Gemini (Google) para a análise de vídeo e a escrita de roteiros; cada um pode servir de alternativa ao outro. Baseiam-se nos dados que você fornece, em dados efetivamente obtidos através da API oficial do TikTok ou em pesquisas na web."),
         ]),
         ("2. Idade mínima, login e acesso à conta", [
             ("p", "<strong>Idade mínima.</strong> O Serviço é reservado a pessoas com 18 anos ou mais. Ao utilizar o Serviço, você declara ter pelo menos 18 anos. Se tiver menos de 18 anos, não pode utilizar o Serviço, nomeadamente importar vídeos ou roteiros para análise. Se tomarmos conhecimento de que um utilizador tem menos de 18 anos, poderemos suspender o seu acesso e eliminar os seus dados."),
@@ -26,18 +26,18 @@ TERMS = {
             ("p", "O acesso às funcionalidades pagas está associado à sua conta Whop, identificada pelo endereço de e-mail usado no pagamento. Você é responsável pela confidencialidade da sua conta Whop."),
         ]),
         ("3. Conteúdo que você importa", [
-            ("p", "Quando importa um ficheiro de vídeo ou o texto de um roteiro para análise, você garante que:"),
+            ("p", "Quando importa um ficheiro de vídeo para análise ou descreve a ideia de um roteiro, você garante que:"),
             ("ul", [
                 "detém os direitos sobre esse conteúdo ou tem as autorizações necessárias para o utilizar (incluindo o conteúdo de outro criador, desde que o tenha obtido de forma lícita, nunca por extração automatizada a partir de um simples link);",
                 "esse conteúdo não viola nenhuma lei, nenhum direito de terceiros nem as diretrizes da comunidade do TikTok.",
             ]),
             ("p", "O Wil App não recolhe, descarrega nem extrai qualquer vídeo diretamente do TikTok sem o conhecimento do utilizador: cada ficheiro ou texto analisado é fornecido voluntariamente por você."),
-            ("p", "Para ser analisado, o ficheiro de vídeo é enviado à Google (API Gemini), que analisa as suas imagens e o seu som; o texto de um roteiro é enviado à Anthropic (Claude). O Wil App não guarda o seu ficheiro de vídeo após a análise, mas guarda o relatório gerado, conforme descrito na nossa Política de privacidade. Estes fornecedores tratam os dados segundo as suas próprias condições. Os seus vídeos e roteiros não são usados para alimentar o conteúdo apresentado a outros utilizadores."),
+            ("p", "Para ser analisado, o ficheiro de vídeo é enviado à Google (API Gemini), que analisa as suas imagens e o seu som; a ideia de roteiro que descreve é enviada à Google (Gemini) ou, como alternativa, à Anthropic (Claude). O Wil App não guarda o seu ficheiro de vídeo após a análise, mas guarda o relatório gerado, conforme descrito na nossa Política de privacidade. Estes fornecedores tratam os dados segundo as suas próprias condições. Os seus vídeos e roteiros não são usados para alimentar o conteúdo apresentado a outros utilizadores."),
         ]),
         ("4. Utilização permitida", [
             ("p", "Você compromete-se a utilizar o Serviço estritamente para fins pessoais e lícitos e a não:"),
             ("ul", [
-                "tentar contornar os limites técnicos do Serviço (por exemplo, o limite de palavras na análise de roteiros ou os limites de frequência de pedidos);",
+                "tentar contornar os limites técnicos do Serviço (por exemplo, o limite de duração dos roteiros ou os limites de frequência de pedidos);",
                 "utilizar o Serviço para engenharia reversa, revenda ou extração automatizada em massa dos relatórios gerados;",
                 "utilizar o Serviço para analisar conteúdo sobre o qual não tenha direitos de utilização;",
                 "partilhar o seu acesso pago com terceiros.",
@@ -51,7 +51,7 @@ TERMS = {
         ]),
         ("6. Cancelamento e reembolso", [
             ("p", "<strong>Cancelamento.</strong> Você pode cancelar a sua subscrição a qualquer momento, em Configurações &gt; Gerir a subscrição (um link para a sua área Whop) ou escrevendo-nos. O cancelamento produz efeito no final do período já pago: mantém o acesso até essa data e não é efetuada nenhuma cobrança adicional. O período em curso não é reembolsado, sem prejuízo da regra seguinte."),
-            ("p", "<strong>Reembolso em 14 dias.</strong> Você pode pedir o reembolso da sua subscrição nos 14 dias seguintes à compra, desde que <strong>nenhuma análise</strong> (vídeo, conta do TikTok ou roteiro) tenha sido realizada com essa subscrição. Para tal, escreva-nos (seção 15) indicando o endereço de e-mail usado na compra. O reembolso é feito para o meio de pagamento original, através do nosso fornecedor de pagamentos."),
+            ("p", "<strong>Reembolso em 14 dias.</strong> Você pode pedir o reembolso da sua subscrição nos 14 dias seguintes à compra, desde que <strong>nenhuma análise</strong> (vídeo, conta do TikTok ou roteiro escrito) tenha sido realizada com essa subscrição. Para tal, escreva-nos (seção 15) indicando o endereço de e-mail usado na compra. O reembolso é feito para o meio de pagamento original, através do nosso fornecedor de pagamentos."),
             ("p", "Assim que uma análise é realizada, o serviço digital considera-se prestado e o valor pago deixa de ser reembolsável, salvo se a lei exigir o contrário. Esta regra não limita os direitos imperativos que a lei do seu país de residência lhe confere, incluindo o direito de livre resolução aplicável aos consumidores da União Europeia. O acesso ao Serviço começa imediatamente após o seu pagamento."),
         ]),
         ("7. Natureza das análises fornecidas", [
@@ -102,7 +102,7 @@ PRIVACY = {
             ]),
             ("p", "Não acedemos a mensagens privadas, a informações de pagamento nem a quaisquer dados além do que as autorizações concedidas permitem. Da sua conta conectada guardamos uma sessão de acesso (o token é cifrado) e capturas periódicas das suas estatísticas (taxas de engajamento e de viralidade), para podermos comparar a sua conta consigo mesma ao longo do tempo."),
             ("p", "<strong>Conta Whop e subscrição.</strong> Para gerir as subscrições utilizamos a Whop: recebemos o seu identificador Whop, o seu endereço de e-mail e o estado da sua subscrição (ativa ou não, plano). Os pagamentos são processados pela Whop: não recebemos nem guardamos os dados do seu cartão."),
-            ("p", "<strong>Vídeos e roteiros que você fornece.</strong> Quando carrega um vídeo ou cola um roteiro para análise, este é enviado aos nossos fornecedores de inteligência artificial (seção 2) para gerar o seu relatório. Não guardamos o seu ficheiro de vídeo após a análise. Não utilizamos os seus vídeos ou roteiros para construir o conteúdo apresentado a outros utilizadores."),
+            ("p", "<strong>Vídeos e roteiros que você fornece.</strong> Quando carrega um vídeo para análise ou descreve a ideia de um roteiro a escrever, este conteúdo é enviado aos nossos fornecedores de inteligência artificial (seção 2) para gerar o seu relatório ou o seu roteiro. Não guardamos o seu ficheiro de vídeo após a análise. Não utilizamos os seus vídeos ou roteiros para construir o conteúdo apresentado a outros utilizadores."),
             ("p", "<strong>Relatórios de análise.</strong> O relatório gerado é guardado nos nossos servidores sob um identificador aleatório, sem ligação direta à sua identidade, para que possa voltar a encontrá-lo (por exemplo, após atualizar a página ou subscrever). Os relatórios são eliminados automaticamente após 180 dias."),
             ("p", "<strong>Feedback sobre as estimativas.</strong> Se nos indicar que um vídeo já foi publicado e responder se a nossa estimativa se aproximou dos resultados reais, registamos essa resposta de forma anónima (nicho, pontuação, nível estimado e a sua resposta), sem o vídeo e sem qualquer identificador."),
             ("p", "<strong>Dados guardados no seu dispositivo.</strong> As suas respostas de integração, o seu histórico de análises, os itens guardados, as suas escolhas de idioma e aparência e uma cópia dos seus últimos relatórios são armazenados no seu navegador (armazenamento local), no seu dispositivo. Se conectar o TikTok, o seu navegador guarda também o seu perfil público (nome, utilizador, foto) e um identificador de sessão."),
@@ -112,14 +112,14 @@ PRIVACY = {
             ("p", "Para produzir as suas análises, o Wil App <strong>transmite o conteúdo que você fornece a fornecedores externos de inteligência artificial</strong>, que o tratam para o analisar e classificar. Concretamente:"),
             ("ul", [
                 "os seus <strong>vídeos</strong> (imagens e som) são enviados à Google (Gemini);",
-                "os seus <strong>roteiros</strong> são enviados à Anthropic (Claude);",
-                "as informações do seu <strong>perfil do TikTok</strong> (nome, nome de utilizador, descrição) e as estatísticas dos seus vídeos são enviadas à Anthropic (Claude);",
+                "a <strong>ideia de roteiro</strong> que descreve é enviada à Google (Gemini) ou, como alternativa, à Anthropic (Claude);",
+                "as informações do seu <strong>perfil do TikTok</strong> (nome, nome de utilizador, descrição) e as estatísticas dos seus vídeos são enviadas à Anthropic (Claude) ou, como alternativa, à Google (Gemini);",
                 "as <strong>ideias em tendência</strong> são produzidas pelo Claude (Anthropic) a partir de pesquisas na web.",
             ]),
             ("p", "Estes envios só acontecem quando inicia uma análise. No site, iniciar uma análise significa aceitar este envio; na nossa aplicação móvel é apresentada uma janela de consentimento antes da primeira análise, e pode retirá-lo a qualquer momento em Perfil. Estes fornecedores são empresas independentes: tratam os dados segundo as suas próprias condições e regras de privacidade. Não vendemos os seus conteúdos nem os utilizamos para criar os conteúdos mostrados a outros utilizadores. Se não quiser que o seu conteúdo seja transmitido a estes fornecedores, não utilize as funcionalidades de análise."),
         ]),
         ("3. Como utilizamos as suas informações", [
-            ("p", "Utilizamos estas informações exclusivamente para fornecer o Serviço (análise de conta, análise de vídeo e de roteiros, tendências, gestão da sua subscrição), mantê-lo seguro e melhorar a sua fiabilidade e a precisão das nossas estimativas. Não vendemos os seus dados pessoais a terceiros."),
+            ("p", "Utilizamos estas informações exclusivamente para fornecer o Serviço (análise de conta, análise de vídeo, escrita de roteiros, tendências, gestão da sua subscrição), mantê-lo seguro e melhorar a sua fiabilidade e a precisão das nossas estimativas. Não vendemos os seus dados pessoais a terceiros."),
         ]),
         ("4. Bases jurídicas", [
             ("p", "Consoante o caso, o tratamento baseia-se na execução do contrato (fornecimento do Serviço e gestão da sua subscrição), no seu consentimento (ligação da sua conta do TikTok, que pode retirar a qualquer momento), no nosso interesse legítimo (segurança, prevenção de abusos, melhoria do Serviço) e no cumprimento das nossas obrigações legais (contabilidade e pagamentos)."),
@@ -137,8 +137,8 @@ PRIVACY = {
             ("p", "O nosso Serviço assenta nos seguintes fornecedores, cada um sujeito às suas próprias condições e política de privacidade:"),
             ("ul", [
                 "TikTok (APIs oficiais e Login Kit);",
-                "Anthropic (Claude), que trata os dados da conta, os roteiros e as pesquisas na web usadas para gerar relatórios e tendências;",
-                "Google (API Gemini), que trata os vídeos que você carrega para analisar as suas imagens e o seu som;",
+                "Anthropic (Claude), que trata os dados da conta e as pesquisas na web usadas para gerar relatórios e tendências e, como alternativa, as ideias de roteiro;",
+                "Google (API Gemini), que trata os vídeos que você carrega (imagens e som), as ideias de roteiro que descreve e, como alternativa, os dados da conta;",
                 "Whop, que trata os pagamentos e o login na sua conta Whop;",
                 "a Sentry, que recebe relatórios técnicos de erros do servidor (sem cookies, sem endereços de e-mail e sem o conteúdo dos seus vídeos ou roteiros) para podermos corrigir avarias;",
                 "os nossos fornecedores de alojamento, base de dados e segurança de rede (Render, Supabase, Cloudflare), que armazenam ou transmitem os dados descritos acima.",

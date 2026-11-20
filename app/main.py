@@ -780,6 +780,20 @@ def home(request: Request):
                 </summary>
                 <p class="text-slate-800 text-sm leading-relaxed mt-3">{tt("faq_a4")}</p>
               </details>
+              <details class="reveal group bg-violet-300 border border-violet-400 rounded-2xl p-6" style="transition-delay:0s">
+                <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
+                  {tt("faq_q6")}
+                  <span class="flex-shrink-0 text-violet-900 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
+                </summary>
+                <p class="text-slate-800 text-sm leading-relaxed mt-3">{tt("faq_a6")}</p>
+              </details>
+              <details class="reveal group bg-violet-300 border border-violet-400 rounded-2xl p-6" style="transition-delay:0s">
+                <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
+                  {tt("faq_q7")}
+                  <span class="flex-shrink-0 text-violet-900 text-xl leading-none group-open:rotate-45 transition-transform">+</span>
+                </summary>
+                <p class="text-slate-800 text-sm leading-relaxed mt-3">{tt("faq_a7")}</p>
+              </details>
               <details class="reveal group bg-violet-300 border border-violet-400 rounded-2xl p-6" style="transition-delay:0.32s">
                 <summary class="font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
                   {tt("faq_q5")}

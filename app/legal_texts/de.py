@@ -15,10 +15,10 @@ TERMS = {
             ("ul", [
                 "Ihr TikTok-Konto zu verbinden, um eine automatische Diagnose zu erhalten (Viralitätswert, Engagement-Rate, Stärken, Verbesserungspunkte, empfohlene Hashtags);",
                 "ein von Ihnen manuell importiertes Video (bereits veröffentlicht oder nicht) anhand seines Bild- und Toninhalts zu analysieren;",
-                "das Skript eines noch nicht gedrehten Videos zu analysieren oder eines zu erstellen;",
+                "das Skript eines Videos aus der von Ihnen beschriebenen Idee zu schreiben;",
                 "eine Bibliothek und tägliche Ideen (Hooks, Videoideen, Hashtags) zu durchsuchen, die auf von künstlicher Intelligenz durchgeführten Websuchen beruhen, und diejenigen zu speichern, die Ihnen gefallen.",
             ]),
-            ("p", "Berichte und Inhalte werden von KI-Modellen externer Anbieter erzeugt: Claude (Anthropic) für die Kontoanalyse, die Skriptanalyse und -erstellung sowie die Bibliothek, und Gemini (Google) für die Videoanalyse. Sie beruhen auf den von Ihnen bereitgestellten Daten, auf Daten, die tatsächlich über die offizielle TikTok-API abgerufen wurden, oder auf Websuchen."),
+            ("p", "Berichte und Inhalte werden von KI-Modellen externer Anbieter erzeugt: Claude (Anthropic) für die Kontoanalyse und die Bibliothek, und Gemini (Google) für die Videoanalyse und das Schreiben von Skripten; jeder kann dem anderen als Ersatz dienen. Sie beruhen auf den von Ihnen bereitgestellten Daten, auf Daten, die tatsächlich über die offizielle TikTok-API abgerufen wurden, oder auf Websuchen."),
         ]),
         ("2. Mindestalter, Anmeldung und Kontozugang", [
             ("p", "<strong>Mindestalter.</strong> Der Dienst ist Personen ab 18 Jahren vorbehalten. Mit der Nutzung des Dienstes erklären Sie, mindestens 18 Jahre alt zu sein. Wenn Sie unter 18 sind, dürfen Sie den Dienst nicht nutzen, insbesondere keine Videos oder Skripte zur Analyse hochladen. Erfahren wir, dass ein Nutzer unter 18 ist, können wir seinen Zugang sperren und seine Daten löschen."),
@@ -26,18 +26,18 @@ TERMS = {
             ("p", "Der Zugang zu den kostenpflichtigen Funktionen ist an Ihr Whop-Konto gebunden, das über die beim Bezahlvorgang verwendete E-Mail-Adresse identifiziert wird. Sie sind für die Vertraulichkeit Ihres Whop-Kontos verantwortlich."),
         ]),
         ("3. Von Ihnen importierte Inhalte", [
-            ("p", "Wenn Sie eine Videodatei oder einen Skripttext zur Analyse importieren, sichern Sie zu, dass:"),
+            ("p", "Wenn Sie eine Videodatei zur Analyse importieren oder die Idee eines Skripts beschreiben, sichern Sie zu, dass:"),
             ("ul", [
                 "Sie die Rechte an diesem Inhalt besitzen oder über die erforderlichen Erlaubnisse zu seiner Nutzung verfügen (auch bei Inhalten eines anderen Creators, sofern Sie diese rechtmäßig erhalten haben – niemals durch automatisiertes Auslesen allein anhand eines Links);",
                 "dieser Inhalt weder gegen Gesetze noch gegen Rechte Dritter noch gegen die Community-Richtlinien von TikTok verstößt.",
             ]),
             ("p", "Wil App sammelt, lädt oder scrapt keine Videos ohne Wissen des Nutzers direkt von TikTok: Jede analysierte Datei und jeder analysierte Text wird freiwillig von Ihnen bereitgestellt."),
-            ("p", "Zur Analyse wird die Videodatei an Google (Gemini-API) gesendet, das Bilder und Ton analysiert; der Text eines Skripts wird an Anthropic (Claude) gesendet. Wil App speichert Ihre Videodatei nach der Analyse nicht, bewahrt aber den erzeugten Bericht auf, wie in unserer Datenschutzerklärung beschrieben. Diese Anbieter verarbeiten die Daten nach ihren eigenen Bedingungen. Ihre Videos und Skripte werden nicht verwendet, um Inhalte zu erzeugen, die anderen Nutzern angezeigt werden."),
+            ("p", "Zur Analyse wird die Videodatei an Google (Gemini-API) gesendet, das Bilder und Ton analysiert; die von Ihnen beschriebene Skriptidee wird an Google (Gemini) oder ersatzweise an Anthropic (Claude) gesendet. Wil App speichert Ihre Videodatei nach der Analyse nicht, bewahrt aber den erzeugten Bericht auf, wie in unserer Datenschutzerklärung beschrieben. Diese Anbieter verarbeiten die Daten nach ihren eigenen Bedingungen. Ihre Videos und Skripte werden nicht verwendet, um Inhalte zu erzeugen, die anderen Nutzern angezeigt werden."),
         ]),
         ("4. Zulässige Nutzung", [
             ("p", "Sie verpflichten sich, den Dienst ausschließlich für persönliche und rechtmäßige Zwecke zu nutzen und nicht:"),
             ("ul", [
-                "die technischen Grenzen des Dienstes zu umgehen (zum Beispiel die Wortgrenze bei der Skriptanalyse oder die Begrenzung der Anfragehäufigkeit);",
+                "die technischen Grenzen des Dienstes zu umgehen (zum Beispiel die Längenbegrenzung für Skripte oder die Begrenzung der Anfragehäufigkeit);",
                 "den Dienst für Reverse Engineering, Weiterverkauf oder das massenhafte automatisierte Auslesen der erzeugten Berichte zu verwenden;",
                 "den Dienst zur Analyse von Inhalten zu verwenden, an denen Sie keine Nutzungsrechte haben;",
                 "Ihren kostenpflichtigen Zugang mit Dritten zu teilen.",
@@ -51,7 +51,7 @@ TERMS = {
         ]),
         ("6. Kündigung und Erstattung", [
             ("p", "<strong>Kündigung.</strong> Sie können Ihr Abonnement jederzeit kündigen, unter Einstellungen &gt; Abo verwalten (ein Link zu Ihrem Whop-Bereich) oder per Nachricht an uns. Die Kündigung wird zum Ende des bereits bezahlten Zeitraums wirksam: Sie behalten den Zugang bis zu diesem Datum und es erfolgen keine weiteren Abbuchungen. Der laufende Zeitraum wird nicht erstattet, vorbehaltlich der folgenden Regel."),
-            ("p", "<strong>Erstattung innerhalb von 14 Tagen.</strong> Sie können innerhalb von 14 Tagen nach dem Kauf die Erstattung Ihres Abonnements verlangen, sofern mit diesem Abonnement <strong>keine Analyse</strong> (Video, TikTok-Konto oder Skript) durchgeführt wurde. Schreiben Sie uns dazu (Abschnitt 15) unter Angabe der beim Kauf verwendeten E-Mail-Adresse. Die Erstattung erfolgt über unseren Zahlungsdienstleister auf das ursprüngliche Zahlungsmittel."),
+            ("p", "<strong>Erstattung innerhalb von 14 Tagen.</strong> Sie können innerhalb von 14 Tagen nach dem Kauf die Erstattung Ihres Abonnements verlangen, sofern mit diesem Abonnement <strong>keine Analyse</strong> (Video, TikTok-Konto oder geschriebenes Skript) durchgeführt wurde. Schreiben Sie uns dazu (Abschnitt 15) unter Angabe der beim Kauf verwendeten E-Mail-Adresse. Die Erstattung erfolgt über unseren Zahlungsdienstleister auf das ursprüngliche Zahlungsmittel."),
             ("p", "Sobald eine Analyse durchgeführt wurde, gilt die digitale Leistung als erbracht und der gezahlte Betrag ist nicht mehr erstattungsfähig, sofern das Gesetz nichts anderes verlangt. Diese Regel schränkt die zwingenden Rechte, die Ihnen nach dem Recht Ihres Wohnsitzlandes zustehen, nicht ein, einschließlich des Widerrufsrechts, das für Verbraucher in der Europäischen Union gilt. Der Zugang zum Dienst beginnt unmittelbar nach Ihrer Zahlung."),
         ]),
         ("7. Art der bereitgestellten Analysen", [
@@ -102,7 +102,7 @@ PRIVACY = {
             ]),
             ("p", "Wir greifen weder auf private Nachrichten noch auf Zahlungsinformationen oder sonstige Daten zu, die über die von Ihnen erteilten Berechtigungen hinausgehen. Von Ihrem verbundenen Konto speichern wir eine Zugriffssitzung (das Token wird verschlüsselt) sowie regelmäßige Momentaufnahmen Ihrer Statistiken (Engagement- und Viralitätsraten), damit wir Ihr Konto im Zeitverlauf mit sich selbst vergleichen können."),
             ("p", "<strong>Whop-Konto und Abonnement.</strong> Zur Verwaltung der Abonnements nutzen wir Whop: Wir erhalten Ihre Whop-Kennung, Ihre E-Mail-Adresse und den Status Ihres Abonnements (aktiv oder nicht, Tarif). Zahlungen werden von Whop abgewickelt: Wir erhalten und speichern Ihre Zahlungskartendaten nicht."),
-            ("p", "<strong>Videos und Skripte, die Sie bereitstellen.</strong> Wenn Sie ein Video hochladen oder ein Skript zur Analyse einfügen, wird es an unsere KI-Anbieter (Abschnitt 2) gesendet, um Ihren Bericht zu erstellen. Wir speichern Ihre Videodatei nach der Analyse nicht. Wir verwenden Ihre Videos oder Skripte nicht, um Inhalte zu erstellen, die anderen Nutzern angezeigt werden."),
+            ("p", "<strong>Videos und Skripte, die Sie bereitstellen.</strong> Wenn Sie ein Video zur Analyse hochladen oder die Idee eines zu schreibenden Skripts beschreiben, werden diese Inhalte an unsere KI-Anbieter (Abschnitt 2) gesendet, um Ihren Bericht oder Ihr Skript zu erstellen. Wir speichern Ihre Videodatei nach der Analyse nicht. Wir verwenden Ihre Videos oder Skripte nicht, um Inhalte zu erstellen, die anderen Nutzern angezeigt werden."),
             ("p", "<strong>Analyseberichte.</strong> Der erzeugte Bericht wird auf unseren Servern unter einer zufälligen Kennung ohne direkte Verknüpfung mit Ihrer Identität gespeichert, damit Sie ihn wiederfinden können (zum Beispiel nach dem Neuladen der Seite oder dem Abschluss eines Abonnements). Berichte werden nach 180 Tagen automatisch gelöscht."),
             ("p", "<strong>Rückmeldung zu Schätzungen.</strong> Wenn Sie uns mitteilen, dass ein Video bereits veröffentlicht wurde, und angeben, ob unsere Schätzung den tatsächlichen Ergebnissen nahekam, speichern wir diese Antwort anonym (Nische, Wert, geschätztes Niveau und Ihre Antwort), ohne das Video und ohne Kennung."),
             ("p", "<strong>Auf Ihrem Gerät gespeicherte Daten.</strong> Ihre Antworten im Onboarding, Ihr Analyseverlauf, gespeicherte Elemente, Ihre Sprach- und Darstellungsauswahl sowie eine Kopie Ihrer letzten Berichte werden in Ihrem Browser (lokaler Speicher) auf Ihrem Gerät abgelegt. Wenn Sie TikTok verbinden, speichert Ihr Browser außerdem Ihr öffentliches Profil (Name, Benutzername, Bild) und eine Sitzungskennung."),
@@ -112,14 +112,14 @@ PRIVACY = {
             ("p", "Um Ihre Analysen zu erstellen, <strong>übermittelt Wil App die von Ihnen bereitgestellten Inhalte an externe Anbieter künstlicher Intelligenz</strong>, die sie verarbeiten, um sie zu analysieren und zu klassifizieren. Konkret:"),
             ("ul", [
                 "Ihre <strong>Videos</strong> (Bild und Ton) werden an Google (Gemini) gesendet;",
-                "Ihre <strong>Skripte</strong> werden an Anthropic (Claude) gesendet;",
-                "die Angaben Ihres <strong>TikTok-Profils</strong> (Name, Benutzername, Beschreibung) und die Statistiken Ihrer Videos werden an Anthropic (Claude) gesendet;",
+                "die von Ihnen beschriebene <strong>Skriptidee</strong> wird an Google (Gemini) oder ersatzweise an Anthropic (Claude) gesendet;",
+                "die Angaben Ihres <strong>TikTok-Profils</strong> (Name, Benutzername, Beschreibung) und die Statistiken Ihrer Videos werden an Anthropic (Claude) oder ersatzweise an Google (Gemini) gesendet;",
                 "<strong>Trendideen</strong> werden von Claude (Anthropic) anhand von Websuchen erstellt.",
             ]),
             ("p", "Diese Übermittlung findet nur statt, wenn Sie eine Analyse starten. Auf der Website bedeutet das Starten einer Analyse Ihre Zustimmung zu dieser Übermittlung; in unserer mobilen App wird vor der ersten Analyse ein Einwilligungsfenster angezeigt, und Sie können Ihre Einwilligung jederzeit im Profil widerrufen. Diese Anbieter sind unabhängige Unternehmen: Sie verarbeiten die Daten nach ihren eigenen Bedingungen und Datenschutzregeln. Wir verkaufen Ihre Inhalte nicht und verwenden sie nicht, um Inhalte zu erstellen, die anderen Nutzern angezeigt werden. Wenn Sie nicht möchten, dass Ihre Inhalte an diese Anbieter übermittelt werden, nutzen Sie die Analysefunktionen nicht."),
         ]),
         ("3. Wie wir Ihre Informationen verwenden", [
-            ("p", "Wir verwenden diese Informationen ausschließlich, um den Dienst bereitzustellen (Kontoeinblicke, Video- und Skriptanalyse, Trends, Verwaltung Ihres Abonnements), ihn sicher zu halten und seine Zuverlässigkeit sowie die Genauigkeit unserer Schätzungen zu verbessern. Wir verkaufen Ihre personenbezogenen Daten nicht an Dritte."),
+            ("p", "Wir verwenden diese Informationen ausschließlich, um den Dienst bereitzustellen (Kontoeinblicke, Videoanalyse, Skripterstellung, Trends, Verwaltung Ihres Abonnements), ihn sicher zu halten und seine Zuverlässigkeit sowie die Genauigkeit unserer Schätzungen zu verbessern. Wir verkaufen Ihre personenbezogenen Daten nicht an Dritte."),
         ]),
         ("4. Rechtsgrundlagen", [
             ("p", "Je nach Fall beruht die Verarbeitung auf der Vertragserfüllung (Bereitstellung des Dienstes und Verwaltung Ihres Abonnements), Ihrer Einwilligung (Verbindung Ihres TikTok-Kontos, die Sie jederzeit widerrufen können), unserem berechtigten Interesse (Sicherheit, Missbrauchsprävention, Verbesserung des Dienstes) und der Erfüllung unserer rechtlichen Pflichten (Buchhaltung und Zahlungen)."),
@@ -137,8 +137,8 @@ PRIVACY = {
             ("p", "Unser Dienst beruht auf folgenden Anbietern, für die jeweils deren eigene Bedingungen und Datenschutzerklärungen gelten:"),
             ("ul", [
                 "TikTok (offizielle APIs und Login Kit);",
-                "Anthropic (Claude), das Kontodaten, Skripte und die Websuchen verarbeitet, die zur Erstellung von Berichten und Trends verwendet werden;",
-                "Google (Gemini-API), das die von Ihnen hochgeladenen Videos verarbeitet, um Bild und Ton zu analysieren;",
+                "Anthropic (Claude), das Kontodaten und die Websuchen verarbeitet, die zur Erstellung von Berichten und Trends verwendet werden, sowie ersatzweise Skriptideen;",
+                "Google (Gemini-API), das die von Ihnen hochgeladenen Videos (Bild und Ton), die von Ihnen beschriebenen Skriptideen und ersatzweise Kontodaten verarbeitet;",
                 "Whop, das Zahlungen und die Anmeldung bei Ihrem Whop-Konto verarbeitet;",
                 "Sentry, das technische Fehlerberichte des Servers erhält (ohne Cookies, E-Mail-Adressen oder Inhalte Ihrer Videos und Skripte), damit wir Störungen beheben können;",
                 "unsere Anbieter für Hosting, Datenbank und Netzwerksicherheit (Render, Supabase, Cloudflare), die die oben beschriebenen Daten speichern oder übertragen.",
