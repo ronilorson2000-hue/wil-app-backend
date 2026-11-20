@@ -95,25 +95,30 @@ PENDING_STATE_TTL_SECONDS = 10 * 60  # 10 minutes, largement suffisant pour un f
 def _store_pending_state(state: str) -> None:
     supabase = get_supabase()
     if supabase:
-        supabase.table("pending_states").insert({"state": state}).execute()
-    else:
-        _pending_states.add(state)
+        try:
+            supabase.table("pending_states").insert({"state": state}).execute()
+            return
+        except Exception as exc:  # base indisponible : la connexion TikTok ne doit pas tomber avec elle
+            print(f"[auth] enregistrement du state impossible, repli mémoire : {exc!r}")
+    _pending_states.add(state)
 
 
 def _consume_pending_state(state: str) -> bool:
     """Vérifie qu'un state est valide (existant et pas trop vieux) ET le retire, en un seul geste."""
-    supabase = get_supabase()
-    if supabase:
-        res = supabase.table("pending_states").select("*").eq("state", state).limit(1).execute()
-        if not res.data:
-            return False
-        supabase.table("pending_states").delete().eq("state", state).execute()
-        created_at = datetime.fromisoformat(res.data[0]["created_at"]).timestamp()
-        return (time.time() - created_at) < PENDING_STATE_TTL_SECONDS
-
-    if state in _pending_states:
+    if state in _pending_states:  # state gardé en mémoire (base indisponible au moment de la connexion)
         _pending_states.discard(state)
         return True
+    supabase = get_supabase()
+    if supabase:
+        try:
+            res = supabase.table("pending_states").select("*").eq("state", state).limit(1).execute()
+            if not res.data:
+                return False
+            supabase.table("pending_states").delete().eq("state", state).execute()
+            created_at = datetime.fromisoformat(res.data[0]["created_at"]).timestamp()
+            return (time.time() - created_at) < PENDING_STATE_TTL_SECONDS
+        except Exception as exc:
+            print(f"[auth] lecture du state impossible : {exc!r}")
     return False
 
 # Stocke temporairement les access_token après connexion, associés à un
@@ -151,19 +156,28 @@ def _issue_app_code(session_id: str, challenge: str, profile: dict) -> str:
 def _store_session(session_id: str, access_token: str, open_id: str) -> None:
     supabase = get_supabase()
     if supabase:
-        supabase.table("sessions").insert({
-            "session_id": session_id,
-            "access_token": token_box.encrypt_token(access_token),  # chiffré au repos (voir token_box.py)
-            "open_id": open_id,
-        }).execute()
-    else:
-        _sessions[session_id] = {"access_token": access_token, "open_id": open_id}
+        try:
+            supabase.table("sessions").insert({
+                "session_id": session_id,
+                "access_token": token_box.encrypt_token(access_token),  # chiffré au repos (voir token_box.py)
+                "open_id": open_id,
+            }).execute()
+            return
+        except Exception as exc:  # base indisponible : la session reste en mémoire (perdue si le serveur redémarre)
+            print(f"[auth] enregistrement de la session impossible, repli mémoire : {exc!r}")
+    _sessions[session_id] = {"access_token": access_token, "open_id": open_id}
 
 
 def _get_session(session_id: str) -> dict | None:
+    if session_id in _sessions:  # session gardée en mémoire (base indisponible au moment de la connexion)
+        return _sessions[session_id]
     supabase = get_supabase()
     if supabase:
-        res = supabase.table("sessions").select("*").eq("session_id", session_id).limit(1).execute()
+        try:
+            res = supabase.table("sessions").select("*").eq("session_id", session_id).limit(1).execute()
+        except Exception as exc:
+            print(f"[auth] lecture de la session impossible : {exc!r}")
+            return None
         if not res.data:
             return None
         try:  # une session n'est pas éternelle (les jetons TikTok expirent de toute façon en 24 h)
@@ -178,7 +192,7 @@ def _get_session(session_id: str) -> dict | None:
             return None
         row["access_token"] = token
         return row
-    return _sessions.get(session_id)
+    return None
 
 
 def _save_account_snapshot(
@@ -8002,6 +8016,18 @@ async def ai_check(request: Request):
     """
     await paywall.require_subscription(request)
     ratelimit.check(request, "ai-check", 20)
+    tiktok = {"client_key": bool(TIKTOK_CLIENT_KEY), "client_secret": bool(TIKTOK_CLIENT_SECRET), "redirect_uri": bool(TIKTOK_REDIRECT_URI)}
+    database: dict = {"configured": get_supabase() is not None}
+    if database["configured"]:
+        try:
+            await asyncio.to_thread(lambda: get_supabase().table("pending_states").select("state").limit(1).execute())
+            database["ok"] = True
+        except Exception as exc:
+            database["ok"] = False
+            database["error"] = type(exc).__name__
+            code = getattr(exc, "code", None)
+            if code:
+                database["code"] = str(code)[:30]
     gemini: dict = {"key": bool(GEMINI_API_KEY), "model": GEMINI_MODEL}
     if GEMINI_API_KEY:
         try:
@@ -8019,7 +8045,7 @@ async def ai_check(request: Request):
         except httpx.HTTPError as exc:
             gemini["network"] = type(exc).__name__
     if not ANTHROPIC_API_KEY:
-        return JSONResponse(content={"gemini": gemini, "anthropic": {"key": False}}, headers={"Cache-Control": "no-store"})
+        return JSONResponse(content={"tiktok": tiktok, "database": database, "gemini": gemini, "anthropic": {"key": False}}, headers={"Cache-Control": "no-store"})
     result: dict = {"key": True, "model": "claude-sonnet-5"}
     try:
         async with httpx.AsyncClient(timeout=30) as client:
@@ -8044,7 +8070,7 @@ async def ai_check(request: Request):
                 pass
     except httpx.HTTPError as exc:
         result["network"] = type(exc).__name__
-    return JSONResponse(content={"gemini": gemini, "anthropic": result}, headers={"Cache-Control": "no-store"})
+    return JSONResponse(content={"tiktok": tiktok, "database": database, "gemini": gemini, "anthropic": result}, headers={"Cache-Control": "no-store"})
 
 
 def _json_from_text(raw: str):
