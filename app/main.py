@@ -5464,20 +5464,31 @@ async def _get_library(niche_category: str, lang: str) -> dict | None:
     """
     week = _current_week_key()
     cache_key = f"library:{week}:{_niche_cache_key(niche_category, lang)}"
-    cached = await asyncio.to_thread(_library_cache_get, cache_key)
+
+    async def read_cache() -> dict | None:
+        try:
+            return await asyncio.to_thread(_library_cache_get, cache_key)
+        except Exception as exc:  # base de données indisponible : on continue sans le cache
+            print(f"[library] lecture du cache impossible : {exc!r}")
+            return None
+
+    cached = await read_cache()
     if cached:
         return cached
 
     lock = _library_locks.setdefault(cache_key, asyncio.Lock())
     async with lock:
-        cached = await asyncio.to_thread(_library_cache_get, cache_key)
+        cached = await read_cache()
         if cached:
             return cached
         if _library_retry_after.get(cache_key, 0) > time.time():
             return None
         data = await _fetch_library_from_web(niche_category, lang, week)
         if data:
-            await asyncio.to_thread(_library_cache_set, cache_key, data)
+            try:
+                await asyncio.to_thread(_library_cache_set, cache_key, data)
+            except Exception as exc:  # le contenu est servi même s'il n'a pas pu être mis en cache
+                print(f"[library] écriture du cache impossible : {exc!r}")
         else:
             _library_retry_after[cache_key] = time.time() + LIBRARY_RETRY_DELAY_SECONDS
         return data
@@ -5500,7 +5511,11 @@ async def library(request: Request, niche_category: str, lang: str = DEFAULT_LAN
         raise HTTPException(status_code=422, detail="Niche inconnue.")
     if lang not in SUPPORTED_LANGS:
         lang = DEFAULT_LANG
-    result = await _get_library(niche_category, lang)
+    try:
+        result = await _get_library(niche_category, lang)
+    except Exception as exc:
+        print(f"[library] erreur inattendue pour {niche_category}/{lang} : {exc!r}")
+        result = None
     if not result:
         # Recherche web indisponible : contenu de départ (étiqueté « Exemple »
         # côté interface), jamais présenté comme une tendance.
