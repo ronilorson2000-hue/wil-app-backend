@@ -1894,17 +1894,18 @@ function wilAccountReportHtml(data) {
     const cats = report.category_scores || {};
     const catKeys = ['profile', 'content', 'hooks', 'consistency', 'hashtags'].filter(function (k) { return cats[k]; });
     if (catKeys.length) {
-      html += '<div class="card"><p style="font-weight:700;margin:0 0 14px;">' + esc(WIL_ACC.catTitle) + '</p>' + catKeys.map(function (k) {
+      // Fond violet sombre et textes blancs, comme le rapport d'analyse d'une vidéo.
+      html += '<div class="card" style="background:#211932;border-color:#3A2F55;color:#FFFFFF;"><p style="font-weight:700;margin:0 0 14px;color:#FFFFFF;">' + esc(WIL_ACC.catTitle) + '</p>' + catKeys.map(function (k) {
         const c = cats[k];
         const sc = Math.max(0, Math.min(100, Number(c.score) || 0));
-        const color = sc <= 40 ? '#DC2626' : '#2563EB';
+        const color = sc <= 40 ? '#F87171' : '#A78BFA';
         return '<div style="margin-bottom:16px;"><div style="display:flex;justify-content:space-between;margin-bottom:4px;">' +
-          '<span style="font-size:14px;font-weight:600;">' + esc(WIL_ACC.cat[k]) + '</span>' +
+          '<span style="font-size:14px;font-weight:600;color:#FFFFFF;">' + esc(WIL_ACC.cat[k]) + '</span>' +
           '<span style="font-size:14px;font-weight:700;color:' + color + ';">' + sc + '</span></div>' +
-          '<div class="bar-bg"><div class="bar-fill" style="width:' + sc + '%;background:' + color + ';"></div></div>' +
-          (c.comment ? '<p style="font-size:12.5px;color:#64748B;margin:6px 0 0;">' + esc(c.comment) + '</p>' : '') +
-          (c.tip ? '<p style="font-size:12.5px;color:#334155;margin:4px 0 0;"><b>' + esc(WIL_ACC.tip) + ' :</b> ' + esc(c.tip) + '</p>' : '') +
-          (c.example ? '<p style="font-size:12.5px;color:#64748B;font-style:italic;margin:2px 0 0;">' + esc(WIL_ACC.example) + ' : ' + esc(c.example) + '</p>' : '') + '</div>';
+          '<div class="bar-bg" style="background:rgba(255,255,255,0.14);"><div class="bar-fill" style="width:' + sc + '%;background:' + color + ';"></div></div>' +
+          (c.comment ? '<p style="font-size:12.5px;color:#B4B4BC;margin:6px 0 0;">' + esc(c.comment) + '</p>' : '') +
+          (c.tip ? '<p style="font-size:12.5px;color:#FFFFFF;margin:4px 0 0;"><b>' + esc(WIL_ACC.tip) + ' :</b> ' + esc(c.tip) + '</p>' : '') +
+          (c.example ? '<p style="font-size:12.5px;color:#B4B4BC;font-style:italic;margin:2px 0 0;">' + esc(WIL_ACC.example) + ' : ' + esc(c.example) + '</p>' : '') + '</div>';
       }).join('') + '</div>';
     }
 
