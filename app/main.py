@@ -5921,6 +5921,110 @@ def _clean_account_report(report) -> dict | None:
 
 
 
+def _account_report_schema() -> dict:
+    """
+    Structure imposée à Gemini (responseSchema, comme pour l'analyse d'une vidéo) : le JSON a toujours les mêmes champs,
+    les mêmes catégories de notes et une niche prise dans la liste fermée. Mêmes champs que ce que demande la consigne
+    donnée à Claude (voir analyze_account).
+    """
+    str_list = {"type": "array", "items": {"type": "string"}}
+    category = {
+        "type": "object",
+        "properties": {
+            "score": {"type": "integer", "description": "0 à 100, honnête, appuyé sur un vrai signal de CE compte"},
+            "comment": {"type": "string", "description": "UNE phrase courte qui justifie la note"},
+            "tip": {"type": "string", "description": "UNE instruction à l'impératif, 10 mots maximum"},
+            "example": {"type": "string", "description": "un exemple concret adapté à CE compte, 14 mots maximum"},
+        },
+        "required": ["score", "comment", "tip", "example"],
+    }
+    idea = {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string", "description": "sujet de la vidéo, 9 mots maximum"},
+            "hook": {"type": "string", "description": "première phrase à dire : 4 à 9 mots, un détail PRÉCIS"},
+            "why": {"type": "string", "description": "pourquoi cette idée colle à CE compte, 14 mots maximum, sans chiffre"},
+        },
+        "required": ["title", "hook", "why"],
+    }
+    properties = {
+        "niche": {"type": "string", "description": "courte phrase décrivant la niche de contenu probable"},
+        "niche_category": {"type": "string", "enum": list(NICHE_CATEGORIES)},
+        "niches_detected": str_list,
+        "niche_focus_advice": {"type": "string", "description": "1 phrase maximum, zéro chiffre, ou chaîne vide"},
+        "summary": {"type": "string", "description": "1-2 phrases courtes, un seul chiffre marquant autorisé pour la preuve de réussite"},
+        "strengths": str_list,
+        "improvements": str_list,
+        "hashtag_diagnosis": {"type": "string", "description": "1 phrase maximum, zéro chiffre"},
+        "suggested_hashtags": str_list,
+        "score_basis": {"type": "string", "description": "UNE phrase courte, zéro chiffre"},
+        "category_scores": {
+            "type": "object",
+            "properties": {key: category for key in ACCOUNT_CATEGORY_KEYS},
+            "required": list(ACCOUNT_CATEGORY_KEYS),
+        },
+        "action_plan": str_list,
+        "content_ideas": {"type": "array", "items": idea},
+        "bio_rewrites": str_list,
+    }
+    return {"type": "object", "properties": properties, "required": list(properties), "propertyOrdering": list(properties)}
+
+
+# Rappels donnés à Gemini en plus de la consigne de compte : les mêmes exigences que celles de l'analyse d'une vidéo
+# (honnêteté des notes, cohérence, brièveté, aucune invention), pour des rapports de compte et de vidéo de même niveau.
+_GEMINI_ACCOUNT_REMINDERS = """
+
+RAPPELS (les mêmes exigences que pour l'analyse d'une vidéo) :
+- Base-toi UNIQUEMENT sur les données fournies ci-dessus, jamais sur une supposition : si un signal manque, ne l'invente pas (RÈGLE D'OR N°1 du guide de style). Aucune statistique inventée, aucun chiffre qui ne figure pas dans les données.
+- Les notes de "category_scores" sont honnêtes, cohérentes entre elles et avec le score de viralité du compte : une note élevée doit s'appuyer sur un vrai point fort, une note basse sur un vrai problème visible dans les données.
+- Brièveté : phrases COURTES (12 mots maximum), une idée par phrase, UNE seule phrase par élément de liste. Respecte les longueurs maximales et les nombres EXACTS demandés (3 actions, 3 idées de vidéos, 2 versions de bio).
+- "improvements", "hashtag_diagnosis" et "niche_focus_advice" : AUCUN chiffre. Vouvoiement dans tous les champs ("vous", "votre", "vos"), sauf dans la bio qui ne vouvoie pas.
+- Réponds dans la langue précisée au début de tes instructions, avec des mots très simples (niveau CM2)."""
+
+
+async def _account_report_via_gemini(prompt: str, ui_lang: str) -> dict | None:
+    """
+    Rapport de compte écrit par Gemini, en SECOURS quand Claude est indisponible (crédit épuisé, panne…).
+    Mêmes ingrédients que l'analyse de vidéo : le guide de style en instruction système (le même que Claude),
+    température basse, JSON garanti par responseSchema. Renvoie None si la clé manque ou si l'appel échoue.
+    """
+    if not GEMINI_API_KEY:
+        return None
+    lang = ui_lang if ui_lang in _CACHED_SYSTEM_BLOCKS else DEFAULT_LANG
+    body = {
+        "systemInstruction": {"parts": [{"text": _CACHED_SYSTEM_BLOCKS[lang]}]},
+        "contents": [{"role": "user", "parts": [{"text": prompt + _GEMINI_ACCOUNT_REMINDERS}]}],
+        "generationConfig": {
+            "temperature": 0.4,
+            "maxOutputTokens": 8000,
+            "responseMimeType": "application/json",
+            "responseSchema": _account_report_schema(),
+        },
+    }
+    try:
+        async with httpx.AsyncClient(timeout=90) as client:
+            for attempt in range(3):
+                response = await client.post(
+                    f"{GEMINI_API_BASE}/v1beta/models/{GEMINI_MODEL}:generateContent", headers=_gemini_headers(), json=body)
+                if response.status_code not in (429, 500, 503, 504) or attempt == 2:
+                    break
+                await asyncio.sleep(3 * (attempt + 1))
+        if response.status_code != 200:
+            print(f"[account] Gemini {response.status_code}: {response.text[:200]}")
+            return None
+        data = response.json()
+        if data.get("promptFeedback", {}).get("blockReason"):
+            print("[account] Gemini a refusé la demande")
+            return None
+        candidates = data.get("candidates") or []
+        parts = (candidates[0].get("content", {}).get("parts") if candidates else None) or []
+        raw = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+        return _clean_account_report(_parse_ai_json(raw))
+    except (httpx.HTTPError, ValueError, KeyError, IndexError) as exc:
+        print(f"[account] Gemini a échoué : {exc!r}")
+        return None
+
+
 @app.get("/api/analyze-account", response_class=JSONResponse)
 async def analyze_account(
     request: Request,
@@ -6072,7 +6176,7 @@ async def analyze_account(
     # 2. Analyse IA (profil + performance si disponible), si Anthropic
     # est configuré. Fonctionne même sans les stats vidéo (stats=None).
     ai_report = None
-    if ANTHROPIC_API_KEY:
+    if ANTHROPIC_API_KEY or GEMINI_API_KEY:
         if stats and stats["videos"]:
             videos = stats["videos"]
 
@@ -6496,37 +6600,41 @@ les conseils (sauf l'unique chiffre marquant autorisé dans "summary"/"strengths
         # response reste None si l'appel échoue, et le bloc suivant
         # retombe alors proprement sur ai_report=None au lieu de planter.
         response = None
-        try:
-            async with httpx.AsyncClient(timeout=90) as client:
-                response = await client.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers={
-                        "x-api-key": ANTHROPIC_API_KEY,
-                        "anthropic-version": "2023-06-01",
-                        "content-type": "application/json",
-                    },
-                    json={
-                        "model": "claude-sonnet-5",
-                        # Rapport plus riche (notes, plan, idées, bio) : plus de place pour répondre.
-                        "max_tokens": 6000,
-                        "output_config": {"effort": os.getenv("ACCOUNT_AI_EFFORT", "medium")},
-                        "messages": _cached_messages(prompt, ui_lang),
-                    },
-                )
-        except httpx.HTTPError:
-            response = None
+        if ANTHROPIC_API_KEY:
+            try:
+                async with httpx.AsyncClient(timeout=90) as client:
+                    response = await client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={
+                            "x-api-key": ANTHROPIC_API_KEY,
+                            "anthropic-version": "2023-06-01",
+                            "content-type": "application/json",
+                        },
+                        json={
+                            "model": "claude-sonnet-5",
+                            # Rapport plus riche (notes, plan, idées, bio) : plus de place pour répondre.
+                            "max_tokens": 6000,
+                            "output_config": {"effort": os.getenv("ACCOUNT_AI_EFFORT", "medium")},
+                            "messages": _cached_messages(prompt, ui_lang),
+                        },
+                    )
+            except httpx.HTTPError:
+                response = None
 
         if response and response.status_code == 200:
-            raw_text = _extract_text_block(response.json())
+            ai_report = _clean_account_report(_parse_ai_json(_extract_text_block(response.json())))
+        elif response is not None:
+            print(f"[account] Anthropic {response.status_code} : {response.text[:200]}")
 
-            ai_report = _clean_account_report(_parse_ai_json(raw_text))
+        # Secours : Claude indisponible (crédit épuisé, panne, réponse illisible) -> Gemini, avec la même consigne.
+        if ai_report is None:
+            ai_report = await _account_report_via_gemini(prompt, ui_lang)
 
-            # Claude doit choisir dans la liste fermée NICHE_CATEGORIES, mais
-            # on ne lui fait pas confiance aveuglément (variation de formulation,
-            # accents, etc.) : toute valeur hors liste retombe sur "Autre" pour
-            # que la clé de cache des tendances reste stable.
-            if ai_report and ai_report.get("niche_category") not in NICHE_CATEGORIES:
-                ai_report["niche_category"] = "Autre"
+        # L'IA doit choisir dans la liste fermée NICHE_CATEGORIES, mais on ne lui fait pas confiance aveuglément
+        # (variation de formulation, accents, etc.) : toute valeur hors liste retombe sur "Autre" pour que la clé de
+        # cache des tendances reste stable.
+        if ai_report and ai_report.get("niche_category") not in NICHE_CATEGORIES:
+            ai_report["niche_category"] = "Autre"
 
     # Langue du compte, détectée depuis la bio + les titres de vidéos
     # récentes (fallback "fr" si texte trop court). Sert à affiner la clé
