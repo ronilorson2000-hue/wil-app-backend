@@ -1356,7 +1356,7 @@ async def tiktok_callback(request: Request):
         f'<span style="color:#0EA5E9; font-weight:bold;">✔ {tt("dash_verified")}</span>'
         if is_verified else ""
     )
-    bio_html = f'<p style="color:#475569; max-width:400px; margin:12px auto; font-size:14px;">{_esc_html(bio)}</p>' if bio else ""
+    bio_html = f'<p style="color:#E5E7EB; max-width:400px; margin:12px auto; font-size:14px;">{_esc_html(bio)}</p>' if bio else ""
     link_html = (
         f'<p><a href="{_esc_html(profile_link)}" target="_blank" rel="noopener noreferrer">{tt("dash_view_profile")}</a></p>'
         if profile_link.startswith("https://") else ""
@@ -1408,9 +1408,10 @@ async def tiktok_callback(request: Request):
           .card.profile {{ text-align: center; }}
           img.avatar {{ width: 96px; height: 96px; border-radius: 9999px; object-fit: cover; }}
           h2 {{ margin: 16px 0 4px; font-size: 20px; font-weight: 700; }}
-          .username {{ color: #64748B; margin: 0 0 8px; font-size: 14px; }}
+          .card h2 {{ color: #FFFFFF; }}
+          .username {{ color: #B4B4BC; margin: 0 0 8px; font-size: 14px; }}
           .stats {{ display: flex; justify-content: center; gap: 24px; margin-top: 20px;
-                    padding-top: 20px; border-top: 1px solid #E2E8F0; font-size: 13px; color: #64748B; }}
+                    padding-top: 20px; border-top: 1px solid #3A2F55; font-size: 13px; color: #B4B4BC; }}
           a.home {{ display: block; margin-top: 24px; color: #2563EB; text-decoration: none;
                     font-size: 14px; font-weight: 500; }}
           a.home:hover {{ color: #1D4ED8; }}
@@ -1506,7 +1507,7 @@ async def tiktok_callback(request: Request):
                 }}
                 const reason = wilPwEsc(wilErrText(data, status));
                 document.getElementById('analysis-result').innerHTML =
-                  `<div class="card"><p class="loading" style="color:#DC2626;">${{reason}}</p></div>`;
+                  `<div class="card"><p class="loading" style="color:#F87171;">${{reason}}</p></div>`;
                 return;
               }}
               // Rapport gardé + adresse stable : une actualisation de la page le réaffiche (le retour TikTok, lui, ne sert qu'une fois).
@@ -1598,7 +1599,7 @@ def report_page(request: Request, analysis_id: str):
               box.innerHTML = '<div class="card" style="text-align:center;">' +
                 (tiktok.avatar_url ? '<img src="' + wilPwEsc(tiktok.avatar_url) + '" alt="" style="width:72px;height:72px;border-radius:9999px;object-fit:cover;" onerror="this.style.display=&quot;none&quot;">' : '') +
                 '<p style="font-weight:700;font-size:18px;margin:10px 0 2px;">' + wilPwEsc(tiktok.display_name) + '</p>' +
-                '<p style="color:#64748B;font-size:14px;margin:0;">@' + wilPwEsc(tiktok.username || '') + '</p></div>';
+                '<p style="color:#B4B4BC;font-size:14px;margin:0;">@' + wilPwEsc(tiktok.username || '') + '</p></div>';
             }}
           }} catch (e) {{}}
           const show = function (entry) {{
@@ -1635,7 +1636,7 @@ def report_page(request: Request, analysis_id: str):
             .catch(function () {{
               if (cached) return;
               document.getElementById('report-loading').style.display = 'none';
-              document.getElementById('analysis-result').innerHTML = '<div class="card"><p class="loading" style="color:#DC2626;">' + wilPwEsc(WIL_PW.error) + '</p></div>';
+              document.getElementById('analysis-result').innerHTML = '<div class="card"><p class="loading" style="color:#F87171;">' + wilPwEsc(WIL_PW.error) + '</p></div>';
             }});
         </script>
       </body>
@@ -1833,12 +1834,13 @@ def _app_topbar_html(tt, active: str = "home") -> str:
 # Rapport d'analyse de compte : même rendu sur le tableau de bord (juste après
 # l'analyse) et sur /report/<id> (retour après abonnement), d'où ce bloc partagé.
 _ACCOUNT_REPORT_CSS = """
-  .card { max-width: 480px; margin: 0 auto 16px; background: #FFFFFF; border: 1px solid #E2E8F0;
+  .card { max-width: 480px; margin: 0 auto 16px; background: #211932; border: 1px solid #3A2F55; color: #FFFFFF;
           border-radius: 16px; padding: 28px; box-shadow: 0 1px 3px rgba(15,23,42,0.05);
           text-align: left; }
-  .loading { color: #64748B; font-size: 14px; }
-  .bar-bg { background: #E2E8F0; border-radius: 999px; height: 10px; overflow: hidden; }
-  .bar-fill { background: #2563EB; height: 100%; border-radius: 999px; }
+  .card a { color: #C4B5FD; }
+  .loading { color: #B4B4BC; font-size: 14px; }
+  .bar-bg { background: rgba(255,255,255,0.14); border-radius: 999px; height: 10px; overflow: hidden; }
+  .bar-fill { background: #A78BFA; height: 100%; border-radius: 999px; }
   .chip { display: inline-block; background: #2563EB; color: white; padding: 6px 14px;
           border-radius: 999px; font-size: 13px; font-weight: 600; }
   .tag { display: inline-block; background: #EFF6FF; color: #1D4ED8; padding: 4px 12px;
@@ -1860,16 +1862,16 @@ function wilAccountReportHtml(data) {
   if (stats && stats.total_videos_analyzed > 0) {
     const scoreIcon = function (s) { return s <= 40 ? '🔴' : '🔵'; };
     const ratioLine = (stats.likes_followers_ratio !== null && stats.likes_followers_ratio !== undefined)
-      ? '<p style="font-size:12px;color:#94A3B8;margin:2px 0 0;">' + wilFmt(WIL_ACC.likesRatio, {ratio: stats.likes_followers_ratio}) + '</p>'
+      ? '<p style="font-size:12px;color:#B4B4BC;margin:2px 0 0;">' + wilFmt(WIL_ACC.likesRatio, {ratio: stats.likes_followers_ratio}) + '</p>'
       : '';
     html += '<div class="card">' +
       '<p style="font-size:30px;font-weight:700;margin:0;">' + scoreIcon(stats.account_virality_score) + ' ' + stats.account_virality_score + '/100</p>' +
-      '<p style="font-size:12px;color:#64748B;margin:2px 0 14px;">' + WIL_ACC.viralityLabel + '</p>' +
-      '<p style="font-size:13px;color:#475569;">' + wilFmt(WIL_ACC.videosAnalyzed, {count: stats.total_videos_analyzed, threshold: stats.viral_threshold_views / 1000}) + '</p>' +
+      '<p style="font-size:12px;color:#B4B4BC;margin:2px 0 14px;">' + WIL_ACC.viralityLabel + '</p>' +
+      '<p style="font-size:13px;color:#E5E7EB;">' + wilFmt(WIL_ACC.videosAnalyzed, {count: stats.total_videos_analyzed, threshold: stats.viral_threshold_views / 1000}) + '</p>' +
       '<div class="bar-bg" style="margin-top:8px;"><div class="bar-fill" style="width:' + stats.viral_percentage + '%"></div></div>' +
       '<p style="margin-top:14px;font-size:14px;"><strong>🚀 ' + wilFmt(WIL_ACC.viralPct, {pct: stats.viral_percentage}) + '</strong> &nbsp;|&nbsp; <strong>' + wilFmt(WIL_ACC.nonViralPct, {pct: stats.non_viral_percentage}) + '</strong></p>' +
       '<p style="font-size:14px;">' + wilFmt(WIL_ACC.avgEngagement, {pct: stats.average_engagement_rate}) + '</p>' +
-      ratioLine + (report && report.score_basis ? '<p style="font-size:12.5px;color:#64748B;margin:8px 0 0;">' + esc(report.score_basis) + '</p>' : '') + '</div>';
+      ratioLine + (report && report.score_basis ? '<p style="font-size:12.5px;color:#B4B4BC;margin:8px 0 0;">' + esc(report.score_basis) + '</p>' : '') + '</div>';
     window.__wilAvgViews = stats.average_view_count || '';
   }
   if (report) {
@@ -1880,7 +1882,7 @@ function wilAccountReportHtml(data) {
       ? '<p style="margin-top:16px;"><strong>🏷 ' + WIL_ACC.hashtagDiagnosis + '</strong></p><p style="font-size:14px;">' + esc(report.hashtag_diagnosis) + '</p>'
       : '';
     const nicheFocus = report.niche_focus_advice
-      ? '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:16px;margin:16px 0;">' +
+      ? '<div style="background:#2563EB;border:1px solid #2563EB;color:#FFFFFF;border-radius:12px;padding:16px;margin:16px 0;">' +
         '<p style="font-weight:700;margin:0 0 8px;">🧭 ' + WIL_ACC.multiNiche + '</p>' +
         '<div>' + (report.niches_detected || []).map(function (n) { return '<span class="tag">' + esc(n) + '</span>'; }).join('') + '</div>' +
         '<p style="font-size:14px;margin:10px 0 0;">' + esc(report.niche_focus_advice) + '</p></div>'
@@ -1921,10 +1923,10 @@ function wilAccountReportHtml(data) {
     if ((report.content_ideas || []).length) {
       html += '<div class="card"><p style="font-weight:700;margin:0 0 6px;">🎬 ' + esc(WIL_ACC.ideasTitle) + '</p>' +
         report.content_ideas.map(function (idea) {
-          return '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:12px 14px;margin-top:10px;">' +
+          return '<div style="background:#2563EB;border:1px solid #2563EB;color:#FFFFFF;border-radius:12px;padding:12px 14px;margin-top:10px;">' +
             '<p style="font-weight:700;font-size:14px;margin:0 0 4px;">' + esc(idea.title) + '</p>' +
-            (idea.hook ? '<p style="font-size:13px;color:#2563EB;margin:0 0 4px;font-weight:600;">' + esc(WIL_ACC.ideaHook) + ' : « ' + esc(idea.hook) + ' »</p>' : '') +
-            (idea.why ? '<p style="font-size:12.5px;color:#64748B;margin:0;">' + esc(idea.why) + '</p>' : '') + '</div>';
+            (idea.hook ? '<p style="font-size:13px;color:#FFFFFF;margin:0 0 4px;font-weight:600;">' + esc(WIL_ACC.ideaHook) + ' : « ' + esc(idea.hook) + ' »</p>' : '') +
+            (idea.why ? '<p style="font-size:12.5px;color:rgba(255,255,255,0.85);margin:0;">' + esc(idea.why) + '</p>' : '') + '</div>';
         }).join('') + '</div>';
     }
 
@@ -1932,10 +1934,10 @@ function wilAccountReportHtml(data) {
     if ((report.bio_rewrites || []).length) {
       html += '<div class="card"><p style="font-weight:700;margin:0 0 6px;">✍️ ' + esc(WIL_ACC.bioTitle) + '</p>' +
         report.bio_rewrites.map(function (b) {
-          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:10px 14px;margin-top:10px;">' +
+          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#2563EB;border:1px solid #2563EB;color:#FFFFFF;border-radius:12px;padding:10px 14px;margin-top:10px;">' +
             '<span style="font-size:14px;line-height:1.4;">' + esc(b) + '</span>' +
             '<button type="button" data-t="' + esc(b) + '" onclick="try{navigator.clipboard.writeText(this.dataset.t);this.textContent=\'✓\';}catch(e){}" ' +
-            'style="flex-shrink:0;border:0;background:#2563EB;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;" title="' + esc(WIL_ACC.copy) + '">📋</button></div>';
+            'style="flex-shrink:0;border:0;background:rgba(255,255,255,0.22);color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;" title="' + esc(WIL_ACC.copy) + '">📋</button></div>';
         }).join('') + '</div>';
     }
 

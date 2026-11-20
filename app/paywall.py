@@ -1006,8 +1006,8 @@ const WIL_PW = __L__;
     '.wilpw-ic{width:56px;height:56px;border-radius:50%;background:#EFF6FF;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px}' +
     '.wilpw-head h2{font-size:20px;font-weight:800;margin:0 0 6px;color:#0F172A}' +
     '.wilpw-head p{font-size:14px;color:#64748B;margin:0;line-height:1.5}' +
-    '.wilpw-card{background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:16px 18px;margin-bottom:10px}' +
-    '.wilpw-row{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px;color:#0F172A}' +
+    '.wilpw-card{background:#211932;border:1px solid #3A2F55;border-radius:16px;padding:16px 18px;margin-bottom:10px}' +
+    '.wilpw-row{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px;color:#FFFFFF}' +
     '.wilpw-free{background:#211932;border:1px solid #3A2F55;border-radius:16px;padding:16px 18px;margin:0 0 18px;color:#fff}' +
     '.wilpw-free-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}' +
     '.wilpw-free-title{display:inline-block;background:#2563EB;color:#fff;font-size:12px;font-weight:600;line-height:1.25;padding:3px 10px;border-radius:8px}' +
@@ -1015,7 +1015,7 @@ const WIL_PW = __L__;
     '.wilpw-free ul{margin:0;padding-left:18px;font-size:14px;line-height:1.5;color:#fff}' +
     '.wilpw-free li{margin-bottom:6px}' +
     '.wilpw-skel{margin-top:12px;filter:blur(3px);opacity:.7}' +
-    '.wilpw-skel i{display:block;height:9px;border-radius:6px;background:#CBD5E1;margin-bottom:8px}' +
+    '.wilpw-skel i{display:block;height:9px;border-radius:6px;background:rgba(255,255,255,0.28);margin-bottom:8px}' +
     '.wilpw-btn{display:block;text-align:center;margin-top:18px;padding:16px;border-radius:12px;background:#2563EB;color:#fff!important;font-weight:700;font-size:18px;text-decoration:none;box-shadow:0 6px 16px rgba(37,99,235,.25);transition:background .2s}' +
     '.wilpw-btn:hover{background:#7C3AED}' +
     '.wilpw-link{display:block;text-align:center;margin-top:12px;font-size:14px;font-weight:600;color:#2563EB;text-decoration:none}' +
